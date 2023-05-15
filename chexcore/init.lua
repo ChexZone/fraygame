@@ -4,6 +4,9 @@ local Chexcore = {
     _types = {}
 }
 
+-- when an Object is indexed, this variable helps keep the referenced up the type chain
+_G.OBJSEARCH = nil
+
 ---------------- LOVE2D BINDINGS ----------------
 function love.update(dt) Chexcore.update(dt) end
 function love.draw() Chexcore.draw() end
@@ -31,19 +34,45 @@ function Chexcore:AddType(type)
         _G[type._type] = type
     end
 
+    -- apply a basic constructor if one is not present
+    if not (type._abstract or type.new) then
+        type.new = function (properties)
+            local obj = type:SuperInstance()
+            if properties then
+                for prop, val in pairs(properties) do
+                    obj[prop] = val
+                end
+            end
+            return type:Connect(obj)
+        end
+    end
+
     -- assume the type may not have a metatable yet
     local metatable = getmetatable(type) or {}
 
     -- apply the supertype, if there is one
+    -- Object's basic type has a special metatable, so it is ignored
     if type._type ~= "Object" then
-        metatable.__index = Chexcore._types[type._super] or nil
+        metatable.__index = Chexcore._types[type._super]
     end
 
 
     -- apply a reference to the supertype
-    type._superReference = metatable.__index
+    type._superReference = Chexcore._types[type._super]
 
-    setmetatable(type, metatable)
+    type.__index = function(obj, key)
+        if rawget(type, key) then
+            return rawget(type, key)
+        else
+            if not _G.OBJSEARCH then
+                -- mount the object
+                _G.OBJSEARCH = obj
+            end
+            return Chexcore._types[type._super][key]
+        end
+    end
+    
+    return setmetatable(type, metatable)
 end
 ------------------------------------------------
 
@@ -54,7 +83,8 @@ end
 local types = {
     "chexcore.types.object",
     "chexcore.types.specialObject",
-    "chexcore.types.specialObject2"
+    "chexcore.types.specialObject2",
+    "chexcore.types.sampleObject"
 }
 
 for _, type in ipairs(types) do

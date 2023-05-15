@@ -1,14 +1,15 @@
 local Object = {
     -- properties
     Name = "Object",        -- Easy identifier
-
+    test = true,
     -- internal properties
     _super = "Object",      -- Supertype
     _superReference = nil,  -- Created at construction
     _parent = nil,          -- Reference to parent Object
     _children = nil,        -- Table of references to child Objects. Created at construction
     _childHash = nil,       -- Used to get quick access to Child objects
-    _type = "Object",       -- the internal type of the object. 
+    _type = "Object",       -- the internal type of the object.
+    _abstract = false,      -- Abstract types should not have instantiation
     _global = true          -- Is this type important enough to be globally referenced?
 }
 Object.__index = Object
@@ -17,24 +18,135 @@ Object.__index = Object
 local blankTables = {_children = true, _childHash = true}
 setmetatable(Object, {
     __index = function(self, key)
-        if blankTables[key] then
-            self[key] = {}
-            return self[key]
+        if blankTables[key] and _G.OBJSEARCH then
+            print("Objectifying " .. key .. " for " .. tostring(_G.OBJSEARCH.Name))
+
+            local newTab = {}
+            _G.OBJSEARCH[key] = newTab
+            _G.OBJSEARCH = nil
+            return newTab
         end
+
+        _G.OBJSEARCH = nil
     end
 })
 
 ---------------- Constructor -------------------
-function Object.new()
-    local newObj = setmetatable({}, Object)
-
-    -- apply children table
-
-    return newObj
+function Object.new(properties)
+    local obj = setmetatable({}, Object)
+    if properties then
+        for prop, val in pairs(properties) do
+            obj[prop] = val
+        end
+    end
+    return obj
 end
+
 ------------------------------------------------
 
 ------------------ Methods ---------------------
+function Object:Connect(instance)
+    return setmetatable(instance, self)
+end
+
+local function advancedType(name, var)
+    local out
+    if name:sub(1,1) == "_" then
+        out =  "Internal"
+    elseif type(var) == "table" then
+        out =  var._type or "table"
+    else
+        out =  type(var)
+    end
+    return out
+end
+
+function Object:ToString(properties, noTypeLabels)
+    local out
+    if properties then
+        out = ("           [%s]%s%s           "):format(self._type, (" "):rep(math.min(35, 35-#self.Name-#self._type)), self.Name)
+        local length = #out
+        out = out .. "\n|" .. ("_"):rep(length-2) .. "|\n"
+                  .. "|"..(" "):rep(length-2).."|\n"
+        local sortedProperties = {}
+
+        if type(properties) == "table" then
+            -- list of properties
+            for _, property in ipairs(properties) do
+                local pType = advancedType(property, self[property])
+                sortedProperties[pType] = sortedProperties[pType] or {}
+                sortedProperties[pType][#sortedProperties[pType]+1] = property
+            end
+        else
+            -- all properties 
+            local propertiesAdded = {}
+
+            for property, _ in pairs(self) do
+                local pType = advancedType(property, self[property])
+                sortedProperties[pType] = sortedProperties[pType] or {}
+                sortedProperties[pType][#sortedProperties[pType]+1] = property
+                propertiesAdded[property] = true
+            end
+
+            for property, _ in pairs(getmetatable(self)) do
+                if not propertiesAdded[property] then
+                    local pType = advancedType(property, self[property])
+                    sortedProperties[pType] = sortedProperties[pType] or {}
+                    sortedProperties[pType][#sortedProperties[pType]+1] = property
+                end
+            end
+        end
+
+        local ignore = {Internal = 0, userdata = 1, boolean = 2, number = 3, string = 4, ["function"] = 5}
+        
+        -- first print Object types (greedy)
+        for propertyType, list in pairs(sortedProperties) do
+            if not ignore[propertyType] then
+                if not noTypeLabels then
+                    local t = "| [" .. propertyType .. "]:"
+                    out = out .. t .. (" "):rep(length-#t-1) .. "|\n"
+                            .. "|" .. ("="):rep(#propertyType + 6) .. (" "):rep(length-#propertyType-8) .. "|\n"
+                end
+
+                for _, property in ipairs(list) do
+                    out = out .. ("| %s%s%s |\n"):format(property, (" "):rep(length-4-#property-#tostring(self[property])), tostring(self[property]))
+                end
+
+                if not noTypeLabels then
+                    out = out .. "|" .. ("- "):rep((length-2)/2) .. (length%2==1 and "-" or "") .. "|\n"
+                end
+            end
+        end
+
+        local priority = {"function", "string", "number", "boolean", "userdata", "Internal"}
+
+        for _, propertyType in ipairs(priority) do
+            if sortedProperties[propertyType] then
+                if not noTypeLabels then
+                    local t = "| [" .. propertyType .. "]:"
+                    out = out .. t .. (" "):rep(length-#t-1) .. "|\n"
+                            .. "|" .. ("="):rep(#propertyType + 6) .. (" "):rep(length-#propertyType-8) .. "|\n"
+                end
+
+                for _, property in ipairs(sortedProperties[propertyType]) do
+                    local propertyString = tostring(self[property] and type(self[property]) == "table" and type(self[property].ToString) == "function" and self[property]:ToString() or type(self[property]) == "string" and ('"'..self[property]..'"') or tostring(self[property])) 
+                    out = out .. ("| %s%s%s |\n"):format(property, (" "):rep(length-4-#property-#propertyString), propertyString)
+                end
+
+                if not noTypeLabels then
+                    out = out .. "|" .. ("- "):rep((length-2)/2) .. (length%2==1 and "-" or "") .. "|\n"
+                end
+            end
+        end
+
+    else
+        -- no properties, inline
+        out = "["..self._type.."] "..self.Name
+    end
+
+    return out
+end
+
 function Object:GetChild(arg1, arg2)
     if type(arg1) == "table" then
         -- Object:GetChild( { property = val, ...} [, inclusive] )
@@ -103,12 +215,15 @@ function Object:GetParent()
     return self._parent
 end
 
-function Object:AddChild(child)
+function Object:Adopt(child)
     if child._parent then
         child._parent:RemoveChild(child)
     end
 
     local newPos = #self._children + 1
+    self._childHash = rawget(self, "_childHash") or {}
+    self._children = rawget(self, "_childHash") or {}
+
     self._childHash[child] = newPos
     self._children[newPos] = child
 
@@ -117,11 +232,32 @@ function Object:AddChild(child)
     return newPos
 end
 
+function Object:GetChildID()
+    return self._parent and self._parent._childHash[self] or 0
+end
+
 function Object:RemoveChild(child)
-    local index = self._childHash[child]
-    table.remove(self._children, index)
-    
-    self._childHash[child] = nil
+    if type(child) == "table" then
+        -- Object:RemoveChild( child )
+        local index = self._childHash[child]
+        table.remove(self._children, index)
+        self._childHash[child] = nil
+        return child
+    else
+        -- Object:RemoveChild( index )
+        local obj = self._children[child]
+        self._childHash[obj] = nil
+        table.remove(self._children, child)
+        return obj
+    end
+end
+
+function Object:RemoveParent()
+    if self._parent then
+        local index = self._parent._childHash[self]
+        table.remove(self._parent._children, index)
+        self._parent._childHash[self] = nil
+    end
 end
 
 function Object:IsChildOf(parent)

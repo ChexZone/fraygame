@@ -6,13 +6,12 @@ local SpecialObject = {
     _super = "Object",      -- Supertype
     _global = true
 }
-SpecialObject.__index = SpecialObject
 
 ---------------- Constructor -------------------
 function SpecialObject.new()
     local myObj = SpecialObject:SuperInstance()
     
-    return setmetatable(myObj, SpecialObject)
+    return SpecialObject:Connect(myObj)
 end
 ------------------------------------------------
 
