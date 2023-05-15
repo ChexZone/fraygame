@@ -1,9 +1,9 @@
 local SpecialObject = {
     -- properties
-    Name = "SpecialObject",        -- Easy identifier
+    Name = "SpecialObject2",        -- Easy identifier
 
     -- internal properties
-    _super = "Object",      -- Supertype
+    _super = "SpecialObject",      -- Supertype
     _global = true
 }
 SpecialObject.__index = SpecialObject
@@ -17,8 +17,8 @@ end
 ------------------------------------------------
 
 ------------------ Methods ---------------------
-function SpecialObject:Meow()
-    print("meow!")
+function SpecialObject:Bark()
+    print("wowf!")
 end
 ----------------------------------------
 

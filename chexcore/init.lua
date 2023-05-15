@@ -20,14 +20,30 @@ end
 ------------------------------------------------
 
 --------------- CORE METHODS -------------------
-function Chexcore:AddType(name, type)
-    Chexcore._types[name] = type
+function Chexcore:AddType(type)
+    -- check: if there is no type name, assign it to the default Object.Name
+    type._type = type._type or type.Name
+
+    Chexcore._types[type._type] = type
+
+    -- insert into global namespace, if needed
+    if rawget(type, "_global") then
+        _G[type._type] = type
+    end
 
     -- assume the type may not have a metatable yet
-    local metatable = getmetatable(type) or setmetatable(type, {})
+    local metatable = getmetatable(type) or {}
 
     -- apply the supertype, if there is one
-    metatable.__index = Chexcore._types[type._super] or nil
+    if type._type ~= "Object" then
+        metatable.__index = Chexcore._types[type._super] or nil
+    end
+
+
+    -- apply a reference to the supertype
+    type._superReference = metatable.__index
+
+    setmetatable(type, metatable)
 end
 ------------------------------------------------
 
@@ -36,13 +52,16 @@ end
 
 -- load in some essential types
 local types = {
-    Object = require "chexcore.types.object"
+    "chexcore.types.object",
+    "chexcore.types.specialObject",
+    "chexcore.types.specialObject2"
 }
 
-for name, type in pairs(types) do
-    Chexcore:AddType(name, type)
+for _, type in ipairs(types) do
+    Chexcore:AddType(require(type))
 end
 
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! --
+
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! --
 
 return Chexcore
