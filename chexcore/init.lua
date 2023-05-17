@@ -7,6 +7,10 @@ local Chexcore = {
 -- when an Object is indexed, this variable helps keep the referenced up the type chain
 _G.OBJSEARCH = nil
 
+
+-- helper functions to make life easier ~ 
+require "chexcore.code.misc.helper"
+
 ---------------- LOVE2D BINDINGS ----------------
 function love.update(dt) Chexcore.update(dt) end
 function love.draw() Chexcore.draw() end
@@ -45,6 +49,8 @@ function Chexcore:AddType(type)
             end
             return type:Connect(obj)
         end
+    elseif type._abstract then
+        type.new = false
     end
 
     -- assume the type may not have a metatable yet
@@ -81,10 +87,10 @@ end
 
 -- load in some essential types
 local types = {
-    "chexcore.types.object",
-    "chexcore.types.specialObject",
-    "chexcore.types.specialObject2",
-    "chexcore.types.sampleObject"
+    "chexcore.code.types.object",
+    "chexcore.code.types.specialObject",
+    "chexcore.code.types.specialObject2",
+    "chexcore.code.types.sampleObject"
 }
 
 for _, type in ipairs(types) do

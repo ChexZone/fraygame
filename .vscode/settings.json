@@ -8,6 +8,7 @@
     ],
     "Lua.completion.autoRequire": false,
     "Lua.diagnostics.disable": [
-        "undefined-global"
+        "undefined-global",
+        "undefined-field"
     ]
 }

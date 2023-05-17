@@ -3,6 +3,7 @@ local Object = {
     Name = "Object",        -- Easy identifier
     test = true,
     -- internal properties
+    _isObject = true,       -- true for all Objects
     _super = "Object",      -- Supertype
     _superReference = nil,  -- Created at construction
     _parent = nil,          -- Reference to parent Object
@@ -19,7 +20,7 @@ local blankTables = {_children = true, _childHash = true}
 setmetatable(Object, {
     __index = function(self, key)
         if blankTables[key] and _G.OBJSEARCH then
-            print("Objectifying " .. key .. " for " .. tostring(_G.OBJSEARCH.Name))
+            -- print("Objectifying " .. key .. " for " .. tostring(_G.OBJSEARCH.Name))
 
             local newTab = {}
             _G.OBJSEARCH[key] = newTab
@@ -32,6 +33,12 @@ setmetatable(Object, {
 })
 
 ---------------- Constructor -------------------
+
+-- !!!!! IMPORTANT !!!!! --- 
+-- This constructor is not meant to be inherited.
+-- It only applies to basic Objects! Custom constructors
+-- are made for types created with Core:AddType().
+-- See chexcore/init.lua!
 function Object.new(properties)
     local obj = setmetatable({}, Object)
     if properties then
@@ -61,7 +68,11 @@ local function advancedType(name, var)
     return out
 end
 
-function Object:ToString(properties, noTypeLabels)
+local renderMax = 30
+function Object:ToString(properties, typeLabels)
+    if typeLabels ~= false then
+        typeLabels = true
+    end
     local out
     if properties then
         out = ("           [%s]%s%s           "):format(self._type, (" "):rep(math.min(35, 35-#self.Name-#self._type)), self.Name)
@@ -100,19 +111,19 @@ function Object:ToString(properties, noTypeLabels)
         local ignore = {Internal = 0, userdata = 1, boolean = 2, number = 3, string = 4, ["function"] = 5}
         
         -- first print Object types (greedy)
-        for propertyType, list in pairs(sortedProperties) do
+        for propertyType, list in sortedPairs(sortedProperties) do
             if not ignore[propertyType] then
-                if not noTypeLabels then
+                if typeLabels then
                     local t = "| [" .. propertyType .. "]:"
                     out = out .. t .. (" "):rep(length-#t-1) .. "|\n"
                             .. "|" .. ("="):rep(#propertyType + 6) .. (" "):rep(length-#propertyType-8) .. "|\n"
                 end
 
                 for _, property in ipairs(list) do
-                    out = out .. ("| %s%s%s |\n"):format(property, (" "):rep(length-4-#property-#tostring(self[property])), tostring(self[property]))
+                    out = out .. ("| %s%s%s |\n"):format(property, (" "):rep(length-4-#property-#tostring(self[property]):limit(renderMax)), tostring(self[property]):limit(renderMax))
                 end
 
-                if not noTypeLabels then
+                if typeLabels then
                     out = out .. "|" .. ("- "):rep((length-2)/2) .. (length%2==1 and "-" or "") .. "|\n"
                 end
             end
@@ -122,18 +133,19 @@ function Object:ToString(properties, noTypeLabels)
 
         for _, propertyType in ipairs(priority) do
             if sortedProperties[propertyType] then
-                if not noTypeLabels then
+                table.sort(sortedProperties[propertyType])
+                if typeLabels then
                     local t = "| [" .. propertyType .. "]:"
                     out = out .. t .. (" "):rep(length-#t-1) .. "|\n"
                             .. "|" .. ("="):rep(#propertyType + 6) .. (" "):rep(length-#propertyType-8) .. "|\n"
                 end
 
                 for _, property in ipairs(sortedProperties[propertyType]) do
-                    local propertyString = tostring(self[property] and type(self[property]) == "table" and type(self[property].ToString) == "function" and self[property]:ToString() or type(self[property]) == "string" and ('"'..self[property]..'"') or tostring(self[property])) 
+                    local propertyString = tostring(self[property] and type(self[property]) == "table" and type(self[property].ToString) == "function" and self[property]:ToString() or type(self[property]) == "string" and ('"'..self[property]..'"') or self[property]):limit(renderMax)
                     out = out .. ("| %s%s%s |\n"):format(property, (" "):rep(length-4-#property-#propertyString), propertyString)
                 end
 
-                if not noTypeLabels then
+                if typeLabels then
                     out = out .. "|" .. ("- "):rep((length-2)/2) .. (length%2==1 and "-" or "") .. "|\n"
                 end
             end
@@ -222,7 +234,7 @@ function Object:Adopt(child)
 
     local newPos = #self._children + 1
     self._childHash = rawget(self, "_childHash") or {}
-    self._children = rawget(self, "_childHash") or {}
+    self._children = rawget(self, "_children") or {}
 
     self._childHash[child] = newPos
     self._children[newPos] = child
@@ -253,11 +265,14 @@ function Object:RemoveChild(child)
 end
 
 function Object:RemoveParent()
-    if self._parent then
-        local index = self._parent._childHash[self]
-        table.remove(self._parent._children, index)
-        self._parent._childHash[self] = nil
+    local parent = self._parent
+    if parent then
+        local index = parent._childHash[self]
+        table.remove(parent._children, index)
+        parent._childHash[self] = nil
+        self._parent = nil
     end
+    return parent
 end
 
 function Object:IsChildOf(parent)
