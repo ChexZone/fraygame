@@ -27,16 +27,136 @@ function _G.sortedPairs(t, f)
     return iter
 end
 
+local function getTableAddress(tab) -- omits "0x"
+   return oldtostring(tab):sub(10, 30)
+end
+
+local function pickStringChar(str)
+    if str:find([["]]) then
+        -- either [[]] or ''
+        if str:find([[']]) then
+            -- must be [[]]
+            return '[['
+        else--if str:find("]]") then
+            -- must be ''
+            return [[']]
+        end
+    elseif str:find([[']]) then
+        -- either [[]] or ""
+        if str:find([["]]) then
+            -- must be [[]]
+            return '[['
+        else--if str:find("]]") then
+            -- must be ""
+            return [["]]
+        end
+    else
+        -- both "" and '' are safe to use; use ""
+        return [["]]
+    end
+end
+
+local charList = {["'"] = {"'", "'"}, ['"'] = {'"', '"'}, ["[["] = {"[[", "]]"}}
+local function makeStringString(str)
+    local pick = charList[pickStringChar(str)]
+    return pick[1] .. str .. pick[2]
+end
+
+local function serializeValue(val, queue, checklist)
+    local out
+    if type(val) == "table" then
+        local tag = getTableAddress(val)
+        if not checklist[tag] then
+            queue[#queue+1] = val
+            checklist[tag] = true
+        end
+        out = tag
+    elseif type(val) == "string" then
+        out = makeStringString(val)
+    else
+        out = oldtostring(val)
+    end
+    return out
+end
+
+-- Serializes a table into a string. Records all referenced tables as well!
+function _G.serialize(tab)
+    local baseTag = getTableAddress(tab)
+    local output = {} -- output may be multiple strings
+    local queue = {tab} -- the current list of tables to serialize
+    local checklist = {[baseTag] = true} -- hash of completed table values
+
+    while queue[1] do
+        local currentTable = queue[1]
+        local currentTag = getTableAddress(currentTable)
+
+        -- add tag name to output buffer
+        output[#output+1] = currentTag .. ", "
+
+        -- check for a metatable
+        local mt = getmetatable(currentTable)
+        -- confirm that there is a metatable, its __index is a table
+        if mt and type(mt.__index) == "table" and not mt.__index._isObject then
+            local mtTag = getTableAddress(mt)
+            -- add the metatable to the queue only if it is unserialized
+            if not checklist[mtTag] then
+                queue[#queue+1] = mt
+                checklist[mtTag] = true
+            end
+            output[#output+1] = mtTag .. ", "
+        else
+            output[#output+1] = "nil, "
+        end
+
+        
+
+        -- go through the table, store all primitives, and add any more tables to the queue
+        local counter = 0
+        output[#output+1] = "{\n  "
+        for key, value in pairs(currentTable) do
+            if counter > 0 then
+                output[#output+1] = ",\n  "
+            end
+
+            -- serialize the key and value, and place them in the output buffer
+            output[#output+1] = serializeValue(key, queue, checklist)
+            output[#output+1] = ": "
+            output[#output+1] = serializeValue(value, queue, checklist)
+
+
+            counter = counter + 1
+        end
+        -- determine if the table is an Object or not, and apply its type if so
+        if currentTable._isObject and currentTable.GetType then
+            if counter > 0 then
+                output[#output+1] = ",\n  "
+            end
+            output[#output+1] = serializeValue("_type", queue, checklist)
+            output[#output+1] = ": "
+            output[#output+1] = serializeValue(currentTable:GetType(), queue, checklist)
+        end
+
+        output[#output+1] = "\n};\n\n"
+
+        -- remove the table from the queue
+        table.remove(queue, 1)
+    end
+    
+    output[#output+1] = "ROOT = " .. baseTag
+    
+    return table.concat(output)
+end
+
+
 
 -- new string methods:
 local stringmt = getmetatable""
 
 -- Limits a string to a set number of characters and appends with ' ...'
-function stringmt.__index:limit(maxLength, append)
-    append = append == nil and true or false
-    return #self <= maxLength and self or (self:sub(1, maxLength)..(append and " ..." or ""))
+function stringmt.__index:limit(maxLength, ellipses)
+    ellipses = ellipses == nil and true or false
+    return #self <= maxLength and self or (self:sub(1, maxLength)..(ellipses and " ..." or ""))
 end
-
 
 
 if replaceCoreLuaFunctions then

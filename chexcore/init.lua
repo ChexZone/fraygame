@@ -29,7 +29,7 @@ end
 --------------- CORE METHODS -------------------
 function Chexcore:AddType(type)
     -- check: if there is no type name, assign it to the default Object.Name
-    type._type = type._type or type.Name
+    type._type = type._type or type.Name or "NewObject"
 
     Chexcore._types[type._type] = type
 
@@ -80,6 +80,11 @@ function Chexcore:AddType(type)
     
     return setmetatable(type, metatable)
 end
+
+-- Object deserialization
+function Chexcore.LoadObject()
+    
+end
 ------------------------------------------------
 
 
@@ -90,7 +95,8 @@ local types = {
     "chexcore.code.types.object",
     "chexcore.code.types.specialObject",
     "chexcore.code.types.specialObject2",
-    "chexcore.code.types.sampleObject"
+    "chexcore.code.types.sampleObject",
+    "chexcore.code.types.scene"
 }
 
 for _, type in ipairs(types) do

@@ -62,6 +62,8 @@ local function advancedType(name, var)
         out =  "Internal"
     elseif type(var) == "table" then
         out =  var._type or "table"
+    elseif var == nil then
+        out = "boolean"
     else
         out =  type(var)
     end
@@ -277,6 +279,14 @@ end
 
 function Object:IsChildOf(parent)
     return parent._childHash[self] and true or false
+end
+
+function Object:GetType()
+    return self._type
+end
+
+function Object:Serialize()
+    
 end
 
 function Object:SuperInstance()
