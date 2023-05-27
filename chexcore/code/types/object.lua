@@ -161,6 +161,16 @@ function Object:ToString(properties, typeLabels)
     return out
 end
 
+--[[  
+    Object:GetChild( name )
+     - returns the child with the given name, or nil if not found
+    Object:GetChild( property, value )
+     - returns the child with the given property and value, or nil if not found
+    Object:GetChild( { property = val, ...} [, inclusive] )
+     - searches for multiple properties. If inclusive is false, all properties must match.
+    Object:GetChild( func )
+     - returns the first child for which func(child) returns true
+]]
 function Object:GetChild(arg1, arg2)
     if type(arg1) == "table" then
         -- Object:GetChild( { property = val, ...} [, inclusive] )
@@ -217,6 +227,10 @@ function Object:GetChild(arg1, arg2)
     return nil
 end
 
+--[[
+    Object:GetChildren()
+     - returns a copy of the list of all children
+]]
 function Object:GetChildren()
     local children = {}
     for i, ref in ipairs(self._children) do
@@ -285,12 +299,12 @@ function Object:GetType()
     return self._type
 end
 
-function Object:Serialize()
-    
-end
-
 function Object:SuperInstance()
     return self._superReference.new()
+end
+
+function Object:Serialize(upcast)
+    return serialize(self, upcast)
 end
 ------------------------------------------------
 

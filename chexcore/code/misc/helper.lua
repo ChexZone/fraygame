@@ -70,7 +70,7 @@ local function serializeValue(val, queue, checklist)
             queue[#queue+1] = val
             checklist[tag] = true
         end
-        out = tag
+        out = "@" .. tag
     elseif type(val) == "string" then
         out = makeStringString(val)
     else
@@ -80,7 +80,7 @@ local function serializeValue(val, queue, checklist)
 end
 
 -- Serializes a table into a string. Records all referenced tables as well!
-function _G.serialize(tab)
+function _G.serialize(tab, upcast)
     local baseTag = getTableAddress(tab)
     local output = {} -- output may be multiple strings
     local queue = {tab} -- the current list of tables to serialize
@@ -105,10 +105,8 @@ function _G.serialize(tab)
             end
             output[#output+1] = mtTag .. ", "
         else
-            output[#output+1] = "nil, "
+            output[#output+1] = ""
         end
-
-        
 
         -- go through the table, store all primitives, and add any more tables to the queue
         local counter = 0
@@ -120,9 +118,13 @@ function _G.serialize(tab)
 
             -- serialize the key and value, and place them in the output buffer
             output[#output+1] = serializeValue(key, queue, checklist)
-            output[#output+1] = ": "
+            output[#output+1] = " = "
             output[#output+1] = serializeValue(value, queue, checklist)
 
+            -- remove the table from the queue if it is a parent
+            if key == "_parent" and not upcast and queue[#queue] == currentTable._parent and currentTable._isObject then
+                queue[#queue] = nil
+            end
 
             counter = counter + 1
         end
@@ -134,6 +136,7 @@ function _G.serialize(tab)
             output[#output+1] = serializeValue("_type", queue, checklist)
             output[#output+1] = ": "
             output[#output+1] = serializeValue(currentTable:GetType(), queue, checklist)
+
         end
 
         output[#output+1] = "\n};\n\n"
@@ -148,6 +151,11 @@ function _G.serialize(tab)
 end
 
 
+-- Deserializes a string back into a family of tables. 
+function _G.deserialize(str)
+    local tableList = str:split(";")
+    print(tableList[1])
+end
 
 -- new string methods:
 local stringmt = getmetatable""
@@ -156,6 +164,29 @@ local stringmt = getmetatable""
 function stringmt.__index:limit(maxLength, ellipses)
     ellipses = ellipses == nil and true or false
     return #self <= maxLength and self or (self:sub(1, maxLength)..(ellipses and " ..." or ""))
+end
+
+
+-- from PiL2 20.4
+-- Trims all whitespace from the beginning and end of a string
+function stringmt.__index:trim()
+    return (self:gsub("^%s*(.-)%s*$", "%1"))
+end
+local trim = stringmt.__index.trim
+
+
+-- Splits a string into a table of strings with a custom delimiter (or "\n")
+-- Converts number strings into numbers
+-- If the delimiter exists multiple times in a row, it will be treated as a single delimiter
+-- if 'trimWhitespace' is true, all whitespace before and after each substring will be removed
+local tonumber = tonumber
+function stringmt.__index:split(d, trimWhitespace)
+    d = d or "\n"
+    local out={}
+    for str in string.gmatch(self, "([^"..d.."]+)") do
+      out[#out+1] = tonumber(str) or trimWhitespace and trim(str) or str
+    end
+    return out
 end
 
 

@@ -5,7 +5,9 @@ ParentCat:Adopt(Cat.new{Name = "ChildCat1"})
 ParentCat:Adopt(Cat.new{Name = "ChildCat2"})
 ParentCat:Adopt(Cat.new{Name = "ChildCat3"})
 
-print(serialize(ParentCat))
+local ChildCat = ParentCat:GetChild("ChildCat2")
+
+--print(serialize(ChildCat))
 
 
 local testScene = Scene.new()
@@ -19,24 +21,14 @@ setmetatable(a, mt)
 setmetatable(b, mt)
 setmetatable(c, mt)
 
-local testTable = {
-    Files = {
-        A = {
-            Name = "John",
-            Position = {x = 5, y = 10},
-            Level = 10,
-        },
-        B = {
-            Name = "Jimmy",
-            Position = {x = 0, y = 0},
-            Level = 69,
-        },
-        C = {
-            Name = "Jack",
-            Position = {x = 0, y = 20},
-            Level = 1,
-        }
-    }
+
+local saveData = {
+	{User = "Gregory", HighScore = 1234567, Cheats = true},
+	{User = "Fregory", HighScore = 3, Cheats = false},
+	{User = "Grefory", HighScore = 1080, Cheats = false}
 }
+  local saveDataTxt = serialize(saveData)
 
+local serial = ParentCat:Serialize()
 
+deserialize(serial)
