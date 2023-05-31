@@ -134,7 +134,7 @@ function _G.serialize(tab, upcast)
                 output[#output+1] = ",\n  "
             end
             output[#output+1] = serializeValue("_type", queue, checklist)
-            output[#output+1] = ": "
+            output[#output+1] = " = "
             output[#output+1] = serializeValue(currentTable:GetType(), queue, checklist)
 
         end
@@ -150,11 +150,174 @@ function _G.serialize(tab, upcast)
     return table.concat(output)
 end
 
+-- returns a table of string boundaries
+local function getStringBoundsOld(s)
+    local i = 1
+    local out = {}
+    while i <= #s do
+        local double = s:find([["]], i, true) or 0
+        local single = s:find([[']], i, true) or 0
+        local brackets = s:find("[[", i, true) or 0
+        if double+single+brackets > 0 then
+            double = double == 0 and math.huge or double
+            single = single == 0 and math.huge or single
+            brackets = brackets == 0 and math.huge or brackets
+            if double < single and double < brackets then
+                out[#out+1] = double
+                i = s:find([["]], double+1, true) + 1
+                out[#out+1] = i-1                
+            elseif single < double and single < brackets then
+                out[#out+1] = single
+                i = s:find([[']], single+1, true) + 1
+                out[#out+1] = i-1
+            else
+                out[#out+1] = brackets
+                i = s:find("]]", brackets+1, true) + 2
+                out[#out+1] = i-1
+            end
+        else -- no more strings detected?
+            break
+        end
+    end
+
+    return out
+end
+
+local function getStringBounds(s)
+    local i = 1
+    local out = {}
+    
+    while i <= #s do
+        local delimPos = s:find("[\"%[']", i) -- matches either ', ", or [
+        if delimPos then
+            local delimiter = s:sub(delimPos, delimPos)
+            if delimiter == '"' or delimiter == "'" then
+                out[#out+1] = delimPos
+                -- doesn't really matter, but for safety, put the other index at the end if not found:
+                i = (s:find(delimiter, delimPos+1, true) or (#s-1)) + 1
+                out[#out+1] = i-1
+            elseif s:sub(delimPos, delimPos+1) == "[[" then
+                out[#out+1] = delimPos
+                i = (s:find("]]", delimPos+1, true) or (#s-1)) + 1
+                out[#out+1] = i-1
+            else
+                -- it was probably a square bracket unrelated to strings
+                i = delimPos + 1
+            end
+        else
+            i = #s + 1
+        end
+    end
+
+    return out
+end
+
+local function indexIsWithin(x, indices)
+    for i = 1, #indices, 2 do
+        if x >= indices[i] and x <= indices[i+1] then
+            return true
+        elseif x < indices[i] then
+            return false
+        end
+    end
+    return false
+end
+
+--------------------------------- SPECIAL SPLIT FUNCTIONS ----------------------------
+-- !! HIGHLY NICHE FUNCTION - ONLY USE IF YOU KNOW !! --
+local function splitByIndices(str, indices)
+    local out = {}
+
+    for i = 1, #indices do
+        out[#out+1] = str:sub((indices[i-1] or 0) + 1, indices[i] - 1):gsub("[\n\r]", ""):trim()
+    end
+
+    out[#out+1] = str:sub(indices[#indices]+1, #str):gsub("[\n\r]", ""):trim()
+    -- note: if you're trying to genericize this function, use this line instead of the above one:
+    -- out[#out+1] = str:sub(indices[#indices]+1, #str):gsub("[\n\r]", ""):trim()
+    
+    return out
+end
+
+local function getSplitIndices(str, d, indices)
+    local out = {}
+    local left, right = 1, 0
+    while right do
+        left = right + 1
+        repeat
+            right = str:find(d, right+1, true)
+        until not right or not indexIsWithin(right, indices)
+
+        if right then
+            out[#out+1] = right
+        end
+    end
+    return out
+end
+--------------------------------- END SPECIAL SPLIT FUNCTIONS ----------------------------
+
+local function merge(l1, l2)
+    local p2 = 1
+    local out = {}
+    for p1, _ in ipairs(l1) do
+        while l2[p2] and l2[p2] <= l1[p1] do
+            out[#out+1] = l2[p2]
+            p2 = p2 + 1
+        end
+        out[#out+1] = l1[p1]
+    end
+    for p2 = p2, #l2 do
+        out[#out+1] = l2[p2]
+    end
+    return out
+end
+
 
 -- Deserializes a string back into a family of tables. 
 function _G.deserialize(str)
-    local tableList = str:split(";")
-    print(tableList[1])
+    -- split by } + (whitespace) + ;
+    local tableList = str:split("}%s*;", true)
+    local referenceList = {}
+
+    for _i, tblStr in ipairs(tableList) do
+        if _i < #tableList then
+            -- creating a new table
+            local tbl = {}
+            
+            -- separate the table from metatata
+            local metaTableSplit = tblStr:split("{", true, 1)
+            
+            -- table tag is first, metatable tag is second
+            local metadata = metaTableSplit[1]:split(",", true)
+            local tableTag, metaTag = metadata[1], metadata[2]
+
+            -- now let's find out where those damned strings are...
+            local valuesStr = metaTableSplit[2]
+            
+            local stringBounds = getStringBounds(valuesStr)
+            local commaIndices = getSplitIndices(valuesStr, ",", stringBounds)
+            local equalIndices = getSplitIndices(valuesStr, "=", stringBounds)
+            local allIndices = merge(commaIndices, equalIndices)
+
+            local finalValueSplit = splitByIndices(valuesStr, allIndices)
+
+            print(tostring(finalValueSplit, true))
+
+            -- NOTES FOR NEXT TIME:
+            -- - Right now, we have a list of pairs of keys/values from our value list. 
+            -- - Next we need to parse out these values individually (since they're isolated,
+            --   this should be easy), add them to the REAL table, then add the real table to 
+            --   the list of tables. After compiling all tables, we need to figure out where their
+            --   table references are pointing to.
+
+            -- add the table to the reference list
+            referenceList[tableTag] = tbl
+
+
+        else
+            -- we're at the "ROOT" definition (end)
+        end
+    end
 end
 
 -- new string methods:
@@ -167,10 +330,10 @@ function stringmt.__index:limit(maxLength, ellipses)
 end
 
 
--- from PiL2 20.4
--- Trims all whitespace from the beginning and end of a string
+-- Adapted from PiL2 20.4
+-- Trims all whitespace/newlines from the beginning and end of a string
 function stringmt.__index:trim()
-    return (self:gsub("^%s*(.-)%s*$", "%1"))
+    return self:gsub("^%s*(.-)%s*$", "%1")
 end
 local trim = stringmt.__index.trim
 
@@ -180,12 +343,66 @@ local trim = stringmt.__index.trim
 -- If the delimiter exists multiple times in a row, it will be treated as a single delimiter
 -- if 'trimWhitespace' is true, all whitespace before and after each substring will be removed
 local tonumber = tonumber
-function stringmt.__index:split(d, trimWhitespace)
+function stringmt.__index:splitOld(d, trimWhitespace, limit)
     d = d or "\n"
     local out={}
-    for str in string.gmatch(self, "([^"..d.."]+)") do
-      out[#out+1] = tonumber(str) or trimWhitespace and trim(str) or str
+    local count = 0
+    limit = limit or math.huge
+    for str in self:gmatch("([^"..d.."]+)") do
+        
+        if count >= limit then
+            -- cut off the split here
+            local _, rightBound = self:find(str, 1, true)
+            str = rightBound < #self and self:sub(rightBound+#d+1, #self) or str
+            
+            out[#out+1] = tonumber(str) or trimWhitespace and trim(str) or str
+            break
+        end
+        out[#out+1] = tonumber(str) or trimWhitespace and trim(str) or str
+        count = count + 1
     end
+    return out
+end
+
+local huge = math.huge
+function stringmt.__index:split(pattern, trimWhitespace, limit, toIgnore)
+    pattern = pattern or "\n"
+    limit = limit or huge
+    local out = {}
+    local pos, count = 1, 0
+
+    local left, right = 0, 0
+    repeat
+        if toIgnore then
+            -- make sure we aren't within certain indices
+            local tPos
+            repeat
+                tPos = right + 1
+                left, right = self:find(pattern, tPos)
+            until not left or not indexIsWithin(left, toIgnore)
+        else
+            -- standard find
+            left, right = self:find(pattern, pos)
+        end
+
+        if left then
+            -- capture from the last string position to the beginning
+            out[#out+1] = trimWhitespace and trim(self:sub(pos, left-1)) or self:sub(pos, left-1)
+
+            pos = right + 1
+        else
+            -- load the rest of the string into the output
+            out[#out+1] = trimWhitespace and trim(self:sub(pos, #self)) or self:sub(pos, #self)
+        end
+        count = count + 1
+
+        -- check if we've reached our max splits count
+        if count >= limit then
+            out[#out+1] = trimWhitespace and trim(self:sub(pos, #self)) or self:sub(pos, #self)
+            break
+        end
+    until not left
+    
     return out
 end
 
