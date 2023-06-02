@@ -227,10 +227,6 @@ function Object:GetChild(arg1, arg2)
     return nil
 end
 
---[[
-    Object:GetChildren()
-     - returns a copy of the list of all children
-]]
 function Object:GetChildren()
     local children = {}
     for i, ref in ipairs(self._children) do
@@ -287,6 +283,12 @@ function Object:RemoveParent()
         table.remove(parent._children, index)
         parent._childHash[self] = nil
         self._parent = nil
+
+        -- shift elements on top back into place
+        for i = index, #parent._children do
+            local child = parent._children[i]
+            parent._childHash[child] = i
+        end
     end
     return parent
 end

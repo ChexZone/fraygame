@@ -1,4 +1,4 @@
-local Chexcore = {
+_G.Chexcore = {
 
     -- internal properties
     _types = {}

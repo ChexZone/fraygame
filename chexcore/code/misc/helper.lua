@@ -1,6 +1,7 @@
 _G._tostring = _G.tostring
 local oldtostring = tostring
 local replaceCoreLuaFunctions = true
+local pcall = pcall
 
 -- first, some undoubtedly cool stuff
 
@@ -26,6 +27,7 @@ function _G.sortedPairs(t, f)
     end
     return iter
 end
+local sortedPairs = _G.sortedPairs
 
 local function getTableAddress(tab) -- omits "0x"
    return oldtostring(tab):sub(10, 30)
@@ -80,7 +82,7 @@ local function serializeValue(val, queue, checklist)
 end
 
 -- Serializes a table into a string. Records all referenced tables as well!
-function _G.serialize(tab, upcast)
+local function rawSerialize(tab, upcast)
     local baseTag = getTableAddress(tab)
     local output = {} -- output may be multiple strings
     local queue = {tab} -- the current list of tables to serialize
@@ -96,7 +98,8 @@ function _G.serialize(tab, upcast)
         -- check for a metatable
         local mt = getmetatable(currentTable)
         -- confirm that there is a metatable, its __index is a table
-        if mt and type(mt.__index) == "table" and not mt.__index._isObject then
+        if mt and ((type(mt.__index) == "table" and not mt.__index._isObject) or not mt.__index) then
+            
             local mtTag = getTableAddress(mt)
             -- add the metatable to the queue only if it is unserialized
             if not checklist[mtTag] then
@@ -150,37 +153,9 @@ function _G.serialize(tab, upcast)
     return table.concat(output)
 end
 
--- returns a table of string boundaries
-local function getStringBoundsOld(s)
-    local i = 1
-    local out = {}
-    while i <= #s do
-        local double = s:find([["]], i, true) or 0
-        local single = s:find([[']], i, true) or 0
-        local brackets = s:find("[[", i, true) or 0
-        if double+single+brackets > 0 then
-            double = double == 0 and math.huge or double
-            single = single == 0 and math.huge or single
-            brackets = brackets == 0 and math.huge or brackets
-            if double < single and double < brackets then
-                out[#out+1] = double
-                i = s:find([["]], double+1, true) + 1
-                out[#out+1] = i-1                
-            elseif single < double and single < brackets then
-                out[#out+1] = single
-                i = s:find([[']], single+1, true) + 1
-                out[#out+1] = i-1
-            else
-                out[#out+1] = brackets
-                i = s:find("]]", brackets+1, true) + 2
-                out[#out+1] = i-1
-            end
-        else -- no more strings detected?
-            break
-        end
-    end
-
-    return out
+function _G.serialize(tab, upcast)
+    local status, result = pcall(rawSerialize, tab, upcast)
+    return type(result) == "string" and result or nil
 end
 
 local function getStringBounds(s)
@@ -229,10 +204,10 @@ local function splitByIndices(str, indices)
     local out = {}
 
     for i = 1, #indices do
-        out[#out+1] = str:sub((indices[i-1] or 0) + 1, indices[i] - 1):gsub("[\n\r]", ""):trim()
+        out[#out+1] = str:sub((indices[i-1] or 0) + 1, indices[i] - 1):trim()
     end
 
-    out[#out+1] = str:sub(indices[#indices]+1, #str):gsub("[\n\r]", ""):trim()
+    out[#out+1] = str:sub(indices[#indices]+1, #str):trim()
     -- note: if you're trying to genericize this function, use this line instead of the above one:
     -- out[#out+1] = str:sub(indices[#indices]+1, #str):gsub("[\n\r]", ""):trim()
     
@@ -272,24 +247,67 @@ local function merge(l1, l2)
     return out
 end
 
+local stringDelims = {['"'] = true, ["'"] = true, ["["] = true}
+local presetValues = {
+    ['true'] = true,
+    ['false'] = false,
+    ['nil'] = nil
+}
+
+
+local function deserializeValue(val, referenceList)
+    local identifier = val:sub(1,1)
+    if tonumber(val) then
+        -- value is a number
+        val = tonumber(val)
+    elseif identifier == "@" then
+        -- value is a table reference
+        val = val:sub(2, #val)
+        if not referenceList[val] then
+            -- create a new table
+            referenceList[val] = {}
+        end
+        val = referenceList[val]
+
+    elseif stringDelims[identifier] then
+        -- value is a string
+        if identifier == "[" then
+            val = val:sub(3, #val-2)
+        else
+            val = val:sub(2, #val-1)
+        end
+    else
+        -- value is some constant identifier
+        val = presetValues[val]
+    end
+
+    return val
+end
 
 -- Deserializes a string back into a family of tables. 
-function _G.deserialize(str)
+local function rawDeserialize(serial)
     -- split by } + (whitespace) + ;
-    local tableList = str:split("}%s*;", true)
-    local referenceList = {}
-
+    local tableList = serial:split("}%s*;", true)
+    local referenceList = {} -- list of table tags (keys) mapped to their tables (vals)
+    local complete = {} -- list of references to complete tables
+    local tbl -- saves the last created table in scope
     for _i, tblStr in ipairs(tableList) do
         if _i < #tableList then
-            -- creating a new table
-            local tbl = {}
-            
             -- separate the table from metatata
             local metaTableSplit = tblStr:split("{", true, 1)
             
             -- table tag is first, metatable tag is second
             local metadata = metaTableSplit[1]:split(",", true)
-            local tableTag, metaTag = metadata[1], metadata[2]
+            local tableTag, metaTag = metadata[1], (metadata[2] and metadata[2]:trim() or "")
+
+
+            -- create a new table, if a reference to this one doesn't exist already
+            tbl = referenceList[tableTag] or {}
+            
+            -- apply the metatable if it exists
+            if #metaTag > 0 then
+                setmetatable(tbl, deserializeValue("@"..metaTag, referenceList))
+            end
 
             -- now let's find out where those damned strings are...
             local valuesStr = metaTableSplit[2]
@@ -299,25 +317,39 @@ function _G.deserialize(str)
             local equalIndices = getSplitIndices(valuesStr, "=", stringBounds)
             local allIndices = merge(commaIndices, equalIndices)
 
+
             local finalValueSplit = splitByIndices(valuesStr, allIndices)
 
-            print(tostring(finalValueSplit, true))
+            
 
-            -- NOTES FOR NEXT TIME:
-            -- - Right now, we have a list of pairs of keys/values from our value list. 
-            -- - Next we need to parse out these values individually (since they're isolated,
-            --   this should be easy), add them to the REAL table, then add the real table to 
-            --   the list of tables. After compiling all tables, we need to figure out where their
-            --   table references are pointing to.
+            for i = 1, #finalValueSplit, 2 do
+                local key = deserializeValue(finalValueSplit[i], referenceList)
+                local val = deserializeValue(finalValueSplit[i+1], referenceList)
+                
+                tbl[key or "_UNDEFINED"] = val
+            end
+            
+            -- turn table into an object, if necessary
+            if tbl._type and Chexcore._types[tbl._type] then
+                setmetatable(tbl, Chexcore._types[tbl._type])
+            end
 
             -- add the table to the reference list
             referenceList[tableTag] = tbl
-
-
+            
         else
             -- we're at the "ROOT" definition (end)
+
+            local rootReference = tblStr:split("%s*=%s*")[2]
+            tbl = referenceList[rootReference] or tbl
         end
     end
+    return tbl
+end
+
+function _G.deserialize(serial)
+    local status, ret = pcall(rawDeserialize, serial)
+    return ret or nil
 end
 
 -- new string methods:
@@ -343,27 +375,6 @@ local trim = stringmt.__index.trim
 -- If the delimiter exists multiple times in a row, it will be treated as a single delimiter
 -- if 'trimWhitespace' is true, all whitespace before and after each substring will be removed
 local tonumber = tonumber
-function stringmt.__index:splitOld(d, trimWhitespace, limit)
-    d = d or "\n"
-    local out={}
-    local count = 0
-    limit = limit or math.huge
-    for str in self:gmatch("([^"..d.."]+)") do
-        
-        if count >= limit then
-            -- cut off the split here
-            local _, rightBound = self:find(str, 1, true)
-            str = rightBound < #self and self:sub(rightBound+#d+1, #self) or str
-            
-            out[#out+1] = tonumber(str) or trimWhitespace and trim(str) or str
-            break
-        end
-        out[#out+1] = tonumber(str) or trimWhitespace and trim(str) or str
-        count = count + 1
-    end
-    return out
-end
-
 local huge = math.huge
 function stringmt.__index:split(pattern, trimWhitespace, limit, toIgnore)
     pattern = pattern or "\n"
@@ -402,14 +413,14 @@ function stringmt.__index:split(pattern, trimWhitespace, limit, toIgnore)
             break
         end
     until not left
-    
+
     return out
 end
-
 
 if replaceCoreLuaFunctions then
     -- new tostring function which provides better table visualizations and Object support!
     local function ctostring(tab, breaks, indent)
+        
         if type(tab) ~= "table" then return oldtostring(tab) end
         if tab._isObject then
             if indent then

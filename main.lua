@@ -1,14 +1,12 @@
-Chexcore = require "chexcore"
+require "chexcore"
 
 local ParentCat = Cat.new{Name = "ParentCat"}
 ParentCat:Adopt(Cat.new{Name = "ChildCat1"})
-ParentCat:Adopt(Cat.new{Name = "[[ChildCat2]]"})
+ParentCat:Adopt(Cat.new{Name = "[[ChildCat2]]", SomeThing = true})
 ParentCat:Adopt(Cat.new{Name = "ChildCat3"})
 
-local serial = ParentCat:Serialize()
-deserialize(serial)
+print(ParentCat._childHash)
 
-local test = " This pattern will be detected: } \n ; This pattern will be ignored: ';}' "
---print( tostring(test:splitPattern("}%s*;", true, nil, getStringBounds(test)), true) )
+ParentCat:GetChild("ChildCat1"):RemoveParent()
 
---print(tostring(("a }     ; b"):splitPattern("}%s*;", nil, nil, {1, 3}), true))
+print(ParentCat._childHash)
