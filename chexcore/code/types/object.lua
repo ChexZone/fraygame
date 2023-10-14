@@ -71,7 +71,7 @@ local function advancedType(name, var)
 end
 
 local renderMax = 30
-function Object:ToString(properties, typeLabels)
+function Object:ToString(properties, typeLabels, displayMethods)
     if typeLabels ~= false then
         typeLabels = true
     end
@@ -131,7 +131,8 @@ function Object:ToString(properties, typeLabels)
             end
         end
 
-        local priority = {"function", "string", "number", "boolean", "userdata", "Internal"}
+        local priority = displayMethods and {"function",  "string", "number", "boolean", "userdata", "Internal"}
+                                        or  {"string", "number", "boolean", "userdata", "Internal"}
 
         for _, propertyType in ipairs(priority) do
             if sortedProperties[propertyType] then
@@ -201,7 +202,7 @@ function Object:GetChild(arg1, arg2)
                 end
             end
         end
-    elseif arg2 then
+    elseif arg2 ~= nil then
             -- Object:GetChild( property, value )
             for index, child in ipairs(self._children) do
                 if child[arg1] == arg2 then
@@ -211,7 +212,7 @@ function Object:GetChild(arg1, arg2)
     elseif type(arg1) == "function" then
         -- Object:GetChild( func )
         for index, child in ipairs(self._children) do
-            if arg1(child) then 
+            if arg1(child) then
                 return child, index
             end
         end
@@ -227,13 +228,185 @@ function Object:GetChild(arg1, arg2)
     return nil
 end
 
-function Object:GetChildren()
-    local children = {}
-    for i, ref in ipairs(self._children) do
-        children[i] = ref
+--[[  
+    Object:GetChildren()
+     - returns the full list of an object's children
+    Object:GetChildren( name )
+     - returns the subset of children with the given name
+    Object:GetChildren( property, value )
+     - returns the subset of children with the given property and value
+    Object:GetChildren( { property = val, ...} [, inclusive] )
+     - searches for multiple properties. If inclusive is false, all properties must match.
+    Object:GetChildren( func )
+     - returns the subset of children for which func(child) returns true
+]]
+function Object:GetChildren(arg1, arg2)
+    
+    if not (arg1 or arg2) then  -- get entire set
+        local children = {}
+        for i, ref in ipairs(self._children) do
+            children[i] = ref
+        end
+        return children
     end
+    
+    local children = {}
+
+    if type(arg1) == "table" then
+        -- Object:GetChildren( { property = val, ...} [, inclusive] )
+        if not arg2 then
+            -- exclusive
+            for _, child in ipairs(self._children) do
+                local match = true
+                for property, val in pairs(arg1) do
+                    if child[property] ~= val then
+                        match = false; break
+                    end
+                end
+                if match then
+                    children[#children+1] = child
+                end
+            end
+        else
+            -- inclusive
+            for _, child in ipairs(self._children) do
+                local match = false
+                for property, val in pairs(arg1) do
+                    if child[property] == val then
+                        match = true; break
+                    end
+                end
+                if match then
+                    children[#children+1] = child
+                end
+            end
+        end
+    elseif arg2 ~= nil then
+            -- Object:GetChildren( property, value )
+            for _, child in ipairs(self._children) do
+                if child[arg1] == arg2 then
+                    children[#children+1] = child
+                end
+            end
+    elseif type(arg1) == "function" then
+        -- Object:GetChildren( func )
+        for index, child in ipairs(self._children) do
+            if arg1(child) then
+                children[#children+1] = child
+            end
+        end
+    else
+        -- Object:GetChildren( name )
+        for _, child in ipairs(self._children) do
+            if child.Name == arg1 then
+                children[#children+1] = child
+            end
+        end
+    end
+
     return children
 end
+
+--[[  
+    Object:EachChild() has the same signatures as Object:GetChildren(),
+    but returns an iterator rather than building the entire list.
+    Example usage:
+
+    for child in myObject:EachChild() do
+        print(child.Name)
+    end
+]]
+local STOP = 1000000
+function Object:EachChild(arg1, arg2)
+    if not (arg1 or arg2) then  -- get entire set
+        local i = 0
+        return function()
+            i = i + 1
+            return self._children[i]
+        end
+    end
+    
+    if type(arg1) == "table" then
+        -- Object:EachChild( { property = val, ...} [, inclusive] )
+        if not arg2 then
+            -- exclusive
+            local i = 0
+            return function()
+                while STOP - i > 0 do
+                    i = i + 1
+                    local c = self._children[i]
+                    if not c then return nil end
+                    local match = true
+                    for property, val in pairs(arg1) do
+                        if c[property] ~= val then
+                            match = false; break
+                        end
+                    end
+                    if match then return c end
+                end
+            end
+        else
+            -- inclusive
+            local i = 0
+            return function()
+                while STOP - i > 0 do
+                    i = i + 1
+                    local c = self._children[i]
+                    if not c then return nil end
+                    local match = false
+                    for property, val in pairs(arg1) do
+                        if c[property] == val then
+                            match = true; break
+                        end
+                    end
+                    if match then return c end
+                end
+            end
+        end
+    elseif arg2 ~= nil then
+        -- Object:EachChild( property, value )
+        local i = 0
+        return function()
+            while STOP - i > 0 do
+                i = i + 1
+                local c = self._children[i]
+                if not c then return nil end
+                if c[arg1] == arg2 then
+                    return c
+                end
+            end
+        end
+    elseif type(arg1) == "function" then
+        -- Object:EachChild( func )
+        local i = 0
+        return function()
+            while STOP - i > 0 do
+                i = i + 1
+                local c = self._children[i]
+                if not c then return nil end
+                if arg1(c) then
+                    return c
+                end
+            end
+        end
+    else
+        -- Object:GetChildren( name )
+        local i = 0
+        return function()
+            while STOP - i > 0 do
+                i = i + 1
+                local c = self._children[i]
+                if not c then return nil end
+                if c.Name == arg1 then
+                    return c
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
 
 function Object:GetParent()
     return self._parent
@@ -284,7 +457,7 @@ function Object:RemoveParent()
         parent._childHash[self] = nil
         self._parent = nil
 
-        -- shift elements on top back into place
+        -- shift elements on top back into place in the childHash
         for i = index, #parent._children do
             local child = parent._children[i]
             parent._childHash[child] = i
@@ -294,7 +467,8 @@ function Object:RemoveParent()
 end
 
 function Object:IsChildOf(parent)
-    return parent._childHash[self] and true or false
+    -- return parent._childHash[self] and true or false
+    return parent == self._parent
 end
 
 function Object:GetType()
