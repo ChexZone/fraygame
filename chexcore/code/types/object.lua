@@ -240,71 +240,13 @@ end
     Object:GetChildren( func )
      - returns the subset of children for which func(child) returns true
 ]]
+local filter = filteredList
+local type2 = type
 function Object:GetChildren(arg1, arg2)
-    
-    if not (arg1 or arg2) then  -- get entire set
-        local children = {}
-        for i, ref in ipairs(self._children) do
-            children[i] = ref
-        end
-        return children
+    if not arg2 and type2(arg1) == "string" then
+        return filter(self._children, "Name", arg1)
     end
-    
-    local children = {}
-
-    if type(arg1) == "table" then
-        -- Object:GetChildren( { property = val, ...} [, inclusive] )
-        if not arg2 then
-            -- exclusive
-            for _, child in ipairs(self._children) do
-                local match = true
-                for property, val in pairs(arg1) do
-                    if child[property] ~= val then
-                        match = false; break
-                    end
-                end
-                if match then
-                    children[#children+1] = child
-                end
-            end
-        else
-            -- inclusive
-            for _, child in ipairs(self._children) do
-                local match = false
-                for property, val in pairs(arg1) do
-                    if child[property] == val then
-                        match = true; break
-                    end
-                end
-                if match then
-                    children[#children+1] = child
-                end
-            end
-        end
-    elseif arg2 ~= nil then
-            -- Object:GetChildren( property, value )
-            for _, child in ipairs(self._children) do
-                if child[arg1] == arg2 then
-                    children[#children+1] = child
-                end
-            end
-    elseif type(arg1) == "function" then
-        -- Object:GetChildren( func )
-        for index, child in ipairs(self._children) do
-            if arg1(child) then
-                children[#children+1] = child
-            end
-        end
-    else
-        -- Object:GetChildren( name )
-        for _, child in ipairs(self._children) do
-            if child.Name == arg1 then
-                children[#children+1] = child
-            end
-        end
-    end
-
-    return children
+    return filter(self._children, arg1, arg2)
 end
 
 --[[  
@@ -316,95 +258,12 @@ end
         print(child.Name)
     end
 ]]
-local STOP = 1000000
+local iterFilter = filteredListIterator
 function Object:EachChild(arg1, arg2)
-    if not (arg1 or arg2) then  -- get entire set
-        local i = 0
-        return function()
-            i = i + 1
-            return self._children[i]
-        end
+    if not arg2 and type2(arg1) == "string" then
+        return iterFilter(self._children, "Name", arg1)
     end
-    
-    if type(arg1) == "table" then
-        -- Object:EachChild( { property = val, ...} [, inclusive] )
-        if not arg2 then
-            -- exclusive
-            local i = 0
-            return function()
-                while STOP - i > 0 do
-                    i = i + 1
-                    local c = self._children[i]
-                    if not c then return nil end
-                    local match = true
-                    for property, val in pairs(arg1) do
-                        if c[property] ~= val then
-                            match = false; break
-                        end
-                    end
-                    if match then return c end
-                end
-            end
-        else
-            -- inclusive
-            local i = 0
-            return function()
-                while STOP - i > 0 do
-                    i = i + 1
-                    local c = self._children[i]
-                    if not c then return nil end
-                    local match = false
-                    for property, val in pairs(arg1) do
-                        if c[property] == val then
-                            match = true; break
-                        end
-                    end
-                    if match then return c end
-                end
-            end
-        end
-    elseif arg2 ~= nil then
-        -- Object:EachChild( property, value )
-        local i = 0
-        return function()
-            while STOP - i > 0 do
-                i = i + 1
-                local c = self._children[i]
-                if not c then return nil end
-                if c[arg1] == arg2 then
-                    return c
-                end
-            end
-        end
-    elseif type(arg1) == "function" then
-        -- Object:EachChild( func )
-        local i = 0
-        return function()
-            while STOP - i > 0 do
-                i = i + 1
-                local c = self._children[i]
-                if not c then return nil end
-                if arg1(c) then
-                    return c
-                end
-            end
-        end
-    else
-        -- Object:GetChildren( name )
-        local i = 0
-        return function()
-            while STOP - i > 0 do
-                i = i + 1
-                local c = self._children[i]
-                if not c then return nil end
-                if c.Name == arg1 then
-                    return c
-                end
-            end
-        end
-    end
-
-    return nil
+    return iterFilter(self._children, arg1, arg2)
 end
 
 

@@ -8,7 +8,7 @@ ParentCat:Adopt(Cat.new{Name = "ChildCat3", Val = 200})
 --print(ParentCat._childHash)
 
 -- ParentCat:GetChild("ChildCat1"):RemoveParent()
--- -ParentCat:GetChild("ChildCat2"):RemoveParent()
+-- ParentCat:GetChild("ChildCat2"):RemoveParent()
 -- ParentCat:GetChild("ChildCat3"):RemoveParent()
 
 ParentCat:Adopt(Cat.new{Name = "ChildCat4", Val = 100})
@@ -32,27 +32,7 @@ end) do
     print(child.Name, child.Val)
 end
 
-
-
-
-
-
 local arr = {1, 2, 3, 4, 5}
 local dic = {val1 = 1, val2 = 5}
 
 
-
-local Cat = {
-    Age = 0,
-    Breed = "Whatever"
-}
-Cat.__index = Cat
-
-function Cat.new()
-    local newCat = {}
-    setmetatable(newCat, Cat)
-    return newCat
-end
-
-local myCat = Cat.new()
---print(myCat.Breed)

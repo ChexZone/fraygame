@@ -453,3 +453,155 @@ if replaceCoreLuaFunctions then
     _G.tostring = ctostring
 end
 
+
+--[[  
+    filteredListIterator()
+     - returns the full list of an object's children
+    filteredListIterator( name )
+     - returns the subset of children with the given name
+    filteredListIterator( property, value )
+     - returns the subset of children with the given property and value
+    filteredListIterator( { property = val, ...} [, inclusive] )
+     - searches for multiple properties. If inclusive is false, all properties must match.
+    filteredListIterator( func )
+     - returns the subset of children for which func(child) returns true
+
+     The above signatures make up a wrapper signature referred to as "<FilterArg>"
+]]
+local STOP = 1000000
+function _G.filteredListIterator(self, arg1, arg2)
+    
+    if not (arg1 or arg2) then  -- get entire set
+        local i = 0
+        return function()
+            i = i + 1
+            return self[i]
+        end
+    end
+    
+    if type(arg1) == "table" then
+        -- filteredListIterator( { property = val, ...} [, inclusive] )
+        if not arg2 then
+            -- exclusive
+            local i = 0
+            return function()
+                while STOP - i > 0 do
+                    i = i + 1
+                    local c = self[i]
+                    if not c then return nil end
+                    local match = true
+                    for property, val in pairs(arg1) do
+                        if c[property] ~= val then
+                            match = false; break
+                        end
+                    end
+                    if match then return c end
+                end
+            end
+        else
+            -- inclusive
+            local i = 0
+            return function()
+                while STOP - i > 0 do
+                    i = i + 1
+                    local c = self[i]
+                    if not c then return nil end
+                    local match = false
+                    for property, val in pairs(arg1) do
+                        if c[property] == val then
+                            match = true; break
+                        end
+                    end
+                    if match then return c end
+                end
+            end
+        end
+    elseif arg2 ~= nil then
+        -- filteredListIterator( property, value )
+        local i = 0
+        return function()
+            while STOP - i > 0 do
+                i = i + 1
+                local c = self[i]
+                if not c then return nil end
+                if c[arg1] == arg2 then
+                    return c
+                end
+            end
+        end
+    elseif type(arg1) == "function" then
+        -- filteredListIterator( func )
+        local i = 0
+        return function()
+            while STOP - i > 0 do
+                i = i + 1
+                local c = self[i]
+                if not c then return nil end
+                if arg1(c) then
+                    return c
+                end
+            end
+        end
+    end
+end
+
+-- Too lazy to redocument. Same deal as above, just does the whole list at once
+function _G.filteredList(self, arg1, arg2)
+    
+    if not (arg1 or arg2) then  -- get entire set
+        local list = {}
+        for i, ref in ipairs(self) do
+            list[i] = ref
+        end
+        return list
+    end
+    
+    local list = {}
+
+    if type(arg1) == "table" then
+        -- filteredList( { property = val, ...} [, inclusive] )
+        if not arg2 then
+            -- exclusive
+            for _, child in ipairs(self) do
+                local match = true
+                for property, val in pairs(arg1) do
+                    if child[property] ~= val then
+                        match = false; break
+                    end
+                end
+                if match then
+                    list[#list+1] = child
+                end
+            end
+        else
+            -- inclusive
+            for _, child in ipairs(self) do
+                local match = false
+                for property, val in pairs(arg1) do
+                    if child[property] == val then
+                        match = true; break
+                    end
+                end
+                if match then
+                    list[#list+1] = child
+                end
+            end
+        end
+    elseif arg2 ~= nil then
+            -- filteredList( property, value )
+            for _, child in ipairs(self) do
+                if child[arg1] == arg2 then
+                    list[#list+1] = child
+                end
+            end
+    elseif type(arg1) == "function" then
+        -- filteredList( func )
+        for index, child in ipairs(self) do
+            if arg1(child) then
+                list[#list+1] = child
+            end
+        end
+    end
+
+    return list
+end
