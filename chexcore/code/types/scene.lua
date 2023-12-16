@@ -5,21 +5,37 @@ local Scene = {
     -- via Adopt() and Disown() methods.
 
     Name = "Scene",
-    Active = false, -- A Scene only updates when it's active
-    
+    Active = false,         -- A Scene only updates when it's active
+    MasterCanvas = nil,     -- The final canvas rendered to the screen
 
     -- internal properties
     _super = "Object",      -- Supertype
     _global = true
 }
 
-function Scene.new(properties)
-    local newScene = Scene:SuperInstance()
+-- !! Using default constructor until otherwise required !! --
+-- function Scene.new(properties)
+--     local newScene = Scene:SuperInstance()
 
-    newScene.Layers = {}
+--     return Scene:Connect(newScene)
+-- end
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! --
 
-    return Scene:Connect(newScene)
+-- the default rendering pipeline for a Scene
+function Scene:Draw()
+    
 end
+
+-- the default implementation of layer combination for the Master Canvas
+function Scene:CombineLayers()
+    
+end
+
+-- function aliases
+Scene.AddLayer = Object.Adopt
+Scene.RemoveLayer = Object.Disown
+Scene.SwapLayers = Object.SwapChildOrder
+Scene.GetLayer = Object.GetChild
 
 
 return Scene

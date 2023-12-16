@@ -16,7 +16,12 @@ ParentCat:Adopt(Cat.new{Name = "ChildCat5", Val = 50})
 ParentCat:Adopt(Cat.new{Name = "ChildCat6", Val = 150})
 
 
+--ParentCat:SwapChildOrder(1, 3)
+--ParentCat:Disown(1)
+-- ParentCat:Disown(ParentCat:GetChild(1))
+-- ParentCat:Disown(3)
 
+-- print(tostring(ParentCat._children, true))
 --print(ParentCat:Serialize())
 
 
@@ -24,27 +29,26 @@ ParentCat:Adopt(Cat.new{Name = "ChildCat6", Val = 150})
 --     print(child.Name, child.Val)
 -- end
 
-for child in ParentCat:EachChild(function(c)
-    -- function condition
-    return c.Val >= 100
-end) do
-    -- children that meet criteria
-    --print(i, child.Name, child.Val)
-end
+-- for child in ParentCat:EachChild() do
+--     -- children that meet criteria
+--     print(child.Name, child.Val)
+-- end
 
 
 local myScene = Scene.new{}
-myScene:Adopt(Cat.new{Name = "Bitch"})
+myScene:AddLayer(Cat.new{Name = "Bitch"})
 
-local serial = [[
-    PACKAGE { chexcore/code/misc/example } |
+print(tostring(myScene, true))
+
+-- local serial = [[
+--     PACKAGE { chexcore/code/misc/example } |
     
-    rootTable, {
-        "example" = @example
-    } |
+--     rootTable, {
+--         "example" = @example
+--     } |
         
-    ROOT = rootTable
-]]
+--     ROOT = rootTable
+-- ]]
 
-local test = deserialize(serial)
-test.example() --> This is an example function!
+-- local test = deserialize(serial)
+-- test.example() --> This is an example function!

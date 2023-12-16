@@ -162,7 +162,9 @@ function Object:ToString(properties, typeLabels, displayMethods)
     return out
 end
 
---[[  
+--[[
+    Object:GetChild( id )
+     - returns the child at the given internal index.
     Object:GetChild( name )
      - returns the child with the given name, or nil if not found
     Object:GetChild( property, value )
@@ -173,7 +175,9 @@ end
      - returns the first child for which func(child) returns true
 ]]
 function Object:GetChild(arg1, arg2)
-    if type(arg1) == "table" then
+    if type(arg1) == "number" then
+        return self._children[arg1]
+    elseif type(arg1) == "table" then
         -- Object:GetChild( { property = val, ...} [, inclusive] )
         if not arg2 then
             -- exclusive
@@ -297,14 +301,30 @@ function Object:Disown(child)
     if type(child) == "table" then
         -- Object:Disown( child )
         local index = self._childHash[child]
+
+        -- fix all hash IDs (more expensive the farther left you are removing)
+        for i = index+1, #self._children do
+            self._childHash[self._children[i]] = self._childHash[self._children[i]] - 1
+        end
+
         trm(self._children, index)
         self._childHash[child] = nil
+
         return child
     else
         -- Object:Disown( index )
+
+        -- fix all hash IDs (more expensive the farther left you are removing)
+        for i = child+1, #self._children do
+            self._childHash[self._children[i]] = self._childHash[self._children[i]] - 1
+        end
+
         local obj = self._children[child]
         self._childHash[obj] = nil
         trm(self._children, child)
+
+
+        
         return obj
     end
 end
@@ -324,6 +344,17 @@ function Object:Emancipate()
         end
     end
     return parent
+end
+
+function Object:SwapChildOrder(c1, c2)
+    if type(c1) == "number" then
+        -- Object:SwapChildOrder(index1, index2)
+        self._childHash[self._children[c1]], self._childHash[self._children[c2]] = 
+            self._childHash[self._children[c2]], self._childHash[self._children[c1]]
+        self._children[c1], self._children[c2] = self._children[c2], self._children[c1]
+    else
+        -- Object:SwapChildOrder(child1, child2)
+    end
 end
 
 function Object:IsChildOf(parent)
