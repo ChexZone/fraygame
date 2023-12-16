@@ -292,18 +292,19 @@ function Object:GetChildID()
     return self._parent and self._parent._childHash[self] or 0
 end
 
+local trm = table.remove
 function Object:RemoveChild(child)
     if type(child) == "table" then
         -- Object:RemoveChild( child )
         local index = self._childHash[child]
-        table.remove(self._children, index)
+        trm(self._children, index)
         self._childHash[child] = nil
         return child
     else
         -- Object:RemoveChild( index )
         local obj = self._children[child]
         self._childHash[obj] = nil
-        table.remove(self._children, child)
+        trm(self._children, child)
         return obj
     end
 end
@@ -312,7 +313,7 @@ function Object:RemoveParent()
     local parent = self._parent
     if parent then
         local index = parent._childHash[self]
-        table.remove(parent._children, index)
+        trm(parent._children, index)
         parent._childHash[self] = nil
         self._parent = nil
 
@@ -327,6 +328,8 @@ end
 
 function Object:IsChildOf(parent)
     -- return parent._childHash[self] and true or false
+    -- i'm keeping this line here   bc   it was the original implementation and 
+    --                                                               wow what  
     return parent == self._parent
 end
 

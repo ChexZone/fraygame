@@ -142,7 +142,7 @@ local function rawSerialize(tab, upcast)
 
         end
 
-        output[#output+1] = "\n};\n\n"
+        output[#output+1] = "\n}|\n\n"
 
         -- remove the table from the queue
         table.remove(queue, 1)
@@ -202,6 +202,7 @@ end
 -- !! HIGHLY NICHE FUNCTION - ONLY USE IF YOU KNOW !! --
 local function splitByIndices(str, indices)
     local out = {}
+    if #indices == 0 then return out end
 
     for i = 1, #indices do
         out[#out+1] = str:sub((indices[i-1] or 0) + 1, indices[i] - 1):trim()
@@ -287,7 +288,7 @@ end
 -- Deserializes a string back into a family of tables. 
 local function rawDeserialize(serial)
     -- split by } + (whitespace) + ;
-    local tableList = serial:split("}%s*;", true)
+    local tableList = serial:split("}%s*|", true)
     local referenceList = {} -- list of table tags (keys) mapped to their tables (vals)
     local complete = {} -- list of references to complete tables
     local tbl -- saves the last created table in scope
@@ -295,44 +296,51 @@ local function rawDeserialize(serial)
         if _i < #tableList then
             -- separate the table from metatata
             local metaTableSplit = tblStr:split("{", true, 1)
-            
+
             -- table tag is first, metatable tag is second
             local metadata = metaTableSplit[1]:split(",", true)
             local tableTag, metaTag = metadata[1], (metadata[2] and metadata[2]:trim() or "")
 
-
-            -- create a new table, if a reference to this one doesn't exist already
-            tbl = referenceList[tableTag] or {}
-            
-            -- apply the metatable if it exists
-            if #metaTag > 0 then
-                setmetatable(tbl, deserializeValue("@"..metaTag, referenceList))
-            end
-
-            -- now let's find out where those damned strings are...
-            local valuesStr = metaTableSplit[2]
-            
-            local stringBounds = getStringBounds(valuesStr)
-            local commaIndices = getSplitIndices(valuesStr, ",", stringBounds)
-            local equalIndices = getSplitIndices(valuesStr, "=", stringBounds)
-            local allIndices = merge(commaIndices, equalIndices)
-
-
-            local finalValueSplit = splitByIndices(valuesStr, allIndices)
-
-            
-
-            for i = 1, #finalValueSplit, 2 do
-                local key = deserializeValue(finalValueSplit[i], referenceList)
-                local val = deserializeValue(finalValueSplit[i+1], referenceList)
+            if tableTag:sub(1,2) == "F_" then
+                -- this line should be interpreted as a function!
+                    print(tableTag)
+            else
+                -- this line is a table as normal
+                -- create a new table, if a reference to this one doesn't exist already
+                tbl = referenceList[tableTag] or {}
                 
-                tbl[key or "_UNDEFINED"] = val
+                -- apply the metatable if it exists
+                if #metaTag > 0 then
+                    setmetatable(tbl, deserializeValue("@"..metaTag, referenceList))
+                end
+
+                -- now let's find out where those damned strings are...
+                local valuesStr = metaTableSplit[2]
+                
+                local stringBounds = getStringBounds(valuesStr)
+                local commaIndices = getSplitIndices(valuesStr, ",", stringBounds)
+                local equalIndices = getSplitIndices(valuesStr, "=", stringBounds)
+                local allIndices = merge(commaIndices, equalIndices)
+
+
+                local finalValueSplit = splitByIndices(valuesStr, allIndices)
+
+                
+
+                for i = 1, #finalValueSplit, 2 do
+                    local key = deserializeValue(finalValueSplit[i], referenceList)
+                    local val = deserializeValue(finalValueSplit[i+1], referenceList)
+                    
+                    tbl[key or "_UNDEFINED"] = val
+                end
+                
+                -- turn table into an object, if necessary
+                if tbl._type and Chexcore._types[tbl._type] then
+                    setmetatable(tbl, Chexcore._types[tbl._type])
+                end
             end
-            
-            -- turn table into an object, if necessary
-            if tbl._type and Chexcore._types[tbl._type] then
-                setmetatable(tbl, Chexcore._types[tbl._type])
-            end
+
+
 
             -- add the table to the reference list
             referenceList[tableTag] = tbl

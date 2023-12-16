@@ -29,10 +29,48 @@ for child in ParentCat:EachChild(function(c)
     return c.Val >= 100
 end) do
     -- children that meet criteria
-    print(child.Name, child.Val)
+    --print(i, child.Name, child.Val)
 end
+
+
+local myScene = Scene.new{}
+myScene:Adopt(Cat.new{Name = "Bitch"})
+myScene.whatever = function ()
+    
+end
+print(deserialize([[
+F_TESTFUN, {
+    function(a, b) return a + b end
+} |
+
+023a5d01d600, {
+    "whatever" = function: 0x023a5d01c718,
+    "_children" = @023a5d01d7c8,
+    "_childHash" = @023a5d01d810,
+    "Layers" = @023a5d01d648,
+    "_type" = "Scene"
+  } |
+  
+  023a5d01d7c8, {
+    1 = @023a5d01d748
+  } |
+  
+    023a5d01d810  , {
+    @023a5d01d748 = 1
+  } |
+  
+  023a5d01d648, {
+
+    } |
+  
+  023a5d01d748, {
+    "_parent" = @023a5d01d600,
+    "Name" = "Bitch",
+    "_type" = "Cat"
+  } |
+  
+  ROOT = 023a5d01d600]]))
 
 local arr = {1, 2, 3, 4, 5}
 local dic = {val1 = 1, val2 = 5}
-
 
