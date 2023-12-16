@@ -273,7 +273,7 @@ end
 
 function Object:Adopt(child)
     if child._parent then
-        child._parent:RemoveChild(child)
+        child._parent:Disown(child)
     end
 
     local newPos = #self._children + 1
@@ -293,15 +293,15 @@ function Object:GetChildID()
 end
 
 local trm = table.remove
-function Object:RemoveChild(child)
+function Object:Disown(child)
     if type(child) == "table" then
-        -- Object:RemoveChild( child )
+        -- Object:Disown( child )
         local index = self._childHash[child]
         trm(self._children, index)
         self._childHash[child] = nil
         return child
     else
-        -- Object:RemoveChild( index )
+        -- Object:Disown( index )
         local obj = self._children[child]
         self._childHash[obj] = nil
         trm(self._children, child)
@@ -309,7 +309,7 @@ function Object:RemoveChild(child)
     end
 end
 
-function Object:RemoveParent()
+function Object:Emancipate()
     local parent = self._parent
     if parent then
         local index = parent._childHash[self]

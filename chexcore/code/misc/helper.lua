@@ -309,7 +309,7 @@ local function rawDeserialize(serial)
                 ))()                               -- or just, the body of the function
                 -- from here we should be able to add it to the reference table as normal
                 referenceList[tableTag] = tbl
-            elseif tableTag:sub(1,7) == "PACKAGE" then
+            elseif tableTag == "PACKAGE" then
                 -- this is a function package!
                 local path = tblStr:sub(tblStr:find("{") + 1, #tblStr)
                 local package = require(path:trim())

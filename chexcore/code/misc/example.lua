@@ -1,6 +1,6 @@
 local tab = {}
 
-tab.example = function (a, b)
+tab.example = function ()
     print("This is an example function!")
 end
 

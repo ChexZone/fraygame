@@ -7,9 +7,9 @@ ParentCat:Adopt(Cat.new{Name = "ChildCat3", Val = 200})
 
 --print(ParentCat._childHash)
 
--- ParentCat:GetChild("ChildCat1"):RemoveParent()
--- ParentCat:GetChild("ChildCat2"):RemoveParent()
--- ParentCat:GetChild("ChildCat3"):RemoveParent()
+-- ParentCat:GetChild("ChildCat1"):Emancipate()
+-- ParentCat:GetChild("ChildCat2"):Emancipate()
+-- ParentCat:GetChild("ChildCat3"):Emancipate()
 
 ParentCat:Adopt(Cat.new{Name = "ChildCat4", Val = 100})
 ParentCat:Adopt(Cat.new{Name = "ChildCat5", Val = 50})
@@ -35,20 +35,16 @@ end
 
 local myScene = Scene.new{}
 myScene:Adopt(Cat.new{Name = "Bitch"})
+
+local serial = [[
+    PACKAGE { chexcore/code/misc/example } |
     
-    local serial = [[
-        PACKAGE { chexcore/code/misc/example } |
+    rootTable, {
+        "example" = @example
+    } |
         
-        rootTable, {
-            "example" = @example
-        } |
-          
-        ROOT = rootTable
-        ]]
-        
-        local test = deserialize(serial)
-        test.example() --> This is an example function!
+    ROOT = rootTable
+]]
 
-local arr = {1, 2, 3, 4, 5}
-local dic = {val1 = 1, val2 = 5}
-
+local test = deserialize(serial)
+test.example() --> This is an example function!

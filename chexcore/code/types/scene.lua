@@ -1,8 +1,12 @@
 local Scene = {
     -- properties
+    
+    -- CHILDREN represent the Scene's Layers. Layers are added/removed
+    -- via Adopt() and Disown() methods.
+
     Name = "Scene",
     Active = false, -- A Scene only updates when it's active
-    Layers = nil,   -- list of all Layers, set in constructor
+    
 
     -- internal properties
     _super = "Object",      -- Supertype
