@@ -300,10 +300,22 @@ local function rawDeserialize(serial)
             -- table tag is first, metatable tag is second
             local metadata = metaTableSplit[1]:split(",", true)
             local tableTag, metaTag = metadata[1], (metadata[2] and metadata[2]:trim() or "")
-
             if tableTag:sub(1,2) == "F_" then
                 -- this line should be interpreted as a function!
-                    print(tableTag)
+                tbl = loadstring("return ".. -- we're being pretty lazy about this right now
+                    tblStr:sub(                        -- substring from...
+                        tblStr:find("{") + 1,          -- the opening curly...
+                        #tblStr                        -- the end of tblStr   
+                ))()                               -- or just, the body of the function
+                -- from here we should be able to add it to the reference table as normal
+                referenceList[tableTag] = tbl
+            elseif tableTag:sub(1,7) == "PACKAGE" then
+                -- this is a function package!
+                local path = tblStr:sub(tblStr:find("{") + 1, #tblStr)
+                local package = require(path:trim())
+                for k, f in pairs(package) do
+                    referenceList[k] = f
+                end
             else
                 -- this line is a table as normal
                 -- create a new table, if a reference to this one doesn't exist already
@@ -338,12 +350,14 @@ local function rawDeserialize(serial)
                 if tbl._type and Chexcore._types[tbl._type] then
                     setmetatable(tbl, Chexcore._types[tbl._type])
                 end
+
+                -- add the table to the reference list
+                referenceList[tableTag] = tbl
             end
 
 
 
-            -- add the table to the reference list
-            referenceList[tableTag] = tbl
+            
             
         else
             -- we're at the "ROOT" definition (end)

@@ -35,41 +35,19 @@ end
 
 local myScene = Scene.new{}
 myScene:Adopt(Cat.new{Name = "Bitch"})
-myScene.whatever = function ()
     
-end
-print(deserialize([[
-F_TESTFUN, {
-    function(a, b) return a + b end
-} |
-
-023a5d01d600, {
-    "whatever" = function: 0x023a5d01c718,
-    "_children" = @023a5d01d7c8,
-    "_childHash" = @023a5d01d810,
-    "Layers" = @023a5d01d648,
-    "_type" = "Scene"
-  } |
-  
-  023a5d01d7c8, {
-    1 = @023a5d01d748
-  } |
-  
-    023a5d01d810  , {
-    @023a5d01d748 = 1
-  } |
-  
-  023a5d01d648, {
-
-    } |
-  
-  023a5d01d748, {
-    "_parent" = @023a5d01d600,
-    "Name" = "Bitch",
-    "_type" = "Cat"
-  } |
-  
-  ROOT = 023a5d01d600]]))
+    local serial = [[
+        PACKAGE { chexcore/code/misc/example } |
+        
+        rootTable, {
+            "example" = @example
+        } |
+          
+        ROOT = rootTable
+        ]]
+        
+        local test = deserialize(serial)
+        test.example() --> This is an example function!
 
 local arr = {1, 2, 3, 4, 5}
 local dic = {val1 = 1, val2 = 5}
