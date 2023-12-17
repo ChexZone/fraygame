@@ -36,11 +36,10 @@ ParentCat:Adopt(Cat.new{Name = "ChildCat6", Val = 150})
 
 
 local myScene = Scene.new{Name = "Scene1"}
-local myScene2 = Scene.new{Name = "Scene2"}
 myScene:AddLayer(Layer.new{Canvases = {Canvas.new(320, 180)}})
 
+
 Chexcore.MountScene(myScene)
-Chexcore.MountScene(myScene2)
 --Chexcore.UnmountScene(myScene)
 
 --myScene:GetLayer(1):Emancipate()

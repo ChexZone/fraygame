@@ -24,12 +24,17 @@ local Scene = {
 
 -- default update pipeline for a Scene
 function Scene:Update(dt)
-
+    for layer in self:EachChild() do
+        layer:Update(dt)
+    end
 end
 
 -- the default rendering pipeline for a Scene
 function Scene:Draw()
     -- go through all the Layers uh... think about it chex !!
+    for layer in self:EachChild() do
+        layer:Draw()
+    end
 end
 
 -- the default implementation of layer combination for the Master Canvas

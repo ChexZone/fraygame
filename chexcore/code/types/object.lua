@@ -362,6 +362,7 @@ function Object:SuperInstance()
     return self._superReference.new()
 end
 
+local serialize = serialize
 function Object:Serialize(upcast)
     return serialize(self, upcast)
 end
