@@ -1,7 +1,8 @@
 _G.Chexcore = {
 
     -- internal properties
-    _types = {}
+    _types = {},            -- stores all type references
+    _scenes = {}            -- stores all mounted scene references
 }
 
 -- when an Object is indexed, this variable helps keep the referenced up the type chain
@@ -18,11 +19,21 @@ function love.draw() Chexcore.draw() end
 
 ---------------- UPDATE LOOPS ------------------
 function Chexcore.update(dt)
-    
+    -- update all scenes
+    for sceneid, scene in ipairs(Chexcore._scenes) do
+        if scene.Active then
+            scene:Update(dt)
+        end
+    end
 end
 
 function Chexcore.draw()
-    
+    -- draw all scenes
+    for sceneid, scene in ipairs(Chexcore._scenes) do
+        if scene.Visible then
+            scene:Draw()
+        end
+    end
 end
 ------------------------------------------------
 
@@ -81,9 +92,16 @@ function Chexcore:AddType(type)
     return setmetatable(type, metatable)
 end
 
--- Object deserialization
-function Chexcore.LoadObject()
-    
+function Chexcore.MountScene(scene)
+    Chexcore._scenes[#Chexcore._scenes+1] = scene
+end
+
+function Chexcore.UnmountScene(scene)
+    for i = 1, #Chexcore._scenes do
+        if Chexcore._scenes[i] == scene then
+            table.remove(Chexcore._scenes, i)
+        end
+    end
 end
 ------------------------------------------------
 
@@ -96,7 +114,9 @@ local types = {
     "chexcore.code.types.specialObject",
     "chexcore.code.types.specialObject2",
     "chexcore.code.types.sampleObject",
-    "chexcore.code.types.scene"
+    "chexcore.code.types.scene",
+    "chexcore.code.types.layer",
+    "chexcore.code.types.canvas"
 }
 
 for _, type in ipairs(types) do

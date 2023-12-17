@@ -322,26 +322,16 @@ function Object:Disown(child)
         local obj = self._children[child]
         self._childHash[obj] = nil
         trm(self._children, child)
-
-
         
         return obj
     end
 end
 
+-- basically reverse Disown()
 function Object:Emancipate()
     local parent = self._parent
     if parent then
-        local index = parent._childHash[self]
-        trm(parent._children, index)
-        parent._childHash[self] = nil
-        self._parent = nil
-
-        -- shift elements on top back into place in the childHash
-        for i = index, #parent._children do
-            local child = parent._children[i]
-            parent._childHash[child] = i
-        end
+        parent:Disown(self)
     end
     return parent
 end

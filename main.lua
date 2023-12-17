@@ -35,10 +35,18 @@ ParentCat:Adopt(Cat.new{Name = "ChildCat6", Val = 150})
 -- end
 
 
-local myScene = Scene.new{}
-myScene:AddLayer(Cat.new{Name = "Bitch"})
+local myScene = Scene.new{Name = "Scene1"}
+local myScene2 = Scene.new{Name = "Scene2"}
+myScene:AddLayer(Layer.new{Canvases = {Canvas.new(320, 180)}})
 
-print(tostring(myScene, true))
+Chexcore.MountScene(myScene)
+Chexcore.MountScene(myScene2)
+--Chexcore.UnmountScene(myScene)
+
+--myScene:GetLayer(1):Emancipate()
+
+print(Chexcore._scenes)
+
 
 -- local serial = [[
 --     PACKAGE { chexcore/code/misc/example } |

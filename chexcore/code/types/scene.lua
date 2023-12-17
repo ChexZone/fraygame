@@ -5,7 +5,8 @@ local Scene = {
     -- via Adopt() and Disown() methods.
 
     Name = "Scene",
-    Active = false,         -- A Scene only updates when it's active
+    Active = true,          -- A Scene only updates when it's active
+    Visible = true,         -- A Scene only renders when it's visible
     MasterCanvas = nil,     -- The final canvas rendered to the screen
 
     -- internal properties
@@ -20,6 +21,11 @@ local Scene = {
 --     return Scene:Connect(newScene)
 -- end
 -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! --
+
+-- default update pipeline for a Scene
+function Scene:Update(dt)
+
+end
 
 -- the default rendering pipeline for a Scene
 function Scene:Draw()
