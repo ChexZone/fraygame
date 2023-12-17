@@ -29,7 +29,7 @@ end
 
 -- the default rendering pipeline for a Scene
 function Scene:Draw()
-    
+    -- go through all the Layers uh... think about it chex !!
 end
 
 -- the default implementation of layer combination for the Master Canvas

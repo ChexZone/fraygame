@@ -2,7 +2,7 @@ _G.Chexcore = {
 
     -- internal properties
     _types = {},            -- stores all type references
-    _scenes = {}            -- stores all mounted scene references
+    _scenes = {}            -- stores all mounted Scene references
 }
 
 -- when an Object is indexed, this variable helps keep the referenced up the type chain
@@ -100,8 +100,10 @@ function Chexcore.UnmountScene(scene)
     for i = 1, #Chexcore._scenes do
         if Chexcore._scenes[i] == scene then
             table.remove(Chexcore._scenes, i)
+            return true
         end
     end
+    return false
 end
 ------------------------------------------------
 
