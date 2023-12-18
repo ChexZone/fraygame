@@ -45,8 +45,9 @@ myScene:AddLayer(Layer.new{Canvases = {Canvas.new(320, 180)}})
 
 --myScene:GetLayer(1):Emancipate()
 
-print( "Vector concat stuff: [ " .. V{1, 2, 3} .. " ] whateverrr")
-
+local myVec = V{0, 0, 0}
+myVec:Move(1, 2)
+print( myVec ) --> V{1, 2, 3}
 -- local serial = [[
 --     PACKAGE { chexcore/code/misc/example } |
     

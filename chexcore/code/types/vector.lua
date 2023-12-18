@@ -8,14 +8,14 @@ local Vector = {
     _global = true
 }
 
--- vector creation tries to be optimized since it's frequent
+-- vector creation tries to be more optimized since it's frequent
 local smt = setmetatable
 function Vector.new(vec)
     return smt(vec, Vector)
 end
 -- SET A METATABLE FOR VECTOR FOR __call
 setmetatable(Vector, {
-    __call = function (self, vec)
+    __call = function (_, vec)
         return smt(vec, Vector)
     end
 })
@@ -39,6 +39,12 @@ function Vector:Magnitude()
     return sqrt(s)
 end
 
+function Vector:Move(x, y, z)
+    -- safe to say x is there
+    self[1] = self[1] + x
+    if y then self[2] = self[2] + y end
+    if z then self[3] = self[3] + z end
+end
 
 
 -------------- relational operator stuff ----------------------------
@@ -196,8 +202,6 @@ end
 function Vector.__unm(v)
     return v * -1
 end
-
-
 
 local concat = table.concat
 function Vector:ToString()

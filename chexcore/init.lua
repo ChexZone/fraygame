@@ -1,5 +1,4 @@
 _G.Chexcore = {
-
     -- internal properties
     _types = {},            -- stores all type references
     _scenes = {}            -- stores all mounted Scene references
