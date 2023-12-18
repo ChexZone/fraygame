@@ -24,12 +24,12 @@ end
 
 -- default update pipeline for a Layer
 function Layer:Update(dt)
-    print(self.Name, dt)
+    
 end
 
 -- the default rendering pipeline for a Layer
 function Layer:Draw()
-    
+    print(self.Name)
 end
 
 return Layer

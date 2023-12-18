@@ -1,7 +1,8 @@
 local SpecialObject = {
     -- properties
     Name = "SpecialObject2",        -- Easy identifier
-
+    Test = false,
+    
     -- internal properties
     _super = "SpecialObject",      -- Supertype
     _global = true

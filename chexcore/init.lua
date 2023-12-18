@@ -13,12 +13,12 @@ _G.OBJSEARCH = nil
 require "chexcore.code.misc.helper"
 
 ---------------- LOVE2D BINDINGS ----------------
-function love.update(dt) Chexcore.update(dt) end
-function love.draw() Chexcore.draw() end
+function love.update(dt) Chexcore.Update(dt) end
+function love.draw() Chexcore.Draw() end
 ------------------------------------------------
 
 ---------------- UPDATE LOOPS ------------------
-function Chexcore.update(dt)
+function Chexcore.Update(dt)
     -- update all scenes
     for sceneid, scene in ipairs(Chexcore._scenes) do
         if scene.Active then
@@ -27,7 +27,7 @@ function Chexcore.update(dt)
     end
 end
 
-function Chexcore.draw()
+function Chexcore.Draw()
     -- draw all scenes
     for sceneid, scene in ipairs(Chexcore._scenes) do
         if scene.Visible then
@@ -43,10 +43,19 @@ function Chexcore:AddType(type)
     type._type = type._type or type.Name or "NewObject"
 
     Chexcore._types[type._type] = type
-
     -- insert into global namespace, if needed
     if rawget(type, "_global") then
         _G[type._type] = type
+    end
+    
+    if type._aliases then
+        for _, alias in ipairs(type._aliases) do
+            Chexcore._types[alias] = type
+
+            if rawget(type, "_global") then
+                _G[alias] = type
+            end
+        end
     end
 
     -- apply a basic constructor if one is not present
@@ -77,7 +86,7 @@ function Chexcore:AddType(type)
     -- apply a reference to the supertype
     type._superReference = Chexcore._types[type._super]
 
-    type.__index = function(obj, key)
+    type.__index = type.__index or function(obj, key)
         if rawget(type, key) then
             return rawget(type, key)
         else
@@ -113,12 +122,14 @@ end
 -- load in some essential types
 local types = {
     "chexcore.code.types.object",
+    "chexcore.code.types.vector",
     "chexcore.code.types.specialObject",
     "chexcore.code.types.specialObject2",
     "chexcore.code.types.sampleObject",
     "chexcore.code.types.scene",
     "chexcore.code.types.layer",
-    "chexcore.code.types.canvas"
+    "chexcore.code.types.canvas",
+    "chexcore.code.types.camera",
 }
 
 for _, type in ipairs(types) do

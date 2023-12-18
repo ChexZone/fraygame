@@ -39,13 +39,13 @@ local myScene = Scene.new{Name = "Scene1"}
 myScene:AddLayer(Layer.new{Canvases = {Canvas.new(320, 180)}})
 
 
-Chexcore.MountScene(myScene)
+
+--Chexcore.MountScene(myScene)
 --Chexcore.UnmountScene(myScene)
 
 --myScene:GetLayer(1):Emancipate()
 
-print(Chexcore._scenes)
-
+print( "Vector concat stuff: [ " .. V{1, 2, 3} .. " ] whateverrr")
 
 -- local serial = [[
 --     PACKAGE { chexcore/code/misc/example } |
