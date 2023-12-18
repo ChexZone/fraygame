@@ -11,17 +11,22 @@ local Object = {
     _childHash = nil,       -- Used to get quick access to Child objects
     _type = "Object",       -- the internal type of the object.
     _abstract = false,      -- Abstract types should not have instantiation
-    _global = true          -- Is this type important enough to be globally referenced?
+    _global = true,          -- Is this type important enough to be globally referenced?
 }
-Object.__index = Object
+
 
 -- Object metatable
 local blankTables = {_children = true, _childHash = true}
+Object.__index = function(self, key)
+    return rawget(Object, key) or blankTables[key] and {} or nil
+end
+
 setmetatable(Object, {
     __index = function(self, key)
+        
         if blankTables[key] and _G.OBJSEARCH then
             -- print("Objectifying " .. key .. " for " .. tostring(_G.OBJSEARCH.Name))
-
+            
             local newTab = {}
             _G.OBJSEARCH[key] = newTab
             _G.OBJSEARCH = nil
@@ -55,6 +60,16 @@ end
 function Object:Connect(instance)
     return setmetatable(instance, self)
 end
+
+local deepCopy = deepCopy
+function Object:Clone(sameParent)
+    local t = deepCopy(self)
+    if sameParent and self._parent then
+        self._parent:Adopt(t)
+    end
+    return t
+end
+
 
 local function advancedType(name, var)
     local out
@@ -275,14 +290,15 @@ function Object:GetParent()
     return self._parent
 end
 
+local rg = rawget
 function Object:Adopt(child)
     if child._parent then
         child._parent:Disown(child)
     end
 
+    self._childHash = rg(self, "_childHash") or {}
+    self._children = rg(self, "_children") or {}
     local newPos = #self._children + 1
-    self._childHash = rawget(self, "_childHash") or {}
-    self._children = rawget(self, "_children") or {}
 
     self._childHash[child] = newPos
     self._children[newPos] = child

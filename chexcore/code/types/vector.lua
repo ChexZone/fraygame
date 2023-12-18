@@ -22,7 +22,7 @@ setmetatable(Vector, {
 -- custom indexing to react to X, Y, Z
 local map, rg, rs, OBJ = {X = 1, Y = 2, Z = 3}, rawget, rawset, Object
 function Vector.__index(t, d)
-    return rg(t, map[d]) or Vector[d] or OBJ[d]
+    return rg(t, map[d]) or rg(Vector, d) or Vector.__index2(t, d)
 end
 function Vector.__newindex(t, d, v)
     rs(t, map[d] or d, v)
@@ -39,14 +39,27 @@ function Vector:Magnitude()
     return sqrt(s)
 end
 
-function Vector:Move(x, y, z)
-    -- safe to say x is there
-    self[1] = self[1] + x
-    if y then self[2] = self[2] + y end
-    if z then self[3] = self[3] + z end
+function Vector:MoveXY(x, y)
+    self[1] = self[1] + (x or 0)
+    self[2] = self[2] + (y or 0)
 end
 
+function Vector:MoveXYZ(x, y, z)
+    self[1] = self[1] + (x or 0)
+    self[2] = self[2] + (y or 0)
+    self[2] = self[3] + (z or 0)
+end
 
+function Vector:SetXY(x, y)
+    self[1] = x or 0
+    self[2] = y or 0
+end
+
+function Vector:SetXYZ(x, y, z)
+    self[1] = x or 0
+    self[2] = y or 0
+    self[2] = z or 0
+end
 -------------- relational operator stuff ----------------------------
 -- addition
 function Vector.__add(v1, v2)

@@ -627,3 +627,17 @@ function _G.filteredList(self, arg1, arg2)
 
     return list
 end
+
+local smt, gmt, type, pairs = setmetatable, getmetatable, type, pairs
+local function deepCopy(tab)
+    local nt = smt({}, gmt(tab))
+    for k, v in pairs(tab) do
+        if type(v) == "table" then
+            if k ~= "_parent" then nt[k] = deepCopy(v) end
+        else
+            nt[k] = v
+        end
+    end
+    return nt
+end
+_G.deepCopy = deepCopy

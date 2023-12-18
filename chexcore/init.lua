@@ -78,14 +78,14 @@ function Chexcore:AddType(type)
     -- apply the supertype, if there is one
     -- Object's basic type has a special metatable, so it is ignored
     if type._type ~= "Object" then
-        metatable.__index = Chexcore._types[type._super]
+        metatable.__index = Chexcore._types[type._super]        
     end
 
 
     -- apply a reference to the supertype
     type._superReference = Chexcore._types[type._super]
 
-    type.__index = type.__index or function(obj, key)
+    type.__index2 = function(obj, key)
         if rawget(type, key) then
             return rawget(type, key)
         else
@@ -96,6 +96,8 @@ function Chexcore:AddType(type)
             return Chexcore._types[type._super][key]
         end
     end
+
+    type.__index = type.__index or type.__index2
     
     return setmetatable(type, metatable)
 end

@@ -1,29 +1,28 @@
 require "chexcore"
 
-local ParentCat = Cat.new{Name = "ParentCat"}
-ParentCat:Adopt(Cat.new{Name = "ChildCat1", Val = 125})
-ParentCat:Adopt(Cat.new{Name = "ChildCat2", SomeThing = true, Val = 75})
-ParentCat:Adopt(Cat.new{Name = "ChildCat3", Val = 200})
+-- local ParentCat = Cat.new{Name = "ParentCat"}
+-- ParentCat:Adopt(Cat.new{Name = "ChildCat1", Val = 125})
+-- ParentCat:Adopt(Cat.new{Name = "ChildCat2", SomeThing = true, Val = 75})
+-- ParentCat:Adopt(Cat.new{Name = "ChildCat3", Val = 200})
 
---print(ParentCat._childHash)
+-- print(ParentCat._childHash)
 
 -- ParentCat:GetChild("ChildCat1"):Emancipate()
 -- ParentCat:GetChild("ChildCat2"):Emancipate()
 -- ParentCat:GetChild("ChildCat3"):Emancipate()
 
-ParentCat:Adopt(Cat.new{Name = "ChildCat4", Val = 100})
-ParentCat:Adopt(Cat.new{Name = "ChildCat5", Val = 50})
-ParentCat:Adopt(Cat.new{Name = "ChildCat6", Val = 150})
+-- ParentCat:Adopt(Cat.new{Name = "ChildCat4", Val = 100})
+-- ParentCat:Adopt(Cat.new{Name = "ChildCat5", Val = 50})
+-- ParentCat:Adopt(Cat.new{Name = "ChildCat6", Val = 150})
 
 
---ParentCat:SwapChildOrder(1, 3)
---ParentCat:Disown(1)
+-- ParentCat:SwapChildOrder(1, 3)
+-- ParentCat:Disown(1)
 -- ParentCat:Disown(ParentCat:GetChild(1))
 -- ParentCat:Disown(3)
 
 -- print(tostring(ParentCat._children, true))
---print(ParentCat:Serialize())
-
+-- print(ParentCat:Serialize())
 
 -- for child in ParentCat:EachChild() do
 --     print(child.Name, child.Val)
@@ -38,16 +37,29 @@ ParentCat:Adopt(Cat.new{Name = "ChildCat6", Val = 150})
 local myScene = Scene.new{Name = "Scene1"}
 myScene:AddLayer(Layer.new{Canvases = {Canvas.new(320, 180)}})
 
+-- Chexcore.MountScene(myScene)
+-- Chexcore.UnmountScene(myScene)
+
+-- myScene:GetLayer(1):Emancipate()
+
+-- local parent = Vector.new{Name="Parent", 1, 2, 3}
+-- local child = Vector.new{}
+-- parent:Adopt(child) -- parent is now the parent of child
+-- local child2 = child:Clone()
+-- print(child == child2) -- false; different Objects
+-- print(child2:GetParent()) -- nil; parent was not preserved
+-- local child3 = child:Clone(true)
+-- print(child3:GetParent()) -- [Object] Parent
+
+local myCanvas = Canvas.new(200, 200)
+
+print(myCanvas:GetSize())
 
 
---Chexcore.MountScene(myScene)
---Chexcore.UnmountScene(myScene)
-
---myScene:GetLayer(1):Emancipate()
-
-local myVec = V{0, 0, 0}
-myVec:Move(1, 2)
-print( myVec ) --> V{1, 2, 3}
+-- local myVec = V{0, 0, 0}
+-- local myVec2 = myVec:Clone(true)
+-- myVec:Adopt(myVec2)
+-- print( #myVec:Clone():GetChildren() ) --> V{1, 2, 3}
 -- local serial = [[
 --     PACKAGE { chexcore/code/misc/example } |
     
