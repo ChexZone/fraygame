@@ -2,9 +2,10 @@ local Canvas = {
     -- properties
 
     Name = "Canvas",
-    realCanvas = nil,       -- Love2D "real canvas" created in constructor
+    
 
     -- internal properties
+    _realCanvas = nil,       -- Love2D "real canvas" created in constructor
     _size = V{320, 180},    -- Vector2 positional storage (created in constructor)
     _super = "Object",      -- Supertype
     _global = true
@@ -16,7 +17,7 @@ function Canvas.new(width, height)
     local newCanvas = Canvas:SuperInstance()
 
     newCanvas._size = V{width or Canvas._size[1], height or Canvas._size[2]}
-    newCanvas.realCanvas = newRealCanvas(newCanvas._size.X, newCanvas._size.Y)
+    newCanvas._realCanvas = newRealCanvas(newCanvas._size.X, newCanvas._size.Y)
 
     return Canvas:Connect(newCanvas)
 end
@@ -36,8 +37,8 @@ end
 
 -- size setter
 function Canvas:SetSize(width, height)
-    self._width, self._height = width or self._width, height or self._height
-    self.realCanvas = newRealCanvas(self._width, self._height)
+    self._size[1], self._size[2] = width or self._size[1], height or self._size[2]
+    self._realCanvas = newRealCanvas(self._size[1], self._size[2])
 end
 
 return Canvas

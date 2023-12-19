@@ -60,6 +60,10 @@ function Vector:SetXYZ(x, y, z)
     self[2] = y or 0
     self[2] = z or 0
 end
+
+function Vector:AddAxis(init)
+    self[#self+1] = init or 0
+end
 -------------- relational operator stuff ----------------------------
 -- addition
 function Vector.__add(v1, v2)

@@ -36,8 +36,7 @@ require "chexcore"
 
 local myScene = Scene.new{Name = "Scene1"}
 myScene:AddLayer(Layer.new{Canvases = {Canvas.new(320, 180)}})
-
--- Chexcore.MountScene(myScene)
+Chexcore.MountScene(myScene)
 -- Chexcore.UnmountScene(myScene)
 
 -- myScene:GetLayer(1):Emancipate()
@@ -51,9 +50,10 @@ myScene:AddLayer(Layer.new{Canvases = {Canvas.new(320, 180)}})
 -- local child3 = child:Clone(true)
 -- print(child3:GetParent()) -- [Object] Parent
 
-local myCanvas = Canvas.new(200, 200)
-
+local myCanvas = Canvas.new()
+myCanvas:SetSize(500, 500)
 print(myCanvas:GetSize())
+
 
 
 -- local myVec = V{0, 0, 0}
