@@ -18,7 +18,7 @@ function love.draw() Chexcore.Draw() end
 
 ---------------- UPDATE LOOPS ------------------
 function Chexcore.Update(dt)
-    -- update all scenes
+    -- update all active Scenes
     for sceneid, scene in ipairs(Chexcore._scenes) do
         if scene.Active then
             scene:Update(dt)
@@ -27,7 +27,7 @@ function Chexcore.Update(dt)
 end
 
 function Chexcore.Draw()
-    -- draw all scenes
+    -- draw all visible Scenes
     for sceneid, scene in ipairs(Chexcore._scenes) do
         if scene.Visible then
             scene:Draw()
