@@ -29,7 +29,7 @@ end
 
 -- the default rendering pipeline for a Layer
 function Layer:Draw()
-    print(self.Name)
+    --print(self.Name)
 end
 
 return Layer

@@ -1,8 +1,9 @@
 local Canvas = {
     -- properties
-
     Name = "Canvas",
     
+    BlendMode = "alpha",    -- the LOVE BlendMode to apply to a Canvas when drawing it
+    AlphaMode = "alphamultiply",    -- same as above, but AlphaBlendMode
 
     -- internal properties
     _realCanvas = nil,       -- Love2D "real canvas" created in constructor
@@ -10,6 +11,8 @@ local Canvas = {
     _super = "Object",      -- Supertype
     _global = true
 }
+
+local lg = love.graphics
 
 -- constructor
 local newRealCanvas = love.graphics.newCanvas
@@ -39,6 +42,22 @@ end
 function Canvas:SetSize(width, height)
     self._size[1], self._size[2] = width or self._size[1], height or self._size[2]
     self._realCanvas = newRealCanvas(self._size[1], self._size[2])
+end
+
+
+local draw, setBlendMode, getBlendMode = cdraw, lg.setBlendMode, lg.getBlendMode
+function Canvas:DrawToScreen(...)
+    -- prepare the Canvas's render conditions
+    local mode, alphaMode = getBlendMode()
+    setBlendMode(self.BlendMode == "ignore" and mode or self.BlendMode, self.AlphaMode == "ignore" and alphaMode or self.AlphaMode)
+
+    -- render the Canvas
+    draw(self._realCanvas, ...)
+end
+
+local setCanvas = lg.setCanvas
+function Canvas:Activate()
+    setCanvas(self._realCanvas)
 end
 
 return Canvas
