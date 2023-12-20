@@ -44,8 +44,8 @@ function Scene:Draw()
     self.MasterCanvas = self.MasterCanvas or Canvas.new(windowSize.X, windowSize.Y)
 
     
+    -- test bit !!
     self.MasterCanvas:Activate()
-
     lg.setColor(1, 1, 1, 1)
     lg.rectangle("line", 0, 0, self.MasterCanvas:GetWidth(), self.MasterCanvas:GetHeight())
 
@@ -65,7 +65,7 @@ function Scene:Draw()
     self.MasterCanvas:DrawToScreen(windowSize.X/2, windowSize.Y/2, 0, pixelWidth, pixelHeight, 0.5, 0.5)
 end
 
--- the default implementation of layer combination for the Master Canvas
+-- the default implementation of layer combination for the MasterCanvas. No I/O, just apply all the Layers to Canvases
 function Scene:CombineLayers()
     
 end

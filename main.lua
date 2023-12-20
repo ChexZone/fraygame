@@ -55,7 +55,10 @@ Chexcore.MountScene(myScene)
 
 local myCanvas = Canvas.new()
 myCanvas:SetSize(500, 500)
-print(myCanvas:GetSize())
+
+print( V{1, 2, 3} )
+
+print( V{1, 2, 3}() ) -- call() the Vector to unpack values
 
 
 -- local myVec = V{0, 0, 0}

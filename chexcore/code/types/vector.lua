@@ -29,6 +29,12 @@ function Vector.__newindex(t, d, v)
 end
 
 
+-- also, Vectors can be __call()ed to unpack their data
+local unpack = unpack
+function Vector:__call()
+    return unpack(self)
+end
+
 -------------- regular methods ---------------------------------
 local ipairs, sqrt = ipairs, math.sqrt
 function Vector:Magnitude()
