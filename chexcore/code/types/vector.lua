@@ -214,6 +214,7 @@ end
 -- equality
 function Vector.__eq(v1, v2)
     if #v1 ~= #v2 then return false end
+
     for i = 1, #v1 do
         if v1[i] ~= v2[i] then return false end
     end
@@ -226,9 +227,13 @@ function Vector.__unm(v)
     return v * -1
 end
 
-local concat = table.concat
+local concat, tostring = table.concat, tostring
 function Vector:ToString()
-    return "V{" .. concat(self, ", ") .. "}"
+    local out = {}
+    for _, item in ipairs(self) do
+        out[#out+1] = tostring(item)
+    end
+    return "V{" .. concat(out, ", ") .. "}"
 end
 
 return Vector

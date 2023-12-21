@@ -34,11 +34,32 @@ require "chexcore"
 -- end
 
 
-local myScene = Scene.new{Name = "Scene1"}
+local myScene = Scene.new{MasterCanvas = Canvas.new(1920,1080)}
 myScene:AddLayer(Layer.new{Canvases = {Canvas.new(320, 180)}})
 Chexcore.MountScene(myScene)
 
 
+-- testing
+function love.update(dt)
+    Chexcore.Update(dt)
+    
+    V{math.random(255), math.random(255), math.random(255), math.random(255) ,math.random(255)}
+    --print(gcinfo())
+
+    -- local vec1 = V{ N{1}, N{2} }
+    -- local vec2 = V{ 3, 4 }
+    
+    -- print(vec1 + vec2, gcinfo())
+end
+
+local vec1 = V{ 1, 2, 3 } -- regular vector3
+local vec2 = V{ N{1}, N{2}, N{3} } -- vector3 filled with fancy fake numbers
+
+print( vec1 + vec2 ) --> V{ N{2}, N{4}, N{6} } 
+
+
+
+print(N{-5.4} - N{-5.5})
 
 -- Chexcore.UnmountScene(myScene)
 
@@ -53,12 +74,10 @@ Chexcore.MountScene(myScene)
 -- local child3 = child:Clone(true)
 -- print(child3:GetParent()) -- [Object] Parent
 
-local myCanvas = Canvas.new()
-myCanvas:SetSize(500, 500)
+-- local myCanvas = Canvas.new()
+-- myCanvas:SetSize(500, 500)
 
-print( V{1, 2, 3} )
 
-print( V{1, 2, 3}() ) -- call() the Vector to unpack values
 
 
 -- local myVec = V{0, 0, 0}

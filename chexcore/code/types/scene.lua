@@ -42,18 +42,13 @@ function Scene:Draw()
 
     -- make sure the MasterCanvas exists (lazy solution for now)
     self.MasterCanvas = self.MasterCanvas or Canvas.new(windowSize.X, windowSize.Y)
-
-    
-    -- test bit !!
-    self.MasterCanvas:Activate()
-    lg.setColor(1, 1, 1, 1)
-    lg.rectangle("line", 0, 0, self.MasterCanvas:GetWidth(), self.MasterCanvas:GetHeight())
+    local canvasSize = self.MasterCanvas:GetSize()
 
     -- render all layers to the MasterCanvas
     self:CombineLayers()
 
     -- draw the MasterCanvas
-    local canvasSize = self.MasterCanvas:GetSize()
+    
     local canvasRatio, windowRatio = canvasSize.X / canvasSize.Y, windowSize.X / windowSize.Y
     local scaleByWidth = canvasRatio > windowRatio
     local pixelWidth = scaleByWidth and windowSize.X or windowSize.Y * canvasRatio
@@ -67,7 +62,27 @@ end
 
 -- the default implementation of layer combination for the MasterCanvas. No I/O, just apply all the Layers to Canvases
 function Scene:CombineLayers()
-    
+    -- test bit !!
+    self.MasterCanvas:Activate()
+    lg.setColor(1,1,1,1)
+
+    -- collect a list of all Canvases from all Layers
+    local canvases = {}
+    for layer in self:EachChild() do
+        for _, canvas in ipairs(layer.Canvases) do
+            canvases[#canvases+1] = canvas
+        end
+    end
+
+    local masterCanvasSize = self.MasterCanvas:GetSize()
+
+    for _, canvas in ipairs(canvases) do
+        -- by default, we'll just stretch each Canvas to fit the MasterCanvas. 
+        -- maybe make this a property later ?
+        canvas:DrawToScreen(0, 0, 0, masterCanvasSize.X, masterCanvasSize.Y)
+    end
+
+
 end
 
 -- function aliases

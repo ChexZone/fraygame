@@ -18,6 +18,8 @@ local Object = {
 -- Object metatable
 local blankTables = {_children = true, _childHash = true}
 Object.__index = function(self, key)
+
+
     return rawget(Object, key) or blankTables[key] and {} or nil
 end
 

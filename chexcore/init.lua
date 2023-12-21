@@ -7,6 +7,8 @@ _G.Chexcore = {
 -- when an Object is indexed, this variable helps keep the referenced up the type chain
 _G.OBJSEARCH = nil
 
+-- set default LOVE values
+love.graphics.setDefaultFilter("nearest", "nearest", 1)
 
 -- helper functions to make life easier ~ 
 require "chexcore.code.misc.helper"
@@ -28,7 +30,7 @@ end
 
 function Chexcore.Draw()
     -- draw all visible Scenes
-    for sceneid, scene in ipairs(Chexcore._scenes) do
+    for id, scene in ipairs(Chexcore._scenes) do
         if scene.Visible then
             scene:Draw()
         end
@@ -75,12 +77,18 @@ function Chexcore:AddType(type)
     -- assume the type may not have a metatable yet
     local metatable = getmetatable(type) or {}
 
+    
+
     -- apply the supertype, if there is one
     -- Object's basic type has a special metatable, so it is ignored
+    --print(type.Name .. ": ")
+    --print(metatable)
     if type._type ~= "Object" then
-        metatable.__index = Chexcore._types[type._super]        
+        metatable.__index = Chexcore._types[type._super]
+    else
     end
-
+    
+    
 
     -- apply a reference to the supertype
     type._superReference = Chexcore._types[type._super]
@@ -93,6 +101,7 @@ function Chexcore:AddType(type)
                 -- mount the object
                 _G.OBJSEARCH = obj
             end
+            
             return Chexcore._types[type._super][key]
         end
     end
@@ -125,6 +134,7 @@ end
 -- load in some essential types
 local types = {
     "chexcore.code.types.object",
+    "chexcore.code.types.number",
     "chexcore.code.types.vector",
     "chexcore.code.types.specialObject",
     "chexcore.code.types.specialObject2",
