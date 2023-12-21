@@ -46,20 +46,26 @@ function love.update(dt)
     V{math.random(255), math.random(255), math.random(255), math.random(255) ,math.random(255)}
     --print(gcinfo())
 
-    -- local vec1 = V{ N{1}, N{2} }
-    -- local vec2 = V{ 3, 4 }
+    local vec1 = V{ N{1}, N{2} }
+    local vec2 = V{ 3, 4 }
     
-    -- print(vec1 + vec2, gcinfo())
+    --print(vec1 + vec2) --> V{N{4}, N{6}}
 end
+
+local myProp = Prop.new{Name = "Test", Position = V{5, 0}}
+
+myProp.Position = myProp.Position + V{ 5 ,10 }
+print(myProp.Size)
+
 
 --print( vec1 + vec2 ) --> V{ N{2}, N{4}, N{6} } 
 
 --print(N{-5.4} - N{-5.5})
 
-local specialNum = N{5.5}
-local realNum = 5.5
-print( specialNum == realNum ) --> false; can't do this!!
-print( specialNum() == realNum) --> true
+-- local specialNum = N{5.5}
+-- local realNum = 5.5
+-- print( specialNum == realNum ) --> false; can't do this!!
+-- print( specialNum() == realNum) --> true
 
 -- Chexcore.UnmountScene(myScene)
 

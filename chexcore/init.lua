@@ -59,17 +59,19 @@ function Chexcore:AddType(type)
         end
     end
 
+    type._standardConstructor = function (properties)
+        local obj = type:SuperInstance()
+        if properties then
+            for prop, val in pairs(properties) do
+                obj[prop] = val
+            end
+        end
+        return type:Connect(obj)
+    end
+
     -- apply a basic constructor if one is not present
     if not (type._abstract or type.new) then
-        type.new = function (properties)
-            local obj = type:SuperInstance()
-            if properties then
-                for prop, val in pairs(properties) do
-                    obj[prop] = val
-                end
-            end
-            return type:Connect(obj)
-        end
+        type.new = type._standardConstructor
     elseif type._abstract then
         type.new = false
     end
@@ -136,6 +138,7 @@ local types = {
     "chexcore.code.types.object",
     "chexcore.code.types.number",
     "chexcore.code.types.vector",
+    "chexcore.code.types.prop",
     "chexcore.code.types.specialObject",
     "chexcore.code.types.specialObject2",
     "chexcore.code.types.sampleObject",
