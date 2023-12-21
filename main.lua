@@ -52,14 +52,14 @@ function love.update(dt)
     -- print(vec1 + vec2, gcinfo())
 end
 
-local vec1 = V{ 1, 2, 3 } -- regular vector3
-local vec2 = V{ N{1}, N{2}, N{3} } -- vector3 filled with fancy fake numbers
+--print( vec1 + vec2 ) --> V{ N{2}, N{4}, N{6} } 
 
-print( vec1 + vec2 ) --> V{ N{2}, N{4}, N{6} } 
+--print(N{-5.4} - N{-5.5})
 
-
-
-print(N{-5.4} - N{-5.5})
+local specialNum = N{5.5}
+local realNum = 5.5
+print( specialNum == realNum ) --> false; can't do this!!
+print( specialNum() == realNum) --> true
 
 -- Chexcore.UnmountScene(myScene)
 

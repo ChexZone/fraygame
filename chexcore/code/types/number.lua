@@ -31,6 +31,11 @@ function Number.__index(t, d)
     return rg(Number, d) or Number.__index2(t, d)
 end
 
+-- casts the Number back to a lua number
+function Number:__call()
+    return self[1] + self[2]
+end
+
 function Number.new(parts)
     init(parts)
     local newNum = smt(parts, Number)
