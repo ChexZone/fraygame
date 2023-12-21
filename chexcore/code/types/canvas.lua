@@ -6,9 +6,9 @@ local Canvas = {
     AlphaMode = "alphamultiply",    -- same as above, but AlphaBlendMode
 
     -- internal properties
-    _realCanvas = nil,       -- Love2D "real canvas" created in constructor
+    _drawable = nil,       -- Love2D "real canvas" created in constructor
     _size = V{320, 180},    -- Vector2 positional storage (created in constructor)
-    _super = "Object",      -- Supertype
+    _super = "Texture",      -- Supertype
     _global = true
 }
 
@@ -20,7 +20,7 @@ function Canvas.new(width, height)
     local newCanvas = Canvas:SuperInstance()
 
     newCanvas._size = V{width or Canvas._size[1], height or Canvas._size[2]}
-    newCanvas._realCanvas = newRealCanvas(newCanvas._size.X, newCanvas._size.Y)
+    newCanvas._drawable = newRealCanvas(newCanvas._size.X, newCanvas._size.Y)
 
     return Canvas:Connect(newCanvas)
 end
@@ -41,7 +41,7 @@ end
 -- size setter
 function Canvas:SetSize(width, height)
     self._size[1], self._size[2] = width or self._size[1], height or self._size[2]
-    self._realCanvas = newRealCanvas(self._size[1], self._size[2])
+    self._drawable = newRealCanvas(self._size[1], self._size[2])
 end
 
 
@@ -52,12 +52,12 @@ function Canvas:DrawToScreen(...)
     setBlendMode(self.BlendMode == "ignore" and mode or self.BlendMode, self.AlphaMode == "ignore" and alphaMode or self.AlphaMode)
 
     -- render the Canvas
-    draw(self._realCanvas, ...)
+    draw(self._drawable, ...)
 end
 
 local setCanvas = lg.setCanvas
 function Canvas:Activate()
-    setCanvas(self._realCanvas)
+    setCanvas(self._drawable)
 end
 
 return Canvas

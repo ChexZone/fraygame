@@ -20,7 +20,7 @@ setmetatable(Vector, {
     end
 })
 -- custom indexing to react to X, Y, Z
-local map, rg, rs, OBJ = {X = 1, Y = 2, Z = 3}, rawget, rawset, Object
+local map, rg, rs, OBJ = {X = 1, Y = 2, Z = 3, A = 4}, rawget, rawset, Object
 function Vector.__index(t, d)
     return rg(t, map[d]) or rg(Vector, d) or Vector.__index2(t, d)
 end

@@ -35,8 +35,15 @@ require "chexcore"
 
 
 local myScene = Scene.new{MasterCanvas = Canvas.new(1920,1080)}
-myScene:AddLayer(Layer.new{Canvases = {Canvas.new(320, 180)}})
+myScene:AddLayer(Layer.new{Canvases = {Canvas.new(320*2, 180*2)}})
 Chexcore.MountScene(myScene)
+
+local testProp = Prop.new{Size = V{64, 64}, AnchorPoint = V{0.5, 0.5}}
+
+myScene:GetLayer(1):Adopt(testProp)
+
+
+print(testProp.Texture:GetSize())
 
 
 -- testing
@@ -49,13 +56,11 @@ function love.update(dt)
     local vec1 = V{ N{1}, N{2} }
     local vec2 = V{ 3, 4 }
     
+    testProp.Position = testProp.Position + V{ 0.05, 0.055 }
+    testProp.Rotation = testProp.Rotation + 0.1
+
     --print(vec1 + vec2) --> V{N{4}, N{6}}
 end
-
-local myProp = Prop.new{Name = "Test", Position = V{5, 0}}
-
-myProp.Position = myProp.Position + V{ 5 ,10 }
-print(myProp.Size)
 
 
 --print( vec1 + vec2 ) --> V{ N{2}, N{4}, N{6} } 

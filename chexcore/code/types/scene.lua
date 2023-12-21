@@ -64,6 +64,7 @@ end
 function Scene:CombineLayers()
     -- test bit !!
     self.MasterCanvas:Activate()
+    lg.clear()
     lg.setColor(1,1,1,1)
 
     -- collect a list of all Canvases from all Layers

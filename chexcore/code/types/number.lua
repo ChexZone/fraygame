@@ -12,11 +12,6 @@ local function init(n)
     n[1], n[2] = int + overflow, (n[2] or 0) % 1 + n[1] % 1
     --print(int, overflow)
 end
-local function update(n)
-    local overflow = floor(n[2] or 0)
-    n[1], n[2] = n[1] + overflow, n[2] % 1
-end
-
 
 local smt = setmetatable
 smt(Number, {

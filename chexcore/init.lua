@@ -138,6 +138,7 @@ local types = {
     "chexcore.code.types.object",
     "chexcore.code.types.number",
     "chexcore.code.types.vector",
+    "chexcore.code.types.texture",
     "chexcore.code.types.prop",
     "chexcore.code.types.specialObject",
     "chexcore.code.types.specialObject2",
