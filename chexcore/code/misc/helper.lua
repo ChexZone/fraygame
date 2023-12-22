@@ -540,6 +540,7 @@ function _G.filteredListIterator(self, arg1, arg2)
         end
     elseif arg2 ~= nil then
         -- filteredListIterator( property, value )
+        
         local i = 0
         return function()
             while STOP - i > 0 do

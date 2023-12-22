@@ -32,11 +32,14 @@ end
 -- the default rendering pipeline for a Scene
 local lg = love.graphics
 function Scene:Draw()
+    
     -- go through all the Layers uh... think about it chex !!
     for layer in self:EachChild() do
+        
         layer:Draw()
+        
     end
-
+    
     -- we use this later
     local windowSize = V{lg.getDimensions()}
 
@@ -48,7 +51,7 @@ function Scene:Draw()
     self:CombineLayers()
 
     -- draw the MasterCanvas
-    
+   
     local canvasRatio, windowRatio = canvasSize.X / canvasSize.Y, windowSize.X / windowSize.Y
     local scaleByWidth = canvasRatio > windowRatio
     local pixelWidth = scaleByWidth and windowSize.X or windowSize.Y * canvasRatio
@@ -58,6 +61,7 @@ function Scene:Draw()
     lg.setCanvas()
     lg.setColor(1,1,1,1)
     self.MasterCanvas:DrawToScreen(windowSize.X/2, windowSize.Y/2, 0, pixelWidth, pixelHeight, 0.5, 0.5)
+
 end
 
 -- the default implementation of layer combination for the MasterCanvas. No I/O, just apply all the Layers to Canvases

@@ -1,5 +1,39 @@
 require "chexcore"
 
+-- some of the constructors are still somewhat manual but they'll get cleaned up !
+
+-- Scenes contain all the components of the game
+local scene = Scene.new{ MasterCanvas = Canvas.new(1920, 1080) }
+
+-- Scenes have a list of Layers, which each hold their own Props
+scene:AddLayer(Layer.new{
+    Name = "Gameplay",
+    Canvases = { Canvas.new(320, 180) }     -- pixel gameplay layer @ 320x180p
+})
+
+scene:AddLayer(Layer.new{
+    Name = "GUI",
+    Canvases = { Canvas.new(1920, 1080) }  -- hd gui layer @ 1920x1080p
+})
+
+scene:GetLayer("Gameplay"):Adopt(Prop.new{
+    Position = V{ 320, 180 } / 2,   -- V stands for Vector
+    Size = V{ 64, 64 },
+    AnchorPoint = V{ 0.5, 0.5 },
+    Texture = Texture.new("chexcore/assets/images/diamond.png")
+})
+
+-- mounting a Scene makes it automatically update/draw
+Chexcore.MountScene(scene)
+
+function love.update(dt)
+    Chexcore.Update(dt)
+
+    local p = scene:GetLayer("Gameplay"):GetChild("Prop")   -- easy to navigate hierarchy
+    p.Rotation = p.Rotation + 0.01  -- slowly rotate,,
+end
+
+
 -- local ParentCat = Cat.new{Name = "ParentCat"}
 -- ParentCat:Adopt(Cat.new{Name = "ChildCat1", Val = 125})
 -- ParentCat:Adopt(Cat.new{Name = "ChildCat2", SomeThing = true, Val = 75})
@@ -33,9 +67,11 @@ require "chexcore"
 --     print(child.Name, child.Val)
 -- end
 
-
+--[[
 local myScene = Scene.new{MasterCanvas = Canvas.new(1920,1080)}
-myScene:AddLayer(Layer.new{Canvases = {Canvas.new(320*2, 180*2)}})
+myScene:AddLayer(Layer.new{Canvases = {Canvas.new(320*2, 180*2)}, Name = "Layer1"})
+myScene:AddLayer(Layer.new{Canvases = {Canvas.new(1920, 1080)}, Name = "Layer2"})
+
 Chexcore.MountScene(myScene)
 
 local testProp = Prop.new{Size = V{64, 64}, AnchorPoint = V{0.5, 0.5}}
@@ -57,11 +93,16 @@ function love.update(dt)
     local vec2 = V{ 3, 4 }
     
     testProp.Position = testProp.Position + V{ 0.05, 0.055 }
-    testProp.Rotation = testProp.Rotation + 0.1
-
+    testProp.Rotation = testProp.Rotation + 0.01
     --print(vec1 + vec2) --> V{N{4}, N{6}}
+    print(#myScene._children)
 end
 
+function love.draw()
+    Chexcore.Draw()
+    
+end
+]]
 
 --print( vec1 + vec2 ) --> V{ N{2}, N{4}, N{6} } 
 

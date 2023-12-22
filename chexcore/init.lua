@@ -35,6 +35,7 @@ function Chexcore.Draw()
             scene:Draw()
         end
     end
+
 end
 ------------------------------------------------
 
@@ -87,16 +88,14 @@ function Chexcore:AddType(type)
     --print(metatable)
     if type._type ~= "Object" then
         metatable.__index = Chexcore._types[type._super]
-    else
     end
     
-    
-
     -- apply a reference to the supertype
     type._superReference = Chexcore._types[type._super]
 
     type.__index2 = function(obj, key)
         if rawget(type, key) then
+            _G.OBJSEARCH = nil
             return rawget(type, key)
         else
             if not _G.OBJSEARCH then

@@ -33,6 +33,8 @@ end
 -- the default rendering pipeline for a Layer
 local lg = love.graphics
 function Layer:Draw()
+
+
     -- default implementation is to draw all children to Canvases[1]
     self.Canvases[1]:Activate()
     lg.clear()
@@ -50,12 +52,12 @@ function Layer:Draw()
 
     -- real bit
 
-
-
     -- loop through each Visible child
     for child in self:EachChild("Visible", true) do
+        
         child:Draw()
     end
+
 end
 
 return Layer

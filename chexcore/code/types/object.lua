@@ -18,14 +18,14 @@ local Object = {
 -- Object metatable
 local blankTables = {_children = true, _childHash = true}
 Object.__index = function(self, key)
-
+    
 
     return rawget(Object, key) or blankTables[key] and {} or nil
 end
 
 setmetatable(Object, {
     __index = function(self, key)
-        
+
         if blankTables[key] and _G.OBJSEARCH then
             -- print("Objectifying " .. key .. " for " .. tostring(_G.OBJSEARCH.Name))
             
@@ -264,6 +264,7 @@ end
 local filter = filteredList
 local type2 = type
 function Object:GetChildren(arg1, arg2)
+    local s = self._children -- just to be damn safe
     if not arg2 and type2(arg1) == "string" then
         return filter(self._children, "Name", arg1)
     end
@@ -281,9 +282,14 @@ end
 ]]
 local iterFilter = filteredListIterator
 function Object:EachChild(arg1, arg2)
+
+    -- OK what the hell about that line above. The reason this line is here
+    -- is because the child table just, fucking, disappears??? if it is not
+    -- observed. i have no idea what this is or what terrible omens it carries
     if not arg2 and type2(arg1) == "string" then
         return iterFilter(self._children, "Name", arg1)
     end
+    
     return iterFilter(self._children, arg1, arg2)
 end
 
