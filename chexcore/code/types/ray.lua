@@ -48,15 +48,13 @@ function Ray:Draw(container, ignore)
 end
 
 local rm, floor = table.remove, math.floor
-local HUGE, THRESHOLD, MAX_PASSES = math.huge, 0.3, 500
+local HUGE, THRESHOLD, MAX_PASSES = math.huge, .5, 500
 function Ray:Hits(containerObject, ignore, visualize)
     -- containerObject holds the object whose children we are going to iterate through
     -- ignore is ignore list or ignore function
     local angleVector = Vector.FromAngle(self.Angle)
     local movingVector = self.Position + 0
     local searchList = containerObject:GetChildren("Solid", true)
-    local distTracker = {}
-    local skip = {}
     local bestMatch
     local distMoved = 0
 
@@ -77,7 +75,6 @@ function Ray:Hits(containerObject, ignore, visualize)
     while(#searchList > 0 and pass < MAX_PASSES) do
         pass = pass + 1
         stepSize = HUGE
-        local i = 1
         for _, solid in ipairs(searchList) do
             if not ignore(solid) then
                 local dist = solid:DistanceFromPoint(movingVector)
@@ -86,7 +83,6 @@ function Ray:Hits(containerObject, ignore, visualize)
                     bestMatch = solid
                 end
             end
-            i = i + 1
         end
 
         if visualize then

@@ -59,6 +59,14 @@ function Vector:Filter(filter, ...)
     return nv
 end
 
+function Vector:Normalize()
+    return self / self:Magnitude()
+end
+
+function Vector:ToAngle()
+    return math.atan2(self[1], self[2])
+end
+
 function Vector:MoveXY(x, y)
     self[1] = self[1] + (x or 0)
     self[2] = self[2] + (y or 0)
