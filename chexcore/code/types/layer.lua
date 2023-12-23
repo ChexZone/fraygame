@@ -48,13 +48,14 @@ function Layer:Draw()
         --     lg.points(i, i, i, self.Canvases[j]:GetHeight() - i, self.Canvases[j]:GetWidth() - i, self.Canvases[j]:GetHeight() - i, self.Canvases[j]:GetWidth() - i, i)
         -- end
     end
+    
+
     -- end the test bit !!
 
     -- real bit
 
     -- loop through each Visible child
     for child in self:EachChild("Visible", true) do
-        
         child:Draw()
     end
 

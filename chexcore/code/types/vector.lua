@@ -36,13 +36,27 @@ function Vector:__call()
 end
 
 -------------- regular methods ---------------------------------
-local ipairs, sqrt = ipairs, math.sqrt
+local sin, cos =  math.sin, math.cos
+function Vector.FromAngle(rad)
+    return Vector{ cos(rad), sin(rad) }
+end
+
+local sqrt = math.sqrt
 function Vector:Magnitude()
     local s = 0
     for _, v in ipairs(self) do
         s = s + v^2
     end
     return sqrt(s)
+end
+
+local ipairs = ipairs
+function Vector:Filter(filter, ...)
+    local nv = Vector{}
+    for i = 1, #self do
+        nv[i] = filter(self[i], ...)
+    end
+    return nv
 end
 
 function Vector:MoveXY(x, y)

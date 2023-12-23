@@ -673,3 +673,21 @@ _G.cdraw2 = function(drawable, x, y, r, sx, sy, ox, oy, kx, ky, ignoreSnap)
         kx, ky
     )
 end
+
+local max, abs, drawPoints = math.max, math.abs, love.graphics.points
+function _G.cdrawline(x1, y1, x2, y2, length, offset)
+    length = length or -1
+    offset = offset or 0
+    local points = {}
+
+    local dx, dy = x2 - x1, y2 - y1
+    local len = max(abs(dx), abs(dy))
+
+    for i = 0, len do -- including first and last points
+        if (offset-i) % (length*2) < length or length == -1 then
+            points[#points+1] = x1 + dx * i/len
+            points[#points+1] = y1 + dy * i/len
+        end
+    end
+    drawPoints(points)
+  end

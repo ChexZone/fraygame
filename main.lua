@@ -16,21 +16,58 @@ scene:AddLayer(Layer.new{
     Canvases = { Canvas.new(1920, 1080) }  -- hd gui layer @ 1920x1080p
 })
 
+-- test collidable
 scene:GetLayer("Gameplay"):Adopt(Prop.new{
+    Name = "Crate",
     Position = V{ 320, 180 } / 2,   -- V stands for Vector
     Size = V{ 64, 64 },
     AnchorPoint = V{ 0.5, 0.5 },
-    Texture = Texture.new("chexcore/assets/images/diamond.png")
+    Solid = true,
+    Texture = Texture.new("chexcore/assets/images/crate.png")
 })
+
+for i = 1, 500 do
+scene:GetLayer("Gameplay"):Adopt(Prop.new{
+    Name = "Crate2",
+    Position = V{ 320 / 8, 180 } / 2*(math.random() * 50) + V{250, 0},   -- V stands for Vector
+    Size = V{ 64, 64 },
+    AnchorPoint = V{ 0.5, 0.5 },
+    Solid = true,
+    Texture = Texture.new("chexcore/assets/images/crate.png")
+})
+end
+
+-- ray origin
+scene:GetLayer("Gameplay"):Adopt(Prop.new{
+    Name = "RayOrigin",
+    Position = scene:GetLayer("Gameplay"):GetChild("Crate").Position - V{64, 64},
+    Size = V{ 8, 8 },
+    AnchorPoint = V{ 0.5, 0.5 },
+    Rotation = math.rad(0),
+    Texture = Texture.new("chexcore/assets/images/arrow-right.png")
+})
+
+scene:GetLayer("Gameplay"):GetChild("RayOrigin").Draw = function(self)
+    love.graphics.setColor(self.Color)
+    --self.Texture:DrawToScreen(self.Position[1], self.Position[2], self.Rotation, self.Size[1], self.Size[2], self.AnchorPoint[1], self.AnchorPoint[2])
+    for i = 1, 150 do
+        local testRay = Ray.new(self.Position + V{0, Chexcore._clock*5 - 10}, Chexcore._clock/4 * i, 500)
+        testRay:Draw(scene:GetLayer("Gameplay"))
+        --local _, hitPos = testRay:Hits(scene:GetLayer("Gameplay"))
+        --print(hitPos)
+
+    end
+    --self._parent._children[1].Rotation = self._parent._children[1].Rotation + 0.001
+end
 
 -- mounting a Scene makes it automatically update/draw
 Chexcore.MountScene(scene)
 
 function love.update(dt)
     Chexcore.Update(dt)
-
-    local p = scene:GetLayer("Gameplay"):GetChild("Prop")   -- easy to navigate hierarchy
-    p.Rotation = p.Rotation + 0.01  -- slowly rotate,,
+    print(1/dt)
+    local p = scene:GetLayer("Gameplay"):GetChild("Crate")   -- easy to navigate hierarchy
+    --p.Rotation = p.Rotation + 0.01  -- slowly rotate,,
 end
 
 

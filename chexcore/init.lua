@@ -1,5 +1,7 @@
 _G.Chexcore = {
     -- internal properties
+    _clock = 0,             -- keeps track of total game run time
+
     _types = {},            -- stores all type references
     _scenes = {}            -- stores all mounted Scene references
 }
@@ -20,6 +22,7 @@ function love.draw() Chexcore.Draw() end
 
 ---------------- UPDATE LOOPS ------------------
 function Chexcore.Update(dt)
+    Chexcore._clock = Chexcore._clock + dt
     -- update all active Scenes
     for sceneid, scene in ipairs(Chexcore._scenes) do
         if scene.Active then
@@ -137,6 +140,7 @@ local types = {
     "chexcore.code.types.object",
     "chexcore.code.types.number",
     "chexcore.code.types.vector",
+    "chexcore.code.types.ray",
     "chexcore.code.types.texture",
     "chexcore.code.types.prop",
     "chexcore.code.types.specialObject",
