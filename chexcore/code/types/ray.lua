@@ -79,7 +79,7 @@ function Ray:Hits(containerObject, ignore, visualize)
         stepSize = HUGE
         local i = 1
         for _, solid in ipairs(searchList) do
-            if not skip[solid] then
+            if not ignore(solid) then
                 local dist = solid:DistanceFromPoint(movingVector)
                 if dist < stepSize then
                     stepSize = dist
