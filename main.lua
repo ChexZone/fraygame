@@ -1,71 +1,5 @@
 require "chexcore"
 
--- -- some of the constructors are still somewhat manual but they'll get cleaned up !
-
--- -- Scenes contain all the components of the game
--- local scene = Scene.new{ MasterCanvas = Canvas.new(1920, 1080) }
-
--- -- Scenes have a list of Layers, which each hold their own Props
--- scene:AddLayer(Layer.new{
---     Name = "Gameplay",
---     Canvases = { Canvas.new(320, 180) }     -- pixel gameplay layer @ 320x180p
--- })
-
--- scene:AddLayer(Layer.new{
---     Name = "GUI",
---     Canvases = { Canvas.new(1920, 1080) }  -- hd gui layer @ 1920x1080p
--- })
-
--- -- test collidable
--- scene:GetLayer("Gameplay"):Adopt(Prop.new{
---     Name = "Crate",
---     Position = V{ 320, 280 } / 2,   -- V stands for Vector
---     Size = V{ 64, 64 },
---     AnchorPoint = V{ 0.5, 0.5 },
---     Rotation = 0.1,
---     Solid = true,
---     Texture = Texture.new("chexcore/assets/images/crate.png"),
---     Update = function (self, dt)
---         self.Rotation = self.Rotation + 0.0025
---     end
--- })
-
--- scene:GetLayer("Gameplay"):Adopt(Prop.new{
---     Name = "BabyCrate",
---     Position = V{ 250, 80 } / 2,   -- V stands for Vector
---     Size = V{ 16, 16 },
---     Color = V{ 1, 0, 1, 1 },
---     AnchorPoint = V{ 0.5, 0.5 },
---     Velocity = V{ 0.5, -1 },
---     Acceleration = V{ 0, 0.05 },
---     Solid = true,
---     Texture = Texture.new("chexcore/assets/images/crate.png"),
---     Draw = function(self)
---         Prop.Draw(self)
-
---         -- caveman physics
---         self.Position = self.Position + self.Velocity / 144 * 20
---         self.Velocity = self.Velocity + self.Acceleration / 144 * 20
-
---         -- create a Ray facing down from the center of the object
---         local collisionRay = Ray.new(self.Position, math.rad(90), self.Size.Y/2)
---         -- cast the Ray to see if it hits anything
---         local hit, vec = collisionRay:Hits(scene:GetLayer("Gameplay"), {self})
-
---         if hit then
---             self.Velocity.Y = 0
---             self.Velocity.X = self.Velocity.X * 0.99
---             -- use the hit vector to un-clip 
---             self.Position.Y = vec.Y - self.Size.Y/2 - 1
---         else
-            
---         end
---         collisionRay:Draw(scene:GetLayer("Gameplay"), {self}) -- for fun
---     end
--- })
-
--- Chexcore.MountScene(scene)
-
 -- some of the constructors are still somewhat manual but they'll get cleaned up !
 
 -- Scenes contain all the components of the game
@@ -85,64 +19,152 @@ scene:AddLayer(Layer.new{
 -- test collidable
 scene:GetLayer("Gameplay"):Adopt(Prop.new{
     Name = "Crate",
-    Position = V{ 320, 180 } / 2,   -- V stands for Vector
+    Position = V{ 320, 220 } / 2,   -- V stands for Vector
     Size = V{ 64, 64 },
-    AnchorPoint = V{ 0.25, 0.75 },
+    AnchorPoint = V{ 0.5, 0.5 },
+    Rotation = 0,
     Solid = true,
     Texture = Texture.new("chexcore/assets/images/crate.png"),
-    Update = function (self, dt)
-        self.Rotation = self.Rotation + 0.0025
-    end
 })
 
-for i = 1, 500 do
 scene:GetLayer("Gameplay"):Adopt(Prop.new{
-    Name = "Crate2",
-    Rotation = math.random(),
-    Position = V{ 320 / 8, 180 } / 2*(math.random() * 50) + V{250, 0},   -- V stands for Vector
-    Size = V{ 64, 64 },
-    RotVelocity = math.random(),
-    AnchorPoint = V{ 0.5, 0.5 },
+    Name = "BabyCrate",
+    Position = V{ 250, 80 } / 2,   -- V stands for Vector
+    Size = V{ 16, 16 },
+    Color = V{ 1, 0, 1, 1 },
+    AnchorPoint = V{ 0.75, 0.25 },
+    Velocity = V{ 1.25, 0 },
+    Acceleration = V{ 0, 0.05 },
     Solid = true,
     Texture = Texture.new("chexcore/assets/images/crate.png"),
+    Draw = function(self)
+        Prop.Draw(self)
+        --self.Rotation = self.Rotation + 0.01
+        -- caveman physics
+        self.Position = self.Position + self.Velocity / 144 * 20
+        self.Velocity = self.Velocity + self.Acceleration / 144 * 20
+
+
+
+        -- -- create a Ray facing down from the center of the object
+        -- local collisionRay = Ray.new(self.Position, math.rad(90) + self.Rotation, self.Size.Y/2)
+        -- -- cast the Ray to see if it hits anything
+        -- local hit, vec = collisionRay:Hits(scene:GetLayer("Gameplay"):GetChildren(), {self})
+
+        -- if hit then
+        --     self.Velocity.Y = 0
+        --     self.Velocity.X = self.Velocity.X * 0.99
+        --     -- use the hit vector to un-clip 
+        --     self.Position.Y = vec.Y - self.Size.Y/2 - 1
+        -- else
+            
+        -- end
+        -- collisionRay:Draw(scene:GetLayer("Gameplay"):GetChildren(), {self}) -- for fun
+    end,
     Update = function (self, dt)
-        self.Rotation = self.Rotation + self.RotVelocity*0.01
+        for solid, hDist, vDist in self:CollisionPass() do
+
+            -- or you could do it this way
+            local hFace, vFace = Prop.GetHitFaces(hDist, vDist) -- "left/top", "right/bottom", "inside", "outside"
+            if vFace == "top" then
+                self.Velocity.Y = 0
+                --self:SetBottomEdge(solid:GetTopEdge())
+                self:SetBottomEdge(solid:GetTopEdge())
+            end
+        end
     end
 })
-end
 
--- ray origin
-scene:GetLayer("Gameplay"):Adopt(Prop.new{
-    Name = "RayOrigin",
-    Position = scene:GetLayer("Gameplay"):GetChild("Crate").Position - V{128, 64},
-    Size = V{ 8, 8 },
-    AnchorPoint = V{ 0.5, 0.5 },
-    Rotation = math.rad(0),
-    Texture = Texture.new("chexcore/assets/images/arrow-right.png")
-})
-
-scene:GetLayer("Gameplay"):GetChild("RayOrigin").Draw = function(self)
-    love.graphics.setColor(self.Color)
-    --self.Texture:DrawToScreen(self.Position[1], self.Position[2], self.Rotation, self.Size[1], self.Size[2], self.AnchorPoint[1], self.AnchorPoint[2])
-    for i = 1, 30 do
-        local testRay = Ray.new(self.Position + V{0, Chexcore._clock*5 - 10}, Chexcore._clock/4 * i/2 - i*2, 500)
-        testRay:Draw(scene:GetLayer("Gameplay"))
-        --local _, hitPos = testRay:Hits(scene:GetLayer("Gameplay"))
-        --print(hitPos)
-
-    end
-    --self._parent._children[1].Rotation = self._parent._children[1].Rotation + 0.001
-end
-
--- mounting a Scene makes it automatically update/draw
 Chexcore.MountScene(scene)
 
-function love.update(dt)
-    Chexcore.Update(dt)
-    --print(1/dt)
-    local p = scene:GetLayer("Gameplay"):GetChild("Crate")   -- easy to navigate hierarchy
-    --p.Rotation = p.Rotation + 0.01  -- slowly rotate,,
-end
+-- -- some of the constructors are still somewhat manual but they'll get cleaned up !
+
+-- -- Scenes contain all the components of the game
+-- local scene = Scene.new{ MasterCanvas = Canvas.new(1920, 1080) }
+
+-- -- Scenes have a list of Layers, which each hold their own Props
+-- scene:AddLayer(Layer.new{
+--     Name = "Gameplay",
+--     Canvases = { Canvas.new(320, 180) }     -- pixel gameplay layer @ 320x180p
+-- })
+
+-- scene:AddLayer(Layer.new{
+--     Name = "GUI",
+--     Canvases = { Canvas.new(1920, 1080) }  -- hd gui layer @ 1920x1080p
+-- })
+
+-- -- test collidable
+-- scene:GetLayer("Gameplay"):Adopt(Prop.new{
+--     Name = "Crate",
+--     Position = V{ 320, 180 } / 2,   -- V stands for Vector
+--     Size = V{ 64, 64 },
+--     AnchorPoint = V{ 0.5, 1 },
+--     Rotation = 2,
+--     Solid = true,
+--     Texture = Texture.new("chexcore/assets/images/crate.png"),
+--     Update = function (self, dt)
+--         self.Rotation = self.Rotation + 0.0025
+--     end,
+--     Draw = function (self)
+--         Prop.Draw(self)
+--         Ray.new(self.Position, self.Rotation + math.rad(90), self.Size.Y * -self.AnchorPoint.Y):Draw()
+--     end
+-- })
+
+-- for i = 1, 20000 do
+-- scene:GetLayer("Gameplay"):Adopt(Prop.new{
+--     Name = "Crate2",
+--     --Rotation = math.random(),
+--     Position = V{ 320 / 8, 180 } / 2*(math.random() * 50) + V{250, 0},   -- V stands for Vector
+--     Size = V{ 64, 64 },
+--     RotVelocity = math.random() - 0.5,
+--     AnchorPoint = V{ 0.5, 0.5 },
+--     Solid = true,
+--     Texture = Texture.new("chexcore/assets/images/crate.png"),
+--     Update = function (self, dt)
+--     self.Rotation = self.Rotation + self.RotVelocity*0.02
+--     end,
+--     Draw = function ()
+        
+--     end
+-- })
+-- end
+
+-- -- ray origin
+-- scene:GetLayer("Gameplay"):Adopt(Prop.new{
+--     Name = "RayOrigin",
+--     Position = scene:GetLayer("Gameplay"):GetChild("Crate").Position - V{128, 64},
+--     Size = V{ 8, 8 },
+--     AnchorPoint = V{ 0.5, 0.5 },
+--     Rotation = math.rad(0),
+--     Texture = Texture.new("chexcore/assets/images/arrow-right.png")
+-- })
+
+-- scene:GetLayer("Gameplay"):GetChild("RayOrigin").Draw = function(self)
+--     love.graphics.setColor(self.Color)
+--     self.Texture:DrawToScreen(self.Position[1], self.Position[2], self.Rotation, self.Size[1], self.Size[2], self.AnchorPoint[1], self.AnchorPoint[2])
+--     for i = 1, 100 do
+--         local testRay = Ray.new(self.Position + V{0, Chexcore._clock*5 - 10}, Chexcore._clock/4 * i/2 - i*2, 128)
+--         testRay:Draw(scene:GetLayer("Gameplay"))
+--         --local _, hitPos = testRay:Hits(scene:GetLayer("Gameplay"))
+--         --print(hitPos)
+
+--     end
+--     --self._parent._children[1].Rotation = self._parent._children[1].Rotation + 0.001
+-- end
+
+-- -- mounting a Scene makes it automatically update/draw
+-- Chexcore.MountScene(scene)
+
+
+
+
+-- function love.update(dt)
+--     Chexcore.Update(dt)
+--     --print(1/dt)
+--     local p = scene:GetLayer("Gameplay"):GetChild("Crate")   -- easy to navigate hierarchy
+--     --p.Rotation = p.Rotation + 0.01  -- slowly rotate,,
+-- end
 
 
 

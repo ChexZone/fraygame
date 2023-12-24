@@ -19,7 +19,7 @@ local smt = setmetatable
 function Ray.new(origin, direction, length)
     local newRay = smt({
         Angle = direction,
-        Position = origin,
+        Position = origin:Clone(),
         Length = length
     }, Ray)
 
@@ -33,18 +33,25 @@ function Ray:Draw(container, ignore)
     originTexture:DrawToScreen(self.Position[1], self.Position[2], self.Angle, 8, 8, .5, .5)
     local ux, uy = math.cos(self.Angle), math.sin(self.Angle)
     local ex, ey = self.Position.X + ux*self.Length, self.Position.Y + uy*self.Length
-    cdrawline(self.Position.X, self.Position.Y, ex, ey, 2, 0)
-
+    local _, hitPos
     if container then
-        local _, hitPos = self:Hits(container, ignore, true)
-        if hitPos then
-            love.graphics.setColor(1,0,0)
-            love.graphics.circle("fill", hitPos.X, hitPos.Y, 2)
-        end
+        _, hitPos = self:Hits(container, ignore, true)
+
+    end
+    love.graphics.setColor(1,1,1,1)
+
+    if hitPos then
+        cdrawline(self.Position.X, self.Position.Y, hitPos.X, hitPos.Y, 2, 0)
+
+        love.graphics.setColor(1,0,0)
+        love.graphics.circle("fill", hitPos.X, hitPos.Y, 2)
+    else
+        cdrawline(self.Position.X, self.Position.Y, ex, ey, 2, 0)
+
+        love.graphics.setColor(1,1,1,0.5)
+        love.graphics.circle("line", self.Position.X, self.Position.Y, self.Length)
     end
 
-    love.graphics.setColor(1,1,1,0.5)
-    love.graphics.circle("line", self.Position.X, self.Position.Y, self.Length)
 end
 
 local rm, floor = table.remove, math.floor
@@ -54,7 +61,7 @@ function Ray:Hits(containerObject, ignore, visualize)
     -- ignore is ignore list or ignore function
     local angleVector = Vector.FromAngle(self.Angle)
     local movingVector = self.Position + 0
-    local searchList = containerObject:GetChildren("Solid", true)
+    local searchList = containerObject._type and containerObject:GetChildren("Solid", true) or containerObject
     local bestMatch
     local distMoved = 0
 
@@ -87,11 +94,11 @@ function Ray:Hits(containerObject, ignore, visualize)
 
         if visualize then
             love.graphics.setColor(1,1,1,0.5)
-            love.graphics.circle("line", movingVector.X, movingVector.Y, stepSize)
+            love.graphics.circle("line", movingVector[1], movingVector[2], stepSize)
             movingVector[1] = movingVector[1] + angleVector[1] * stepSize
             movingVector[2] = movingVector[2] + angleVector[2] * stepSize
             love.graphics.setColor(0.5,0.5,1,1)
-            love.graphics.circle("line", movingVector.X, movingVector.Y, 2)
+            love.graphics.circle("line", movingVector[1], movingVector[2], 2)
         else
             movingVector[1] = movingVector[1] + angleVector[1] * stepSize
             movingVector[2] = movingVector[2] + angleVector[2] * stepSize
