@@ -12,6 +12,7 @@ local Prop = {
     Visible = true,         -- whether or not the Prop's :Draw() method is called
     Active = true,          -- whether or not the Prop's :Update() method is called
     Solid = false,          -- is the object collidable?
+    Anchored = true,        -- follows its Parent ?
 
     Texture = Texture.new("chexcore/assets/images/diamond.png"),    -- default sample texture
 
@@ -65,57 +66,29 @@ end
 
 function Prop:Update(dt)
     --print(dt)
-    -- update children
-    -- if self:HasChildren() then
-    --     for _, child in ipairs(self._children) do
-    --         if child.Active then child:Update(dt) end
-    --     end
-    -- end
 end
 
 local sin, cos, abs, max, sqrt, floor = math.sin, math.cos, math.abs, math.max, math.sqrt, math.floor
-local d90, d180, d270 = math.rad(90), math.rad(180), math.rad(270)
-local posFunctions = {
-    left = function (self, scale)
-        local angle = Vector.FromAngle(self.Rotation + d180)
-        return self.Position + angle * (self.Size[1]/2*scale)
-    end,
-    right = function (self, scale)
-        local angle = Vector.FromAngle(self.Rotation)
-        return self.Position + angle * (self.Size[1]/2*scale)
-    end,
-    top = function (self, scale)
-        local angle = Vector.FromAngle(self.Rotation + d270)
-        return self.Position + angle * (self.Size[2]/2*scale)
-    end,
-    bottom = function (self, scale)
-        local angle = Vector.FromAngle(self.Rotation + d90)
-        return self.Position + angle * (self.Size[2]/2*scale)
-    end,
-    topleft = function (self, scale)
-        local angle1 = Vector.FromAngle(self.Rotation + d270)   -- top
-        local angle2 = Vector.FromAngle(self.Rotation + d180)   -- left
-        return self.Position + (angle1 * (self.Size[2]/2*scale)) + (angle2 * (self.Size[1])/2*scale)
-    end,
-    topright = function (self, scale)
-        local angle1 = Vector.FromAngle(self.Rotation + d270)   -- top
-        local angle2 = Vector.FromAngle(self.Rotation)          -- right
-        return self.Position + (angle1 * (self.Size[2]/2*scale)) + (angle2 * (self.Size[1])/2*scale)
-    end,
-    bottomleft = function (self, scale)
-        local angle1 = Vector.FromAngle(self.Rotation + d90)    -- bottom
-        local angle2 = Vector.FromAngle(self.Rotation + d180)   -- left
-        return self.Position + (angle1 * (self.Size[2]/2*scale)) + (angle2 * (self.Size[1])/2*scale)
-    end,
-    bottomright = function (self, scale)
-        local angle1 = Vector.FromAngle(self.Rotation + d90)    -- bottom
-        local angle2 = Vector.FromAngle(self.Rotation)          -- right
-        return self.Position + (angle1 * (self.Size[2]/2*scale)) + (angle2 * (self.Size[1])/2*scale)
-    end,
-}
+local d90 = math.rad(90)
+function Prop:GetPoint(x, y)
+    local v1 = Vector.FromAngle(self.Rotation) * (self.Size.X * (x - self.AnchorPoint.X))
+    local v2 = Vector.FromAngle(self.Rotation + d90) * (self.Size.Y * (y - self.AnchorPoint.Y))
+    return self.Position + v1 + v2
+end
 
-function Prop:GetPoint(pos, scale)
-    return posFunctions[pos](self, scale or 1)
+-- moves current object and all Anchored descendents
+function Prop:SetPosition(x, y)
+    local dx = x - self.Position[1]
+    local dy = y - self.Position[2]
+    self.Position[1] = x
+    self.Position[2] = y
+
+    if self:HasChildren() then
+        for child in self:EachDescendent(function(s)return s:IsA("Prop") and s.Anchored end) do
+            child.Position[1] = child.Position[1] + dx
+            child.Position[2] = child.Position[2] + dy
+        end
+    end
 end
 
 local getEdge = {
@@ -151,7 +124,7 @@ local setEdge = {
     end
 }
 function Prop:SetEdge(edge, n)
-    return setEdge[edge](self, n)
+    return setEdge[edge](self, n) -- left, right, top or bottom
 end
 
 
@@ -182,7 +155,6 @@ function Prop:CollidesAABB(other)
 
     return hIntersect and vIntersect
 end
-
 
 -- this function is more expensive but also returns direction info
 function Prop:CollisionInfo(other)
@@ -275,35 +247,27 @@ end
 
 function Prop:CollisionPass(container, deep)
     local nsf = function(c) return c ~= self end
-    container = not container and self._parent:GetChildren(nsf) or container._type
-        and (self._parent == container and container:GetChildren(nsf) or container:GetChildren())
-        or container
+
+    if not container then
+        container = deep and self._parent:GetDescendents(nsf) or self._parent:GetChildren(nsf)
+    elseif container._type then
+        if self._parent == container then
+            container = deep and container:GetDescendents(nsf) or container:GetChildren(nsf)
+        else
+            container = deep and container:GetDescendents() or container:GetChildren()
+        end
+    end
 
     local hit, hDir, vDir, nest
     local i = 1
     return function ()
         if not container[i] then return nil end
-        if deep then
-            if nest then
-                hit, hDir, vDir = nest()
-                if hit then
-                    return hit, hDir, vDir
-                else
-                    nest = nil
-                end
-            end
-        end
-
 
 
         repeat
             hit, hDir, vDir = collisionInfo(self, container[i])
             i = i + 1
-            if deep and container[i-1] and container[i-1]:HasChildren() then
-                nest = self:CollisionPass(container[i-1], true)
-                local hit2, hDir2, vDir2 = nest()
-                if hit2 then return hit2, hDir2, vDir2 end
-            end
+
         until not container[i] or hit
 
         if hit then

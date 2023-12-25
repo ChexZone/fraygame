@@ -1,10 +1,10 @@
 local Ray = {
     Name = "Ray",
 
-    Position = V{ 0, 0 }, -- set in constructor
     Angle = 0,            -- radians
     Length = 500,         -- we can't just make them go forever ..
 
+    Position = V{ 0, 0 }, -- set in constructor
     _super = "Object",
     _global = true,
 }
@@ -61,7 +61,7 @@ function Ray:Cast(containerObject, ignore, visualize)
     -- ignore is ignore list or ignore function
     local angleVector = Vector.FromAngle(self.Angle)
     local movingVector = self.Position + 0
-    local searchList = containerObject._type and containerObject:GetChildren("Solid", true) or containerObject
+    local searchList = containerObject._type and containerObject:GetDescendents("Solid", true) or containerObject
     local bestMatch
     local distMoved = 0
 

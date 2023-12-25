@@ -17,8 +17,10 @@ function Texture.new(path)
     local newTexture
 
     if Texture._cache[path] then
+        
         newTexture = Texture._cache[path]
     else
+        
         newTexture = smt({}, Texture)
         if path then
             newTexture._drawable = love.graphics.newImage(path)

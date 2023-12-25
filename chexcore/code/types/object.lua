@@ -249,6 +249,10 @@ function Object:GetChild(arg1, arg2)
     return nil
 end
 
+function Object:GetDescendent(arg1, arg2)
+    return self:EachDescendent(arg1, arg2)()
+end
+
 --[[  
     Object:GetChildren()
      - returns the full list of an object's children
@@ -394,11 +398,31 @@ function Object:SwapChildOrder(c1, c2)
     end
 end
 
+function Object:IsA(type)
+    if self._type == type then
+        return true
+    elseif self == Object then
+        return false
+    else
+        return self._superReference:IsA(type)
+    end
+end
+
 function Object:IsChildOf(parent)
     -- return parent._childHash[self] and true or false
     -- i'm keeping this line here   bc   it was the original implementation and 
     --                                                               wow what  
     return parent == self._parent
+end
+
+function Object:IsAncestorOf(descendent)
+    local p = descendent
+    repeat p = p._parent until p == self or not p
+    return p and true or false
+end
+
+function Object:IsDescendentOf(ancestor)
+    return ancestor:IsAncestorOf(self)
 end
 
 function Object:GetType()
