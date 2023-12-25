@@ -1,11 +1,10 @@
 local Camera = {
     -- properties
     Name = "Camera",
+    Zoom = 1,
     
-
-
     -- internal properties
-    _super = "Object",      -- Supertype
+    _super = "Prop",      -- Supertype
     _global = true
 }
 

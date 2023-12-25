@@ -145,11 +145,11 @@ local types = {
     "chexcore.code.types.prop",
     "chexcore.code.types.specialObject",
     "chexcore.code.types.specialObject2",
+    "chexcore.code.types.camera",
     "chexcore.code.types.sampleObject",
     "chexcore.code.types.scene",
     "chexcore.code.types.layer",
     "chexcore.code.types.canvas",
-    "chexcore.code.types.camera",
 }
 
 for _, type in ipairs(types) do

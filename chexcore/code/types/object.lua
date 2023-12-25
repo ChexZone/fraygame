@@ -336,7 +336,7 @@ function Object:Adopt(child)
 
     child._parent = self
 
-    return newPos
+    return child
 end
 
 function Object:HasChildren()
@@ -396,6 +396,13 @@ function Object:SwapChildOrder(c1, c2)
     else
         -- Object:SwapChildOrder(child1, child2)
     end
+end
+
+function Object:AddProperties(properties)
+    for prop, val in pairs(properties) do
+        self[prop] = val
+    end
+    return self
 end
 
 function Object:IsA(type)

@@ -3,53 +3,135 @@ require "chexcore"
 -- some of the constructors are still somewhat manual but they'll get cleaned up !
 
 -- Scenes contain all the components of the game
-local scene = Scene.new{ MasterCanvas = Canvas.new(1920, 1080) }
+local scene = Scene.new{
+    Update = function (self, dt)
+        Scene.Update(self, dt)
+        self.Camera.Position = self:GetDescendent("Player").Position
+        self.Camera.Zoom = 2
+    end
+}
 
 -- Scenes have a list of Layers, which each hold their own Props
-scene:AddLayer(Layer.new{
-    Name = "Gameplay",
-    Canvases = { Canvas.new(320, 180) }     -- pixel gameplay layer @ 320x180p
-})
+scene:AddLayer(Layer.new("Background", 320, 180)).Draw = function (self)
+    self.Canvases[1]:Activate()
+    love.graphics.setColor(V{52, 168, 235}/255)
+    love.graphics.rectangle("fill", 0, 0, 320, 180)
+end
 
-scene:AddLayer(Layer.new{
-    Name = "GUI",
-    Canvases = { Canvas.new(1920, 1080) }  -- hd gui layer @ 1920x1080p
-})
+scene:AddLayer(Layer.new("Gameplay", 640, 360))
+scene:AddLayer(Layer.new("GUI", 1920, 1080))
+
 local crate2
 -- test collidable
-scene:GetLayer("Gameplay"):Adopt(Prop.new{
-    Name = "Crate",
-    Solid = true, Visible = true,
-    Position = V{ 340, 220 } / 2,   -- V stands for Vector
-    Size = V{ 64, 64 },
-    AnchorPoint = V{ .5, .1 },
+local wheel = scene:GetLayer("Gameplay"):Adopt(Prop.new{
+    Name = "Wheel",
+    Solid = false,
+    Position = V{ 0, 0 }, Size = V{ 64, 64 },
+    Color = V{.8,.8,.8},
+    AnchorPoint = V{ .5, .5 },
     Rotation = 0,
-    Texture = Texture.new("chexcore/assets/images/crate.png"),
+    DrawOverChildren = false,
+    Texture = Texture.new("chexcore/assets/images/test/wheel.png"),
     Update = function (self, dt)
         self.Rotation = Chexcore._clock
-        --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
-        crate2:SetPosition(self:GetPoint((math.sin(Chexcore._clock*20)+1)/2, (math.cos(Chexcore._clock*20)+1)/2)())
+        self.Size = self.Size * 0.999
     end
 })
-scene:GetLayer("Gameplay"):Adopt(Prop.new{
-    Name = "Crate2",
+wheel:Adopt(Prop.new{
+    Name = "WheelBase",
+    Solid = false, Visible = true,
+    Position = V{ 0, 0 } / 2,   -- V stands for Vector
+    Size = V{ 64, 64 },
+    Color = V{.9,.9,.9},
+    AnchorPoint = V{ .5, .5 },
+    Rotation = 0,
+    Texture = Texture.new("chexcore/assets/images/test/wheelbase.png"),
+    Update = function (self, dt)
+        self.Rotation = Chexcore._clock - Chexcore._clock%0.25
+        --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
+        --crate2:SetPosition(self:GetPoint((math.sin(Chexcore._clock*20)+1)/2, (math.cos(Chexcore._clock*20)+1)/2)())
+    end
+})
+
+wheel:Adopt(Prop.new{
+    Name = "Semi1",
     Solid = true, Visible = true,
     Position = V{ 340, 220 } / 2,   -- V stands for Vector
-    Size = V{ 32, 32 },
+    Size = V{ 20, 8 },
     AnchorPoint = V{ 0.5, 0.5 },
     Rotation = 0,
-    Texture = Texture.new("chexcore/assets/images/crate.png"),
+    Texture = Texture.new("chexcore/assets/images/test/semisolid.png"),
     Update = function (self, dt)
-        --self.Rotation = self.Rotation + 0.5 * dt
+        self.Position = self:GetParent():GetPoint(0.5, 0)
     end
 })
-local crate = scene:GetDescendent("Crate")
-crate2 = scene:GetDescendent("Crate2")
-
-crate2:Adopt(Prop.new{
-    Name = "HELP",
-    Position = crate2.Position:Clone()
+wheel:Adopt(Prop.new{
+    Name = "Semi2",
+    Solid = true, Visible = true,
+    Position = V{ 340, 220 } / 2,   -- V stands for Vector
+    Size = V{ 20, 8 },
+    AnchorPoint = V{ 0.5, 0.5 },
+    Rotation = 0,
+    Texture = Texture.new("chexcore/assets/images/test/semisolid.png"),
+    Update = function (self, dt)
+        self.Position = self:GetParent():GetPoint(0.5, 1)
+    end
 })
+wheel:Adopt(Prop.new{
+    Name = "Semi3",
+    Solid = true, Visible = true,
+    Position = V{ 340, 220 } / 2,   -- V stands for Vector
+    Size = V{ 20, 8 },
+    AnchorPoint = V{ 0.5, 0.5 },
+    Rotation = 0,
+    Texture = Texture.new("chexcore/assets/images/test/semisolid.png"),
+    Update = function (self, dt)
+        self.Position = self:GetParent():GetPoint(0, 0.5)
+    end
+})
+wheel:Adopt(Prop.new{
+    Name = "Semi4",
+    Solid = true, Visible = true,
+    Position = V{ 340, 220 } / 2,   -- V stands for Vector
+    Size = V{ 20, 8 },
+    AnchorPoint = V{ 0.5, 0.5 },
+    Rotation = 0,
+    Texture = Texture.new("chexcore/assets/images/test/semisolid.png"),
+    Update = function (self, dt)
+        self.Position = self:GetParent():GetPoint(1, 0.5)
+    end
+})
+
+
+
+scene:GetLayer("Gameplay"):Adopt(Prop.new{
+    Name = "Player",
+    Solid = true, Visible = true,
+    Position = V{ 340, 220 } / 2,   -- V stands for Vector
+    Size = V{ 24, 24 },
+    AnchorPoint = V{ 0.5, 0.5 },
+    Rotation = 0,
+    Texture = Texture.new("chexcore/assets/images/test/player4.png"),
+    Update = function (self, dt)
+        
+        self.Position = scene:GetDescendent("Semi4"):GetPoint(0.5, 0) - V{0, self.Size.Y/2}
+        --self:SetEdge("bottom", wheel:GetChild("Semi1"):GetEdge("top"))
+
+        self.Texture = Texture.new("chexcore/assets/images/test/player" .. (math.floor(Chexcore._clock*4))%4+1 .. ".png")
+        --self.Rotation = Chexcore._clock
+        --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
+        --crate2:SetPosition(self:GetPoint((math.sin(Chexcore._clock*20)+1)/2, (math.cos(Chexcore._clock*20)+1)/2)())
+    end
+})
+print(Camera.Position)
+
+-- local crate = scene:GetDescendent("Crate")
+-- crate2 = scene:GetDescendent("Crate2")
+
+-- crate2:Adopt(Prop.new{
+--     Name = "HELP",
+--     Position = crate2.Position:Clone()
+-- })
 
 Chexcore.MountScene(scene)
 
@@ -423,7 +505,7 @@ Chexcore.MountScene(scene)
 -- -- ray origin
 -- scene:GetLayer("Gameplay"):Adopt(Prop.new{
 --     Name = "RayOrigin",
---     Position = scene:GetLayer("Gameplay"):GetChild("Crate").Position - V{0, 64},
+--     Position = V{100, 100},
 --     Size = V{ 8, 8 },
 --     AnchorPoint = V{ 0.5, 0.5 },
 --     Rotation = math.rad(0),

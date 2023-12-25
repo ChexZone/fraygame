@@ -35,23 +35,24 @@ function Prop.new(properties)
 end
 
 
-local function drawChildren(self)
+function Prop:DrawChildren(tx, ty)
     for _, child in ipairs(self._children) do
-        if child.Visible then child:Draw() end
+        if child.Visible then child:Draw(tx, ty) end
     end
 end
 
+local sin, cos, abs, max, sqrt, floor = math.sin, math.cos, math.abs, math.max, math.sqrt, math.floor
 local lg = love.graphics
-function Prop:Draw()
+function Prop:Draw(tx, ty)
     if self.DrawOverChildren and self:HasChildren() then
-        drawChildren(self)
+        self:DrawChildren(tx, ty)
     end
     lg.setColor(self.Color)
     local sx = self.Size[1] * (self.DrawScale-1)
     local sy = self.Size[2] * (self.DrawScale-1)
     self.Texture:DrawToScreen(
-        self.Position[1] - sx/2,
-        self.Position[2] - sy/2,
+        floor(self.Position[1] - sx/2 - tx),
+        floor(self.Position[2] - sy/2 - ty),
         self.Rotation,
         self.Size[1] + sx,
         self.Size[2] + sy,
@@ -59,7 +60,7 @@ function Prop:Draw()
         self.AnchorPoint[2]
     )
     if not self.DrawOverChildren and self:HasChildren() then
-        drawChildren(self)
+        self:DrawChildren(tx, ty)
     end
 end
 
@@ -68,7 +69,6 @@ function Prop:Update(dt)
     --print(dt)
 end
 
-local sin, cos, abs, max, sqrt, floor = math.sin, math.cos, math.abs, math.max, math.sqrt, math.floor
 local d90 = math.rad(90)
 function Prop:GetPoint(x, y)
     local v1 = Vector.FromAngle(self.Rotation) * (self.Size.X * (x - self.AnchorPoint.X))
