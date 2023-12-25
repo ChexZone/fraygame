@@ -475,6 +475,10 @@ if replaceCoreLuaFunctions then
     _G.tostring = ctostring
 end
 
+function _G.isObject(t)
+    return type(t) == "table" and t._type and true or false
+end
+local isObject = _G.isObject
 
 --[[  
     filteredListIterator()
@@ -491,24 +495,61 @@ end
      The above signatures make up a wrapper signature referred to as "<FilterArg>"
 ]]
 local STOP = 1000000
-function _G.filteredListIterator(self, arg1, arg2)
+function _G.filteredListIterator(self, arg1, arg2, children)
     
     if not (arg1 or arg2) then  -- get entire set
-        local i = 0
-        return function()
-            i = i + 1
-            return self[i]
+        local i = 0; local nest
+        if children then
+            return function ()
+                if nest then
+                    local res = nest()
+                    if res then return res else nest = nil end
+                end
+                i = i + 1
+                if isObject(self[i]) and self[i]:HasChildren() then
+                    nest = self[i]:EachDescendent(arg1, arg2, true)
+                end
+                return self[i]
+            end
+        else
+            return function()
+                i = i + 1
+                return self[i]
+            end
         end
     end
+
+    -- if not (arg1 or arg2) then  -- get entire set
+    --     for i, ref in ipairs(self) do
+    --         list[#list+1] = ref
+    --         if children and isObject(ref) and ref:HasChildren() then
+    --             ref:GetGrandchildren(arg1, arg2, list)
+    --         end
+    --     end
+    --     return list
+    -- end
     
     if type(arg1) == "table" then
+        
         -- filteredListIterator( { property = val, ...} [, inclusive] )
         if not arg2 then
+            
             -- exclusive
-            local i = 0
+            --print(self, children)
+            local i = 0; local nest
             return function()
+                
+                if nest then
+                    local res = nest()
+                    if res then return res else nest = nil end
+                end
+                
                 while STOP - i > 0 do
+                    
                     i = i + 1
+                    if children and isObject(self[i]) and self[i]:HasChildren() then                        
+                        nest = self[i]:EachDescendent(arg1, arg2, true)
+                    end
                     local c = self[i]
                     if not c then return nil end
                     local match = true
@@ -518,14 +559,27 @@ function _G.filteredListIterator(self, arg1, arg2)
                         end
                     end
                     if match then return c end
+
+                    if nest then
+                        local res = nest()
+                        if res then return res else nest = nil end
+                    end
                 end
             end
         else
             -- inclusive
-            local i = 0
+            local i = 0; local nest
             return function()
+                
+                if nest then
+                    local res = nest()
+                    if res then return res else nest = nil end
+                end
                 while STOP - i > 0 do
                     i = i + 1
+                    if children and isObject(self[i]) and self[i]:HasChildren() then
+                        nest = self[i]:EachDescendent(arg1, arg2, true)
+                    end
                     local c = self[i]
                     if not c then return nil end
                     local match = false
@@ -535,51 +589,84 @@ function _G.filteredListIterator(self, arg1, arg2)
                         end
                     end
                     if match then return c end
+                    if nest then
+                        local res = nest()
+                        if res then return res else nest = nil end
+                    end
                 end
             end
         end
     elseif arg2 ~= nil then
         -- filteredListIterator( property, value )
         
-        local i = 0
+        local i = 0; local nest
         return function()
+            if nest then
+                local res = nest()
+                if res then return res else nest = nil end
+            end
             while STOP - i > 0 do
                 i = i + 1
+                if children and isObject(self[i]) and self[i]:HasChildren() then
+                    nest = self[i]:EachDescendent(arg1, arg2, true)
+                end
                 local c = self[i]
                 if not c then return nil end
                 if c[arg1] == arg2 then
                     return c
                 end
+
+                if nest then
+                    local res = nest()
+                    if res then return res else nest = nil end
+                end
             end
         end
     elseif type(arg1) == "function" then
         -- filteredListIterator( func )
-        local i = 0
+
+        
+        local i = 0; local nest
         return function()
+            if nest then
+                local res = nest()
+                if res then return res else nest = nil end
+            end
             while STOP - i > 0 do
                 i = i + 1
+                if children and isObject(self[i]) and self[i]:HasChildren() then
+                    nest = self[i]:EachDescendent(arg1, arg2, true)
+                end
                 local c = self[i]
                 if not c then return nil end
                 if arg1(c) then
                     return c
+                end
+
+                if nest then
+                    local res = nest()
+                    if res then return res else nest = nil end
                 end
             end
         end
     end
 end
 
+
+
 -- Too lazy to redocument. Same deal as above, just does the whole list at once
-function _G.filteredList(self, arg1, arg2)
+function _G.filteredList(self, arg1, arg2, children, list)
+    list = list or {}
     
     if not (arg1 or arg2) then  -- get entire set
-        local list = {}
         for i, ref in ipairs(self) do
-            list[i] = ref
+            list[#list+1] = ref
+            if children and isObject(ref) and ref:HasChildren() then
+                ref:GetDescendents(arg1, arg2, list)
+            end
         end
         return list
     end
-    
-    local list = {}
 
     if type(arg1) == "table" then
         -- filteredList( { property = val, ...} [, inclusive] )
@@ -595,6 +682,9 @@ function _G.filteredList(self, arg1, arg2)
                 if match then
                     list[#list+1] = child
                 end
+                if children and isObject(child) and child:HasChildren() then
+                    child:GetDescendents(arg1, arg2, list)
+                end
             end
         else
             -- inclusive
@@ -608,6 +698,9 @@ function _G.filteredList(self, arg1, arg2)
                 if match then
                     list[#list+1] = child
                 end
+                if children and isObject(child) and child:HasChildren() then
+                    child:GetDescendents(arg1, arg2, list)
+                end
             end
         end
     elseif arg2 ~= nil then
@@ -616,12 +709,18 @@ function _G.filteredList(self, arg1, arg2)
                 if child[arg1] == arg2 then
                     list[#list+1] = child
                 end
+                if children and isObject(child) and child:HasChildren() then
+                    child:GetDescendents(arg1, arg2, list)
+                end
             end
     elseif type(arg1) == "function" then
         -- filteredList( func )
         for index, child in ipairs(self) do
             if arg1(child) then
                 list[#list+1] = child
+            end
+            if children and isObject(child) and child:HasChildren() then
+                child:GetDescendents(arg1, arg2, list)
             end
         end
     end

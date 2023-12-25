@@ -8,11 +8,12 @@ local Prop = {
     AnchorPoint = V{ 0, 0 },-- created in constructor; values range from 0-1
     Rotation = 0,
     DrawScale = 1,          -- only works with AnchorPoint = V{0, 0}
-
+    DrawOverChildren = false,
+    Visible = true,         -- whether or not the Prop's :Draw() method is called
+    Active = true,          -- whether or not the Prop's :Update() method is called
     Solid = false,          -- is the object collidable?
 
     Texture = Texture.new("chexcore/assets/images/diamond.png"),    -- default sample texture
-    Visible = true,         -- whether or not the Prop's :Draw() method is called
 
     -- internal properties
     _super = "Object",      -- Supertype
@@ -32,12 +33,21 @@ function Prop.new(properties)
     return newProp
 end
 
+
+local function drawChildren(self)
+    for _, child in ipairs(self._children) do
+        if child.Visible then child:Draw() end
+    end
+end
+
 local lg = love.graphics
 function Prop:Draw()
+    if self.DrawOverChildren and self:HasChildren() then
+        drawChildren(self)
+    end
     lg.setColor(self.Color)
     local sx = self.Size[1] * (self.DrawScale-1)
     local sy = self.Size[2] * (self.DrawScale-1)
-    
     self.Texture:DrawToScreen(
         self.Position[1] - sx/2,
         self.Position[2] - sy/2,
@@ -47,57 +57,120 @@ function Prop:Draw()
         self.AnchorPoint[1],
         self.AnchorPoint[2]
     )
+    if not self.DrawOverChildren and self:HasChildren() then
+        drawChildren(self)
+    end
 end
+
 
 function Prop:Update(dt)
     --print(dt)
+    -- update children
+    -- if self:HasChildren() then
+    --     for _, child in ipairs(self._children) do
+    --         if child.Active then child:Update(dt) end
+    --     end
+    -- end
 end
 
-function Prop:GetLeftEdge()
-    return self.Position[1] - self.Size[1] * self.AnchorPoint[1]
+local sin, cos, abs, max, sqrt, floor = math.sin, math.cos, math.abs, math.max, math.sqrt, math.floor
+local d90, d180, d270 = math.rad(90), math.rad(180), math.rad(270)
+local posFunctions = {
+    left = function (self, scale)
+        local angle = Vector.FromAngle(self.Rotation + d180)
+        return self.Position + angle * (self.Size[1]/2*scale)
+    end,
+    right = function (self, scale)
+        local angle = Vector.FromAngle(self.Rotation)
+        return self.Position + angle * (self.Size[1]/2*scale)
+    end,
+    top = function (self, scale)
+        local angle = Vector.FromAngle(self.Rotation + d270)
+        return self.Position + angle * (self.Size[2]/2*scale)
+    end,
+    bottom = function (self, scale)
+        local angle = Vector.FromAngle(self.Rotation + d90)
+        return self.Position + angle * (self.Size[2]/2*scale)
+    end,
+    topleft = function (self, scale)
+        local angle1 = Vector.FromAngle(self.Rotation + d270)   -- top
+        local angle2 = Vector.FromAngle(self.Rotation + d180)   -- left
+        return self.Position + (angle1 * (self.Size[2]/2*scale)) + (angle2 * (self.Size[1])/2*scale)
+    end,
+    topright = function (self, scale)
+        local angle1 = Vector.FromAngle(self.Rotation + d270)   -- top
+        local angle2 = Vector.FromAngle(self.Rotation)          -- right
+        return self.Position + (angle1 * (self.Size[2]/2*scale)) + (angle2 * (self.Size[1])/2*scale)
+    end,
+    bottomleft = function (self, scale)
+        local angle1 = Vector.FromAngle(self.Rotation + d90)    -- bottom
+        local angle2 = Vector.FromAngle(self.Rotation + d180)   -- left
+        return self.Position + (angle1 * (self.Size[2]/2*scale)) + (angle2 * (self.Size[1])/2*scale)
+    end,
+    bottomright = function (self, scale)
+        local angle1 = Vector.FromAngle(self.Rotation + d90)    -- bottom
+        local angle2 = Vector.FromAngle(self.Rotation)          -- right
+        return self.Position + (angle1 * (self.Size[2]/2*scale)) + (angle2 * (self.Size[1])/2*scale)
+    end,
+}
+
+function Prop:GetPoint(pos, scale)
+    return posFunctions[pos](self, scale or 1)
 end
 
-function Prop:GetRightEdge()
-    return self.Position[1] + self.Size[1] * (1 - self.AnchorPoint[1])
+local getEdge = {
+    left = function (self)
+        return floor(self.Position[1] - self.Size[1] * self.AnchorPoint[1])
+    end,
+    right = function (self)
+        return floor(self.Position[1] + self.Size[1] * (1 - self.AnchorPoint[1]))
+    end,
+    top = function (self)
+        return floor(self.Position[2] - self.Size[2] * self.AnchorPoint[2])
+    end,
+    bottom = function (self)
+        return floor(self.Position[2] + self.Size[2] * (1 - self.AnchorPoint[2]))
+    end
+}
+function Prop:GetEdge(edge)
+    return getEdge[edge](self)
 end
 
-function Prop:GetTopEdge()
-    return self.Position[2] - self.Size[2] * self.AnchorPoint[2]
+local setEdge = {
+    left = function (self, x)
+        self.Position[1] = x + self.Size[1] * self.AnchorPoint[1]
+    end,
+    right = function (self, x)
+        self.Position[1] = x - self.Size[1] * (1 - self.AnchorPoint[1])
+    end,
+    top = function (self, y)
+        self.Position[2] = y + self.Size[2] * self.AnchorPoint[2]
+    end,
+    bottom = function (self, y)
+        self.Position[2] = y - self.Size[2] * (1 - self.AnchorPoint[2])
+    end
+}
+function Prop:SetEdge(edge, n)
+    return setEdge[edge](self, n)
 end
 
-function Prop:GetBottomEdge()
-    return self.Position[2] + self.Size[2] * (1 - self.AnchorPoint[2])
-end
 
-function Prop:SetLeftEdge(y)
-    self.Position[1] = y + self.Size[1] * self.AnchorPoint[1]
-end
-
-function Prop:SetRightEdge(y)
-    self.Position[1] = y - self.Size[1] * (1 - self.AnchorPoint[1])
-end
-
-function Prop:SetTopEdge(y)
-    self.Position[2] = y + self.Size[2] * self.AnchorPoint[2]
-end
-
-function Prop:SetBottomEdge(y)
-    self.Position[2] = y - self.Size[2] * (1 - self.AnchorPoint[2])
-end
 -- only works with axis-aligned bounding boxes !! i dont feel like doing all that math
 -- use Rays for weird rotatey collision idk
 function Prop:CollidesAABB(other)
+    if not other.Solid then return false end
+
     local sp, op = self.Position, other.Position
     local sap, oap = self.AnchorPoint, other.AnchorPoint
     local ss, os = self.Size, other.Size
-    local sLeftEdge  = sp[1] - ss[1] * sap[1]
-    local sRightEdge = sp[1] + ss[1] * (1 - sap[1])
-    local sTopEdge  = sp[2] - ss[2] * sap[2]
-    local sBottomEdge = sp[2] + ss[2] * (1 - sap[2])
-    local oLeftEdge  = op[1] - os[1] * oap[1]
-    local oRightEdge = op[1] + os[1] * (1 - oap[1])
-    local oTopEdge  = op[2] - os[2] * oap[2]
-    local oBottomEdge = op[2] + os[2] * (1 - oap[2])
+    local sLeftEdge  = floor(sp[1] - ss[1] * sap[1])
+    local sRightEdge = floor(sp[1] + ss[1] * (1 - sap[1]))
+    local sTopEdge  = floor(sp[2] - ss[2] * sap[2])
+    local sBottomEdge = floor(sp[2] + ss[2] * (1 - sap[2]))
+    local oLeftEdge  = floor(op[1] - os[1] * oap[1])
+    local oRightEdge = floor(op[1] + os[1] * (1 - oap[1]))
+    local oTopEdge  = floor(op[2] - os[2] * oap[2])
+    local oBottomEdge = floor(op[2] + os[2] * (1 - oap[2]))
     
     local hitLeft  = sRightEdge >= oLeftEdge
     local hitRight = sLeftEdge <= oRightEdge
@@ -112,18 +185,19 @@ end
 
 
 -- this function is more expensive but also returns direction info
-local function collisionInfo(self, other)
+function Prop:CollisionInfo(other)
+    if not other.Solid then return false end
     local sp, op = self.Position, other.Position
     local sap, oap = self.AnchorPoint, other.AnchorPoint
     local ss, os = self.Size, other.Size
-    local sLeftEdge  = sp[1] - ss[1] * sap[1]
-    local sRightEdge = sp[1] + ss[1] * (1 - sap[1])
-    local sTopEdge  = sp[2] - ss[2] * sap[2]
-    local sBottomEdge = sp[2] + ss[2] * (1 - sap[2])
-    local oLeftEdge  = op[1] - os[1] * oap[1]
-    local oRightEdge = op[1] + os[1] * (1 - oap[1])
-    local oTopEdge  = op[2] - os[2] * oap[2]
-    local oBottomEdge = op[2] + os[2] * (1 - oap[2])
+    local sLeftEdge  = floor(sp[1] - ss[1] * sap[1])
+    local sRightEdge = floor(sp[1] + ss[1] * (1 - sap[1]))
+    local sTopEdge  = floor(sp[2] - ss[2] * sap[2])
+    local sBottomEdge = floor(sp[2] + ss[2] * (1 - sap[2]))
+    local oLeftEdge  = floor(op[1] - os[1] * oap[1])
+    local oRightEdge = floor(op[1] + os[1] * (1 - oap[1]))
+    local oTopEdge  = floor(op[2] - os[2] * oap[2])
+    local oBottomEdge = floor(op[2] + os[2] * (1 - oap[2]))
     
     local hitLeft  = sRightEdge >= oLeftEdge
     local hitRight = sLeftEdge <= oRightEdge
@@ -136,50 +210,100 @@ local function collisionInfo(self, other)
     local res = hIntersect and vIntersect
 
     if res then
-        local hDir = (sLeftEdge >= oLeftEdge and sRightEdge <= oRightEdge) and 0 or
-                             sLeftEdge >= oLeftEdge and (sLeftEdge - oRightEdge) or
-                             sRightEdge <= oRightEdge and (sRightEdge - oLeftEdge) or false
-        local vDir = (sTopEdge >= oTopEdge and sBottomEdge <= oBottomEdge) and 0 or
-                             sTopEdge >= oTopEdge and (sTopEdge - oBottomEdge) or
-                             sBottomEdge <= oBottomEdge and (sBottomEdge - oTopEdge) or false
-        -- local vDir = not (sTopEdge < oTopEdge or sBottomEdge > oBottomEdge) and true or
-        --                      sTopEdge >= oTopEdge and (sTopEdge - oBottomEdge) or
-        --                      sBottomEdge <= oBottomEdge and (sBottomEdge - oTopEdge) or 0
-        -- local vDir = not (sTopEdge < oTopEdge or sBottomEdge > oBottomEdge) and "outside" or
-        --                      sTopEdge >= oTopEdge and "top" or
-        --                      sBottomEdge <= oBottomEdge and "bottom" or "inside"
 
+        local hDir, vDir, hFlag, vFlag
+        if sLeftEdge >= oLeftEdge and sRightEdge <= oRightEdge then
+            hDir = 0
+        elseif sLeftEdge >= oLeftEdge then
+            hDir = sLeftEdge - oRightEdge
+            hFlag = true
+        elseif sRightEdge <= oRightEdge then
+            hDir = sRightEdge - oLeftEdge
+            hFlag = true
+        else
+            hDir = false
+        end
+
+        if sTopEdge >= oTopEdge and sBottomEdge <= oBottomEdge then
+            vDir = 0
+        elseif sTopEdge >= oTopEdge then
+            vDir = sTopEdge - oBottomEdge
+            vFlag = true
+        elseif sBottomEdge <= oBottomEdge then
+            vDir = sBottomEdge - oTopEdge
+            vFlag = true
+        else
+            vDir = false
+        end
+
+        if (hDir == 0 and hFlag) or (vDir == 0 and vFlag) then
+            return false
+        end
 
         return true, hDir, vDir
     end
 
     return false
 end
+local collisionInfo = Prop.CollisionInfo
 
-function Prop.GetHitFaces(hDist, vDist, usingItWrong)
+function Prop.GetHitFace(hDist, vDist, usingItWrong)
     if usingItWrong then
         hDist, vDist = vDist, usingItWrong
     end
 
-    return not hDist and "outside" or hDist > 0 and "left" or hDist < 0 and "right" or "inside",
-           not vDist and "inside" or vDist > 0 and "top" or vDist < 0 and "bottom" or "inside"
+    if hDist and vDist then
+        if hDist == 0 then
+            return vDist > 0 and "top" or vDist < 0 and "bottom" or "none"
+        elseif vDist == 0 then
+            return hDist > 0 and "left" or hDist < 0 and "right" or "none"
+        elseif abs(hDist) < 1 and abs(vDist) < 1 then
+            return "none"
+        elseif abs(hDist) < abs(vDist) then
+            return hDist > 0 and "left" or hDist < 0 and "right" or "none"
+        else
+            return vDist > 0 and "top" or vDist < 0 and "bottom" or "none"
+        end
+    elseif not vDist and hDist then -- object is taller than collidable
+        return hDist > 0 and "left" or hDist < 0 and "right" or "none"
+    elseif vDist and not hDist then -- object is wider than collidable
+        return vDist > 0 and "top" or vDist < 0 and "bottom" or "none"
+    else
+        return "none"
+    end
 end
 
-function Prop:CollisionPass(container)
-    
+function Prop:CollisionPass(container, deep)
     local nsf = function(c) return c ~= self end
     container = not container and self._parent:GetChildren(nsf) or container._type
         and (self._parent == container and container:GetChildren(nsf) or container:GetChildren())
         or container
 
+    local hit, hDir, vDir, nest
     local i = 1
     return function ()
-        local hit, hDir, vDir
         if not container[i] then return nil end
+        if deep then
+            if nest then
+                hit, hDir, vDir = nest()
+                if hit then
+                    return hit, hDir, vDir
+                else
+                    nest = nil
+                end
+            end
+        end
+
+
 
         repeat
             hit, hDir, vDir = collisionInfo(self, container[i])
             i = i + 1
+            if deep and container[i-1] and container[i-1]:HasChildren() then
+                nest = self:CollisionPass(container[i-1], true)
+                local hit2, hDir2, vDir2 = nest()
+                if hit2 then return hit2, hDir2, vDir2 end
+            end
         until not container[i] or hit
 
         if hit then
@@ -207,7 +331,6 @@ function Prop:GetTouching(container)
     return touchList
 end
 
-local sin, cos, abs, max, sqrt = math.sin, math.cos, math.abs, math.max, math.sqrt
 -- -- expanded version
 -- function Prop:DistanceFromPoint3(p)
 --     local sx, sy = self.Size[1], self.Size[2]
@@ -226,7 +349,7 @@ local sin, cos, abs, max, sqrt = math.sin, math.cos, math.abs, math.max, math.sq
 -- end
 
 -- shortened version
-function Prop:DistanceFromPoint3(p)
+local function distanceFromPoint3(self, p)
     local sx, sy = self.Size[1], self.Size[2]
     local ox = sx * ( self.AnchorPoint[1] <= 1 and (0.5 - self.AnchorPoint[1]) or (self.AnchorPoint[1] - 1) )
     local oy = sy * ( self.AnchorPoint[2] <= 1 and (0.5 - self.AnchorPoint[2]) or (self.AnchorPoint[2] - 1) )
@@ -238,9 +361,9 @@ function Prop:DistanceFromPoint3(p)
     return sqrt(dx * dx + dy * dy)
 end
 
-function Prop:DistanceFromPoint2(p)
+local function distanceFromPoint2(self, p)
     -- if dealing with custom anchors, move to a heavier function
-    if self.AnchorPoint[1] ~= 0.5 or self.AnchorPoint[2] ~= 0.5 then return self:DistanceFromPoint3(p) end
+    if self.AnchorPoint[1] ~= 0.5 or self.AnchorPoint[2] ~= 0.5 then return distanceFromPoint3(self, p) end
 
     local sx, sy = self.Size[1], self.Size[2]
     local cx = self.Position[1]
@@ -257,7 +380,7 @@ end
 
 function Prop:DistanceFromPoint(p)
     -- if dealing with rotation, move to a heavier function
-    if self.Rotation ~= 0 then return self:DistanceFromPoint2(p) end
+    if self.Rotation ~= 0 then return distanceFromPoint2(self, p) end
 
     local sx, sy = self.Size[1], self.Size[2]
     local cx = self.Position[1] + sx * (0.5 - self.AnchorPoint[1])

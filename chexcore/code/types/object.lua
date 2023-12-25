@@ -271,6 +271,14 @@ function Object:GetChildren(arg1, arg2)
     return filter(self._children, arg1, arg2)
 end
 
+function Object:GetDescendents(arg1, arg2, current)
+    local s = self._children -- just to be damn safe
+    if not arg2 and type2(arg1) == "string" then
+        return filter(self._children, "Name", arg1, true, current)
+    end
+    return filter(self._children, arg1, arg2, true, current)
+end
+
 --[[  
     Object:EachChild() has the same signatures as Object:GetChildren(),
     but returns an iterator rather than building the entire list.
@@ -293,6 +301,17 @@ function Object:EachChild(arg1, arg2)
     return iterFilter(self._children, arg1, arg2)
 end
 
+function Object:EachDescendent(arg1, arg2)
+
+    -- OK what the hell about that line above. The reason this line is here
+    -- is because the child table just, fucking, disappears??? if it is not
+    -- observed. i have no idea what this is or what terrible omens it carries
+    if not arg2 and type2(arg1) == "string" then
+        return iterFilter(self._children, "Name", arg1, true)
+    end
+    
+    return iterFilter(self._children, arg1, arg2, true)
+end
 
 function Object:GetParent()
     return self._parent
@@ -314,6 +333,10 @@ function Object:Adopt(child)
     child._parent = self
 
     return newPos
+end
+
+function Object:HasChildren()
+    return rg(self, "_children") and #self._children > 0
 end
 
 function Object:GetChildID()

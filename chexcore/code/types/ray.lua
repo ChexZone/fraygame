@@ -35,7 +35,7 @@ function Ray:Draw(container, ignore)
     local ex, ey = self.Position.X + ux*self.Length, self.Position.Y + uy*self.Length
     local _, hitPos
     if container then
-        _, hitPos = self:Hits(container, ignore, true)
+        _, hitPos = self:Cast(container, ignore, true)
 
     end
     love.graphics.setColor(1,1,1,1)
@@ -55,8 +55,8 @@ function Ray:Draw(container, ignore)
 end
 
 local rm, floor = table.remove, math.floor
-local HUGE, THRESHOLD, MAX_PASSES = math.huge, .5, 500
-function Ray:Hits(containerObject, ignore, visualize)
+local HUGE, THRESHOLD, MAX_PASSES = math.huge, .5, 50
+function Ray:Cast(containerObject, ignore, visualize)
     -- containerObject holds the object whose children we are going to iterate through
     -- ignore is ignore list or ignore function
     local angleVector = Vector.FromAngle(self.Angle)
@@ -114,10 +114,26 @@ function Ray:Hits(containerObject, ignore, visualize)
             return bestMatch, (movingVector + 1):Filter(floor)
         end
     end
+    
     if pass >= MAX_PASSES then
         print("WARNING: Raycast aborted: took more than " .. tostring(MAX_PASSES) .. " passes")
     end
     return false
+end
+
+function Ray:Multicast(containerObject, ignore)
+    ignore = ignore or {}
+    local searchList = containerObject._type and containerObject:GetChildren("Solid", true) or containerObject
+    
+    return function ()
+        local hitObject, hitPos = self:Cast(searchList, ignore)
+        if hitObject then
+            ignore[#ignore+1] = hitObject
+            return hitObject, hitPos
+        else
+            return nil
+        end
+    end
 end
 
 -- an experimental, flawed approach to the ray game i tried
