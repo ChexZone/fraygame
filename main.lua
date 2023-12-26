@@ -7,7 +7,7 @@ local scene = Scene.new{
     Update = function (self, dt)
         Scene.Update(self, dt)
         self.Camera.Position = self:GetDescendent("Player").Position
-        self.Camera.Zoom = 2--+math.sin(Chexcore._clock)
+        self.Camera.Zoom = 2--math.sin(Chexcore._clock)
     end
 }
 

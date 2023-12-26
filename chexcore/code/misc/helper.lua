@@ -746,15 +746,16 @@ _G.deepCopy = deepCopy
 --- Draw stuff 
 
 local love_graphics_draw = love.graphics.draw
+local floor = math.floor
 -- negative sx and sy values do default behavior; positive values are pixel measurements
 -- ox and oy values between 0 and 1 will be treated as a ratio to image size (anchor point)
 _G.cdraw = function(drawable, x, y, r, sx, sy, ox, oy, kx, ky, ignoreSnap)
     love_graphics_draw(
         drawable,
-        ignoreSnap and (x or 0) or math.floor(x or 0), 
-        ignoreSnap and (y or 0) or math.floor(y or 0), r,
-        sx and (sx < 0 and -sx or 1 / drawable:getWidth() * sx),
-        sy and (sy < 0 and -sy or 1 / drawable:getHeight() * sy),
+        ignoreSnap and (x or 0) or floor(x or 0), 
+        ignoreSnap and (y or 0) or floor(y or 0), r,
+        1 / drawable:getWidth() * sx,
+        1 / drawable:getHeight() * sy,
         ox and (ox <= 1 and drawable:getWidth() * ox or ox),
         oy and (oy <= 1 and drawable:getHeight() * oy or oy),
         kx, ky
@@ -765,10 +766,10 @@ _G.cdrawquad = function(drawable, quad, qx, qy, x, y, r, sx, sy, ox, oy, kx, ky,
     love_graphics_draw(
         drawable,
         quad,
-        ignoreSnap and (x or 0) or math.floor(x or 0), 
-        ignoreSnap and (y or 0) or math.floor(y or 0), r,
-        sx and (sx < 0 and -sx or 1 / qx * sx),
-        sy and (sy < 0 and -sy or 1 / qy * sy),
+        ignoreSnap and (x or 0) or floor(x or 0), 
+        ignoreSnap and (y or 0) or floor(y or 0), r,
+        1 / qy * sx,
+        1 / qy * sy,
         ox and (ox <= 1 and qx * ox or ox),
         oy and (oy <= 1 and qy * oy or oy),
         kx, ky
@@ -780,8 +781,8 @@ _G.cdraw2 = function(drawable, x, y, r, sx, sy, ox, oy, kx, ky, ignoreSnap)
     love_graphics_draw(
         drawable,
         ignoreSnap and (x or 0) or math.floor(x or 0), ignoreSnap and (y or 0) or math.floor(y or 0), r,
-        sx and 1 / drawable:getWidth() * sx,
-        sy and 1 / drawable:getHeight() * sy,
+        sx,
+        sy,
         ox and drawable:getWidth() * ox,
         oy and drawable:getHeight() * oy,
         kx, ky
