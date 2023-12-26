@@ -55,7 +55,7 @@ function Layer:Draw(tx, ty)
             child:DrawChildren(tx, ty)
         end
     end
-
+    self.Canvases[1]:Deactivate()
 end
 
 return Layer

@@ -6,6 +6,8 @@ local Canvas = {
     AlphaMode = "alphamultiply",    -- same as above, but AlphaBlendMode
 
     -- internal properties
+    _oldShader = nil,
+    _oldCanvas = nil,
     _drawable = nil,       -- Love2D "real canvas" created in constructor
     _size = V{320, 180},    -- Vector2 positional storage (created in constructor)
     _super = "Texture",      -- Supertype
@@ -51,13 +53,27 @@ function Canvas:DrawToScreen(...)
     local mode, alphaMode = getBlendMode()
     setBlendMode(self.BlendMode == "ignore" and mode or self.BlendMode, self.AlphaMode == "ignore" and alphaMode or self.AlphaMode)
 
+    if self.Shader then
+        local oldShader = love.graphics.getShader()
+        self.Shader:Activate()
+        love.graphics.setShader(oldShader)
+    end
+
     -- render the Canvas
     draw(self._drawable, ...)
 end
 
-local setCanvas = lg.setCanvas
+local setCanvas, setShader = lg.setCanvas, lg.setShader
 function Canvas:Activate()
+    self._oldShader = love.graphics.getShader()
+    self._oldCanvas = love.graphics.getCanvas()
     setCanvas(self._drawable)
+    if self.Shader then self.Shader:Activate() end
+end
+
+function Canvas:Deactivate()
+    setShader(self._oldShader)
+    setCanvas(self._oldCanvas)
 end
 
 return Canvas

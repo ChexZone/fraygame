@@ -66,7 +66,7 @@ end
 
 
 function Prop:Update(dt)
-    --print(dt)
+    print("HI")
 end
 
 local d90 = math.rad(90)

@@ -50,7 +50,7 @@ function Scene:Draw()
     local windowSize = V{lg.getDimensions()}
 
     -- make sure the MasterCanvas exists (lazy solution for now)
-    self.MasterCanvas = self.MasterCanvas or Canvas.new(self.DrawSize.X, self.DrawSize.Y)
+    self.MasterCanvas = self.MasterCanvas or Canvas.new(self.DrawSize.X, self.DrawSize.Y):AddProperties{AlphaMode = "premultiplied"}
     local canvasSize = self.MasterCanvas:GetSize()
 
     -- render all layers to the MasterCanvas
@@ -98,7 +98,7 @@ function Scene:CombineLayers()
         )
     end
 
-
+    self.MasterCanvas:Deactivate()
 end
 
 -- function aliases

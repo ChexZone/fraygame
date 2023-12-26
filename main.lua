@@ -7,7 +7,7 @@ local scene = Scene.new{
     Update = function (self, dt)
         Scene.Update(self, dt)
         self.Camera.Position = self:GetDescendent("Player").Position
-        self.Camera.Zoom = 2
+        self.Camera.Zoom = 2--+math.sin(Chexcore._clock)
     end
 }
 
@@ -16,16 +16,19 @@ scene:AddLayer(Layer.new("Background", 320, 180)).Draw = function (self)
     self.Canvases[1]:Activate()
     love.graphics.setColor(V{52, 168, 235}/255)
     love.graphics.rectangle("fill", 0, 0, 320, 180)
+    self.Canvases[1]:Deactivate()
 end
 
-scene:AddLayer(Layer.new("Gameplay", 640, 360))
+local mainLayer = scene:AddLayer(Layer.new("Gameplay", 640, 360))
 scene:AddLayer(Layer.new("GUI", 1920, 1080))
+
+
 
 local crate2
 -- test collidable
 local wheel = scene:GetLayer("Gameplay"):Adopt(Prop.new{
     Name = "Wheel",
-    Solid = false,
+    Solid = false, Visible = false,
     Position = V{ 0, 0 }, Size = V{ 64, 64 },
     Color = V{.8,.8,.8},
     AnchorPoint = V{ .5, .5 },
@@ -34,7 +37,6 @@ local wheel = scene:GetLayer("Gameplay"):Adopt(Prop.new{
     Texture = Texture.new("chexcore/assets/images/test/wheel.png"),
     Update = function (self, dt)
         self.Rotation = Chexcore._clock
-        self.Size = self.Size * 0.999
     end
 })
 wheel:Adopt(Prop.new{
@@ -47,12 +49,26 @@ wheel:Adopt(Prop.new{
     Rotation = 0,
     Texture = Texture.new("chexcore/assets/images/test/wheelbase.png"),
     Update = function (self, dt)
-        self.Rotation = Chexcore._clock - Chexcore._clock%0.25
+        self.Rotation = Chexcore._clock-- - Chexcore._clock%0.125
         --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
         --crate2:SetPosition(self:GetPoint((math.sin(Chexcore._clock*20)+1)/2, (math.cos(Chexcore._clock*20)+1)/2)())
     end
 })
-
+wheel:Adopt(Prop.new{
+    Name = "WheelBase",
+    Solid = false, Visible = true,
+    Position = V{ 0, 0 } / 2,   -- V stands for Vector
+    Size = V{ 64, 64 },
+    Color = V{.9,.9,.9},
+    AnchorPoint = V{ .5, .5 },
+    Rotation = 0,
+    Texture = Texture.new("chexcore/assets/images/test/wheel.png"),
+    Update = function (self, dt)
+        self.Rotation = Chexcore._clock-- - Chexcore._clock%0.125/2
+        --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
+        --crate2:SetPosition(self:GetPoint((math.sin(Chexcore._clock*20)+1)/2, (math.cos(Chexcore._clock*20)+1)/2)())
+    end
+})
 wheel:Adopt(Prop.new{
     Name = "Semi1",
     Solid = true, Visible = true,
@@ -111,20 +127,18 @@ scene:GetLayer("Gameplay"):Adopt(Prop.new{
     Size = V{ 24, 24 },
     AnchorPoint = V{ 0.5, 0.5 },
     Rotation = 0,
-    Texture = Texture.new("chexcore/assets/images/test/player4.png"),
+    Texture = Animation.new("chexcore/assets/images/test/player-sheet.png", 1, 4),
     Update = function (self, dt)
         
         self.Position = scene:GetDescendent("Semi4"):GetPoint(0.5, 0) - V{0, self.Size.Y/2}
         --self:SetEdge("bottom", wheel:GetChild("Semi1"):GetEdge("top"))
 
-        self.Texture = Texture.new("chexcore/assets/images/test/player" .. (math.floor(Chexcore._clock*4))%4+1 .. ".png")
+        --self.Texture = Texture.new("chexcore/assets/images/test/player" .. (math.floor(Chexcore._clock*4))%4+1 .. ".png")
         --self.Rotation = Chexcore._clock
         --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
         --crate2:SetPosition(self:GetPoint((math.sin(Chexcore._clock*20)+1)/2, (math.cos(Chexcore._clock*20)+1)/2)())
     end
 })
-print(Camera.Position)
-
 -- local crate = scene:GetDescendent("Crate")
 -- crate2 = scene:GetDescendent("Crate2")
 
@@ -133,7 +147,23 @@ print(Camera.Position)
 --     Position = crate2.Position:Clone()
 -- })
 
+mainLayer.Canvases[1].Shader = Shader.new([[
+    vec4 resultCol;
+    vec4 textureCol;
+    float rand(vec2 co){
+        return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+    }
+    vec4 effect( vec4 col, Image texture, vec2 texturePos, vec2 screenPos )
+    {
+        return Texel(texture, texturePos) * col;
+    }
+    ]]):AddProperties{
+
+    }
+
+
 Chexcore.MountScene(scene)
+
 
 -- -- some of the constructors are still somewhat manual but they'll get cleaned up !
 

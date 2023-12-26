@@ -760,6 +760,21 @@ _G.cdraw = function(drawable, x, y, r, sx, sy, ox, oy, kx, ky, ignoreSnap)
         kx, ky
     )
 end
+
+_G.cdrawquad = function(drawable, quad, qx, qy, x, y, r, sx, sy, ox, oy, kx, ky, ignoreSnap)
+    love_graphics_draw(
+        drawable,
+        quad,
+        ignoreSnap and (x or 0) or math.floor(x or 0), 
+        ignoreSnap and (y or 0) or math.floor(y or 0), r,
+        sx and (sx < 0 and -sx or 1 / qx * sx),
+        sy and (sy < 0 and -sy or 1 / qy * sy),
+        ox and (ox <= 1 and qx * ox or ox),
+        oy and (oy <= 1 and qy * oy or oy),
+        kx, ky
+    )
+end
+
 -- ox/oy and sx/sy alternate rules always apply here
 _G.cdraw2 = function(drawable, x, y, r, sx, sy, ox, oy, kx, ky, ignoreSnap)
     love_graphics_draw(

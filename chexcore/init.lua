@@ -3,7 +3,9 @@ _G.Chexcore = {
     _clock = 0,             -- keeps track of total game run time
 
     _types = {},            -- stores all type references
-    _scenes = {}            -- stores all mounted Scene references
+    _scenes = {},           -- stores all mounted Scene references
+    _globalUpdates = {},    -- for any types that want independent update control
+    _globalDraws = {},      -- for any types that want independent draw control
 }
 
 -- when an Object is indexed, this variable helps keep the referenced up the type chain
@@ -23,6 +25,12 @@ function love.draw() Chexcore.Draw() end
 ---------------- UPDATE LOOPS ------------------
 function Chexcore.Update(dt)
     Chexcore._clock = Chexcore._clock + dt
+
+    -- global updaters first
+    for _, func in ipairs(Chexcore._globalUpdates) do
+        func(dt)
+    end
+
     -- update all active Scenes
     for sceneid, scene in ipairs(Chexcore._scenes) do
         if scene.Active then
@@ -32,6 +40,11 @@ function Chexcore.Update(dt)
 end
 
 function Chexcore.Draw()
+    -- global updaters first
+    for _, func in ipairs(Chexcore._globalDraws) do
+        func()
+    end
+    
     -- draw all visible Scenes
     for id, scene in ipairs(Chexcore._scenes) do
         if scene.Visible then
@@ -83,7 +96,12 @@ function Chexcore:AddType(type)
     -- assume the type may not have a metatable yet
     local metatable = getmetatable(type) or {}
 
-    
+    if type._globalUpdate then
+        Chexcore._globalUpdates[#Chexcore._globalUpdates+1] = type._globalUpdate
+    end
+    if type._globalDraw then
+        Chexcore._globalDraws[#Chexcore._globalDraws+1] = type._globalDraw
+    end
 
     -- apply the supertype, if there is one
     -- Object's basic type has a special metatable, so it is ignored
@@ -129,7 +147,54 @@ function Chexcore.UnmountScene(scene)
     return false
 end
 
+local fps = 0
+local FRAMELIMIT = 60
+local frameTime = 0
+function love.run()
+	if love.load then love.load(love.arg.parseGameArguments(arg), arg) end
 
+	-- We don't want the first frame's dt to include time taken by love.load.
+	if love.timer then love.timer.step() end
+
+	local dt = 0
+
+	-- Main loop time.
+	return function()
+		-- Process events.
+		if love.event then
+			love.event.pump()
+			for name, a,b,c,d,e,f in love.event.poll() do
+				if name == "quit" then
+					if not love.quit or not love.quit() then
+						return a or 0
+					end
+				end
+				love.handlers[name](a,b,c,d,e,f)
+			end
+		end
+
+		-- Update dt, as we'll be passing it to update
+		if love.timer then dt = love.timer.step() end
+
+		-- Call update and draw
+        frameTime = frameTime + dt
+
+        if frameTime >= 1/FRAMELIMIT and love.graphics and love.graphics.isActive() then
+            if love.update then love.update(1/FRAMELIMIT) end -- will pass 0 if love.timer is disabled
+
+            frameTime = frameTime - 1/FRAMELIMIT
+			love.graphics.origin()
+			love.graphics.clear(love.graphics.getBackgroundColor())
+
+			if love.draw then love.draw() end
+
+			love.graphics.present()
+		end
+
+
+		if love.timer then love.timer.sleep(0.001) end
+	end
+end
 ------------------------------------------------
 
 
@@ -141,7 +206,9 @@ local types = {
     "chexcore.code.types.number",
     "chexcore.code.types.vector",
     "chexcore.code.types.ray",
+    "chexcore.code.types.sound",
     "chexcore.code.types.texture",
+    "chexcore.code.types.animation",
     "chexcore.code.types.prop",
     "chexcore.code.types.specialObject",
     "chexcore.code.types.specialObject2",
@@ -150,6 +217,7 @@ local types = {
     "chexcore.code.types.scene",
     "chexcore.code.types.layer",
     "chexcore.code.types.canvas",
+    "chexcore.code.types.shader"
 }
 
 for _, type in ipairs(types) do
