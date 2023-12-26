@@ -7,7 +7,7 @@ local Prop = {
     Color = V{ 1, 1, 1, 1 },-- created in constructor; values range from 0-1
     AnchorPoint = V{ 0, 0 },-- created in constructor; values range from 0-1
     Rotation = 0,
-    DrawScale = 1,          -- only works with AnchorPoint = V{0, 0}
+    DrawScale = V{1, 1},    -- only works with AnchorPoint = V{0.5, 0.5}
     DrawOverChildren = false,
     Visible = true,         -- whether or not the Prop's :Draw() method is called
     Active = true,          -- whether or not the Prop's :Update() method is called
@@ -30,6 +30,7 @@ function Prop.new(properties)
     newProp.Size = rg(newProp, "Size") or V{ Prop.Size.X, Prop.Size.Y }
     newProp.Color = rg(newProp, "Color") or V{ Prop.Color.X, Prop.Color.Y, Prop.Color.Z, Prop.Color.A }
     newProp.AnchorPoint = rg(newProp, "AnchorPoint") or V{ Prop.AnchorPoint.X, Prop.AnchorPoint.Y }
+    newProp.DrawScale = rg(newProp, "DrawScale") or V{ Prop.DrawScale.X, Prop.DrawScale.Y }
 
     return newProp
 end
@@ -48,11 +49,11 @@ function Prop:Draw(tx, ty)
         self:DrawChildren(tx, ty)
     end
     lg.setColor(self.Color)
-    local sx = self.Size[1] * (self.DrawScale-1)
-    local sy = self.Size[2] * (self.DrawScale-1)
+    local sx = self.Size[1] * (self.DrawScale[1]-1)
+    local sy = self.Size[2] * (self.DrawScale[2]-1)
     self.Texture:DrawToScreen(
-        floor(self.Position[1] - sx/2 - tx),
-        floor(self.Position[2] - sy/2 - ty),
+        floor(self.Position[1] - tx),
+        floor(self.Position[2] - ty),
         self.Rotation,
         self.Size[1] + sx,
         self.Size[2] + sy,

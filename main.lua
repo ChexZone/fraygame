@@ -125,12 +125,13 @@ scene:GetLayer("Gameplay"):Adopt(Prop.new{
     Solid = true, Visible = true,
     Position = V{ 340, 220 } / 2,   -- V stands for Vector
     Size = V{ 24, 24 },
-    AnchorPoint = V{ 0.5, 0.5 },
+    DrawScale = V{1,.8},
+    AnchorPoint = V{ 0.5, 1 },
     Rotation = 0,
     Texture = Animation.new("chexcore/assets/images/test/player-sheet.png", 1, 4),
     Update = function (self, dt)
         
-        self.Position = scene:GetDescendent("Semi4"):GetPoint(0.5, 0) - V{0, self.Size.Y/2}
+        self.Position = scene:GetDescendent("Semi4"):GetPoint(0.5, 0)
         --self:SetEdge("bottom", wheel:GetChild("Semi1"):GetEdge("top"))
 
         --self.Texture = Texture.new("chexcore/assets/images/test/player" .. (math.floor(Chexcore._clock*4))%4+1 .. ".png")
