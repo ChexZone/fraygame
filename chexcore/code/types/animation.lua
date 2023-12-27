@@ -7,6 +7,7 @@ local Animation = {
     LeftBound = 1,
     RightBound = 1,
     Duration = 1,
+    PlaybackScaling = 1,
     Loop = true,
     IsPlaying = true,
 
@@ -21,7 +22,7 @@ local Animation = {
 Animation._globalUpdate = function (dt)
     for anim in pairs(Animation._cache) do
         if anim.IsPlaying then
-            anim:Update(dt)
+            anim:Update(dt * anim.PlaybackScaling)
         end
     end
 end
@@ -48,7 +49,7 @@ function Animation.new(spritesheetPath, rows, cols)
 
     newAnimation._quadSize = V{segx, segy}
     newAnimation.LeftBound = 1
-    newAnimation.RightBound = 4-- #newAnimation._frames
+    newAnimation.RightBound = #newAnimation._frames
 
     Animation._cache[newAnimation] = true
 
@@ -66,6 +67,7 @@ function Animation:GetProgress()
     return (self.Clock%self.Duration) / self.Duration
 end
 
+local floor = math.floor
 function Animation:Update(dt)
     if self.Loop then
         self.Clock = (self.Clock + dt) % self.Duration
@@ -76,19 +78,19 @@ function Animation:Update(dt)
         end
     end
     local range = self.RightBound - self.LeftBound + 1
-    self.CurrentFrame = self.LeftBound + math.floor(range * self:GetProgress())
+    self.CurrentFrame = self.LeftBound + floor(range * self:GetProgress())
 end
 
 local V = Vector
 function Animation:GetSize()
-    return V{ self._drawable:getDimensions() }
+    return self._quadSize:Clone()
 end
 
 function Animation:GetWidth()
-    return self._drawable:getWidth()
+    return self._quadSize[1]
 end
 
 function Animation:GetHeight()
-    return self._drawable:getHeight()
+    return self._quadSize[2]
 end
 return Animation

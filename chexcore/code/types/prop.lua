@@ -45,6 +45,11 @@ end
 local sin, cos, abs, max, sqrt, floor = math.sin, math.cos, math.abs, math.max, math.sqrt, math.floor
 local lg = love.graphics
 function Prop:Draw(tx, ty)
+    
+    local oldshader
+    if self.Shader then
+        self.Shader:Activate()
+    end
     if self.DrawOverChildren and self:HasChildren() then
         self:DrawChildren(tx, ty)
     end
@@ -63,11 +68,15 @@ function Prop:Draw(tx, ty)
     if not self.DrawOverChildren and self:HasChildren() then
         self:DrawChildren(tx, ty)
     end
+
+    if self.Shader then
+        self.Shader:Deactivate()
+    end
 end
 
 
 function Prop:Update(dt)
-    print("HI")
+
 end
 
 local d90 = math.rad(90)
@@ -132,7 +141,7 @@ end
 -- only works with axis-aligned bounding boxes !! i dont feel like doing all that math
 -- use Rays for weird rotatey collision idk
 function Prop:CollidesAABB(other)
-    if not other.Solid then return false end
+    if not self.Solid then return false end
 
     local sp, op = self.Position, other.Position
     local sap, oap = self.AnchorPoint, other.AnchorPoint
@@ -159,7 +168,7 @@ end
 
 -- this function is more expensive but also returns direction info
 function Prop:CollisionInfo(other)
-    if not other.Solid then return false end
+    if not self.Solid then return false end
     local sp, op = self.Position, other.Position
     local sap, oap = self.AnchorPoint, other.AnchorPoint
     local ss, os = self.Size, other.Size
@@ -230,7 +239,7 @@ function Prop.GetHitFace(hDist, vDist, usingItWrong)
             return vDist > 0 and "top" or vDist < 0 and "bottom" or "none"
         elseif vDist == 0 then
             return hDist > 0 and "left" or hDist < 0 and "right" or "none"
-        elseif abs(hDist) < 1 and abs(vDist) < 1 then
+        elseif abs(hDist) < 1.1 and abs(vDist) < 1.1 then
             return "none"
         elseif abs(hDist) < abs(vDist) then
             return hDist > 0 and "left" or hDist < 0 and "right" or "none"
@@ -248,7 +257,7 @@ end
 
 function Prop:CollisionPass(container, deep)
     local nsf = function(c) return c ~= self end
-
+    
     if not container then
         container = deep and self._parent:GetDescendents(nsf) or self._parent:GetChildren(nsf)
     elseif container._type then
@@ -259,20 +268,20 @@ function Prop:CollisionPass(container, deep)
         end
     end
 
-    local hit, hDir, vDir, nest
+    local hit, hDir, vDir, ex
     local i = 1
     return function ()
         if not container[i] then return nil end
 
 
         repeat
-            hit, hDir, vDir = collisionInfo(self, container[i])
+            hit, hDir, vDir, ex = container[i]:CollisionInfo(self)
             i = i + 1
-
+            
         until not container[i] or hit
 
         if hit then
-            return container[i-1], hDir, vDir
+            return container[i-1], hDir, vDir, ex
         else
             return nil
         end

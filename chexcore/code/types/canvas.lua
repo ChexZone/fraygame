@@ -55,12 +55,12 @@ function Canvas:DrawToScreen(...)
 
     if self.Shader then
         local oldShader = love.graphics.getShader()
-        self.Shader:Activate()
-        love.graphics.setShader(oldShader)
+        --self.Shader:Activate()
     end
 
     -- render the Canvas
     draw(self._drawable, ...)
+    
 end
 
 local setCanvas, setShader = lg.setCanvas, lg.setShader
@@ -72,7 +72,7 @@ function Canvas:Activate()
 end
 
 function Canvas:Deactivate()
-    setShader(self._oldShader)
+    if self.Shader then self.Shader:Deactivate() end
     setCanvas(self._oldCanvas)
 end
 

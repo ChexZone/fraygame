@@ -210,6 +210,7 @@ local types = {
     "chexcore.code.types.texture",
     "chexcore.code.types.animation",
     "chexcore.code.types.prop",
+    "chexcore.code.types.tilemap",
     "chexcore.code.types.specialObject",
     "chexcore.code.types.specialObject2",
     "chexcore.code.types.camera",

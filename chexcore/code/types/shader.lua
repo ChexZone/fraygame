@@ -39,9 +39,20 @@ function Shader.new(path)
     return newShader
 end
 
-local setShader = love.graphics.setShader
+local setShader, getShader = love.graphics.setShader, love.graphics.getShader
 function Shader:Activate()
+    self._oldShader = getShader()
     setShader(self._realShader)
+end
+
+function Shader:Deactivate()
+    setShader(self._oldShader)
+    self._oldShader = nil
+end
+
+function Shader:Send(...)
+    self._realShader:send(...)
+    return self
 end
 
 return Shader

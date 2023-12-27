@@ -6,8 +6,8 @@ require "chexcore"
 local scene = Scene.new{
     Update = function (self, dt)
         Scene.Update(self, dt)
-        self.Camera.Position = self:GetDescendent("Player").Position
-        self.Camera.Zoom = 2--math.sin(Chexcore._clock)
+        self.Camera.Position = self:GetDescendent("Player").Position - V{0, self:GetDescendent("Player").Size.Y/2}
+        self.Camera.Zoom = 2 --math.sin(Chexcore._clock)
     end
 }
 
@@ -20,6 +20,35 @@ scene:AddLayer(Layer.new("Background", 320, 180)).Draw = function (self)
 end
 
 local mainLayer = scene:AddLayer(Layer.new("Gameplay", 640, 360))
+
+mainLayer.Canvases[1].Shader = Shader.new[[
+    vec4 origOut;
+    float dist;
+    vec4 effect( vec4 col, Image texture, vec2 texturePos, vec2 screenPos )
+{
+    origOut = (Texel(texture, texturePos) * col);
+
+    if (origOut.a == 1.0f) {
+
+        vec2 normalizedScreenPos = screenPos / love_ScreenSize.xy;
+
+        dist = max(min(sqrt(pow(0.5 - normalizedScreenPos.x, 2) + pow(0.5 - normalizedScreenPos.y, 2)) * 8, 0.5), 0);
+        return vec4(
+            origOut.r - dist,
+            origOut.g - dist,
+            origOut.b - dist,
+            1.0f
+        );
+    } else {
+        return origOut;
+    }
+
+    
+}
+    
+]]
+
+
 scene:AddLayer(Layer.new("GUI", 1920, 1080))
 
 
@@ -36,7 +65,7 @@ local wheel = scene:GetLayer("Gameplay"):Adopt(Prop.new{
     DrawOverChildren = false,
     Texture = Texture.new("chexcore/assets/images/test/wheel.png"),
     Update = function (self, dt)
-        self.Rotation = Chexcore._clock
+        self.Rotation = Chexcore._clock - math.rad(10)/2
     end
 })
 wheel:Adopt(Prop.new{
@@ -49,7 +78,7 @@ wheel:Adopt(Prop.new{
     Rotation = 0,
     Texture = Texture.new("chexcore/assets/images/test/wheelbase.png"),
     Update = function (self, dt)
-        self.Rotation = Chexcore._clock-- - Chexcore._clock%0.125
+        self.Rotation = Chexcore._clock - Chexcore._clock%math.rad(10)
         --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
         --crate2:SetPosition(self:GetPoint((math.sin(Chexcore._clock*20)+1)/2, (math.cos(Chexcore._clock*20)+1)/2)())
     end
@@ -64,7 +93,7 @@ wheel:Adopt(Prop.new{
     Rotation = 0,
     Texture = Texture.new("chexcore/assets/images/test/wheel.png"),
     Update = function (self, dt)
-        self.Rotation = Chexcore._clock-- - Chexcore._clock%0.125/2
+        self.Rotation = Chexcore._clock - Chexcore._clock%math.rad(10)
         --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
         --crate2:SetPosition(self:GetPoint((math.sin(Chexcore._clock*20)+1)/2, (math.cos(Chexcore._clock*20)+1)/2)())
     end
@@ -119,27 +148,19 @@ wheel:Adopt(Prop.new{
 })
 
 
+Chexcore:AddType(require"game.player")
 
-scene:GetLayer("Gameplay"):Adopt(Prop.new{
-    Name = "Player",
-    Solid = true, Visible = true,
-    Position = V{ 340, 220 } / 2,   -- V stands for Vector
-    Size = V{ 24, 24 },
-    DrawScale = V{1,.8},
-    AnchorPoint = V{ 0.5, 1 },
-    Rotation = 0,
-    Texture = Animation.new("chexcore/assets/images/test/player-sheet.png", 1, 4),
+local player = Player.new()
+mainLayer:Adopt(player)
+
+local tilemap = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/tilemap.png", 16, 32, 16)):AddProperties{
+    AnchorPoint = V{0,0},
+    Scale = 1,
     Update = function (self, dt)
-        
-        self.Position = scene:GetDescendent("Semi4"):GetPoint(0.5, 0)
-        --self:SetEdge("bottom", wheel:GetChild("Semi1"):GetEdge("top"))
-
-        --self.Texture = Texture.new("chexcore/assets/images/test/player" .. (math.floor(Chexcore._clock*4))%4+1 .. ".png")
-        --self.Rotation = Chexcore._clock
-        --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
-        --crate2:SetPosition(self:GetPoint((math.sin(Chexcore._clock*20)+1)/2, (math.cos(Chexcore._clock*20)+1)/2)())
+        --self.Scale = self.Scale + 0.002
     end
-})
+}
+tilemap:SetTile(32,2,4)
 -- local crate = scene:GetDescendent("Crate")
 -- crate2 = scene:GetDescendent("Crate2")
 
@@ -147,21 +168,6 @@ scene:GetLayer("Gameplay"):Adopt(Prop.new{
 --     Name = "HELP",
 --     Position = crate2.Position:Clone()
 -- })
-
-mainLayer.Canvases[1].Shader = Shader.new([[
-    vec4 resultCol;
-    vec4 textureCol;
-    float rand(vec2 co){
-        return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
-    }
-    vec4 effect( vec4 col, Image texture, vec2 texturePos, vec2 screenPos )
-    {
-        return Texel(texture, texturePos) * col;
-    }
-    ]]):AddProperties{
-
-    }
-
 
 Chexcore.MountScene(scene)
 
