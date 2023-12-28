@@ -217,7 +217,7 @@ local function getInfo(self, other, ss)
 end
 
 
-function Tilemap:CollisionInfo(other)
+function Tilemap:CollisionInfo(other, preference)
     local tilemapSize = self.Size*self.TileSize*self.Scale
     local success, sLeftEdge,sRightEdge,sTopEdge,sBottomEdge,
                    oLeftEdge,oRightEdge,oTopEdge,oBottomEdge = getInfo(self, other, tilemapSize)
@@ -247,6 +247,8 @@ function Tilemap:CollisionInfo(other)
 
         local storeHit, storeHDist, storeVDist
 
+        local hitInfo = {}
+
         for x = xStart, xEnd do
             for y = yStart, yEnd do
                 
@@ -261,10 +263,13 @@ function Tilemap:CollisionInfo(other)
 
 
                     if hit then
-                        return hit, hDist, vDist, tileID
+                        hitInfo[#hitInfo+1] = {hDist, vDist, tileID}
                     end
                 end
             end
+        end
+        if #hitInfo > 0 then
+            return hitInfo
         end
     end
 end

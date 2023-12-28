@@ -259,7 +259,7 @@ function Prop.GetHitFace(hDist, vDist, usingItWrong)
     end
 end
 
-function Prop:CollisionPass(container, deep)
+function Prop:CollisionPass(container, deep, preference)
     local nsf = function(c) return c ~= self end
     
     if not container then
@@ -274,17 +274,35 @@ function Prop:CollisionPass(container, deep)
 
     local hit, hDir, vDir, ex
     local i = 1
+    local queue, queuePos, queueOwner
     return function ()
-        if not container[i] then return nil end
-
+        if not container[i] and (not queue or not queue[queuePos+1]) then return nil end
+        if queue then
+            
+            queuePos = queuePos + 1
+            if queue[queuePos] then
+                return queueOwner, queue[queuePos][1], queue[queuePos][2], queue[queuePos][3]
+            else
+                queue = nil; queuePos = nil; queueOwner = nil
+            end
+        end
 
         repeat
-            hit, hDir, vDir, ex = container[i]:CollisionInfo(self)
+            hit, hDir, vDir, ex = container[i]:CollisionInfo(self, preference)
             i = i + 1
             
         until not container[i] or hit
 
-        if hit then
+        if type(hit) == "table" then
+            
+
+            queue = hit
+            
+            queuePos = 1
+            queueOwner = container[i-1]
+            
+            return queueOwner, queue[1][1], queue[1][2], queue[1][3]
+        elseif hit then
             return container[i-1], hDir, vDir, ex
         else
             return nil

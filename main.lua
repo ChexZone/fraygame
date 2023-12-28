@@ -6,8 +6,8 @@ require "chexcore"
 local scene = Scene.new{
     Update = function (self, dt)
         Scene.Update(self, dt)
-        self.Camera.Position = self:GetDescendent("Player").Position - V{0, self:GetDescendent("Player").Size.Y/2}
-        self.Camera.Zoom = 2 --math.sin(Chexcore._clock)
+        self.Camera.Position = (self:GetDescendent("Player").Position - V{0, self:GetDescendent("Player").Size.Y/2})/2
+        self.Camera.Zoom = 1.5 --math.sin(Chexcore._clock)
     end
 }
 
@@ -153,14 +153,23 @@ Chexcore:AddType("game.player")
 local player = Player.new()
 mainLayer:Adopt(player)
 
-local tilemap = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/tilemap.png", 16, 32, 16)):AddProperties{
+local tilemap = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/tilemap.png", 32, 8, 8, {{
+    11, 0, 0, 0, 0, 0, 0, 10,
+    6, 11, 0, 0, 0, 0, 10, 7,
+    4, 6, 1, 1, 1, 1, 7, 4,
+    13, 13, 13, 13, 13, 13, 13, 13,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1,
+}})):AddProperties{
+    Position = V{64,0},
     AnchorPoint = V{0,0},
     Scale = 1,
     Update = function (self, dt)
         --self.Scale = self.Scale + 0.002
     end
 }
-tilemap:SetTile(32,2,4)
 -- local crate = scene:GetDescendent("Crate")
 -- crate2 = scene:GetDescendent("Crate2")
 
