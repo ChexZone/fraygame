@@ -32,7 +32,7 @@ mainLayer.Canvases[1].Shader = Shader.new[[
 
         vec2 normalizedScreenPos = screenPos / love_ScreenSize.xy;
 
-        dist = max(min(sqrt(pow(0.5 - normalizedScreenPos.x, 2) + pow(0.5 - normalizedScreenPos.y, 2)) * 8, 0.5), 0);
+        dist = max(min(sqrt(pow(0.5 - normalizedScreenPos.x, 2) + pow(0.5 - normalizedScreenPos.y, 2)) * 8, 0.5), 0) * 0;
         return vec4(
             origOut.r - dist,
             origOut.g - dist,
@@ -148,7 +148,7 @@ wheel:Adopt(Prop.new{
 })
 
 
-Chexcore:AddType(require"game.player")
+Chexcore:AddType("game.player")
 
 local player = Player.new()
 mainLayer:Adopt(player)

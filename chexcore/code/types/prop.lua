@@ -234,6 +234,10 @@ function Prop.GetHitFace(hDist, vDist, usingItWrong)
         hDist, vDist = vDist, usingItWrong
     end
 
+    
+
+    if not hDist and not vDist then return false end
+
     if hDist and vDist then
         if hDist == 0 then
             return vDist > 0 and "top" or vDist < 0 and "bottom" or "none"
@@ -241,10 +245,10 @@ function Prop.GetHitFace(hDist, vDist, usingItWrong)
             return hDist > 0 and "left" or hDist < 0 and "right" or "none"
         elseif abs(hDist) < 1.1 and abs(vDist) < 1.1 then
             return "none"
-        elseif abs(hDist) < abs(vDist) then
-            return hDist > 0 and "left" or hDist < 0 and "right" or "none"
-        else
+        elseif abs(hDist) > abs(vDist) then
             return vDist > 0 and "top" or vDist < 0 and "bottom" or "none"
+        else
+            return hDist > 0 and "left" or hDist < 0 and "right" or "none"
         end
     elseif not vDist and hDist then -- object is taller than collidable
         return hDist > 0 and "left" or hDist < 0 and "right" or "none"

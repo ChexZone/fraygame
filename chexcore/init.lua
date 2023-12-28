@@ -56,7 +56,11 @@ end
 ------------------------------------------------
 
 --------------- CORE METHODS -------------------
+local typeBecauseIDecidedToUseABadName = type
 function Chexcore:AddType(type)
+    if typeBecauseIDecidedToUseABadName(type) == "string" then
+        type = require(type)
+    end
     -- check: if there is no type name, assign it to the default Object.Name
     type._type = type._type or type.Name or "NewObject"
 
@@ -180,9 +184,10 @@ function love.run()
         frameTime = frameTime + dt
 
         if frameTime >= 1/FRAMELIMIT and love.graphics and love.graphics.isActive() then
+            frameTime = frameTime - 1/FRAMELIMIT
+
             if love.update then love.update(1/FRAMELIMIT) end -- will pass 0 if love.timer is disabled
 
-            frameTime = frameTime - 1/FRAMELIMIT
 			love.graphics.origin()
 			love.graphics.clear(love.graphics.getBackgroundColor())
 
@@ -205,6 +210,7 @@ local types = {
     "chexcore.code.types.object",
     "chexcore.code.types.number",
     "chexcore.code.types.vector",
+    "chexcore.code.types.input",
     "chexcore.code.types.ray",
     "chexcore.code.types.sound",
     "chexcore.code.types.texture",

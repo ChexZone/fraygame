@@ -57,9 +57,14 @@ function Animation.new(spritesheetPath, rows, cols)
 end
 
 local draw = cdrawquad
+
+local clamp = function(n, min, max)
+    return n < min and min or n > max and max or n
+end
+
 function Animation:DrawToScreen(...)
     -- render the Texture
-    draw(self._texture._drawable, self._frames[self.CurrentFrame], self._quadSize[1], self._quadSize[2], ...)
+    draw(self._texture._drawable, self._frames[clamp(self.CurrentFrame,1,#self._frames)], self._quadSize[1], self._quadSize[2], ...)
 end
 
 -- by default, animation progress is based on delta time; returns 0-1
@@ -69,12 +74,14 @@ end
 
 local floor = math.floor
 function Animation:Update(dt)
+    -- print(self.Clock)
     if self.Loop then
         self.Clock = (self.Clock + dt) % self.Duration
     else
         self.Clock = (self.Clock + dt)
         if self.Clock >= self.Duration then
             self.IsPlaying = false
+            self.Clock = self.Clock - dt
         end
     end
     local range = self.RightBound - self.LeftBound + 1

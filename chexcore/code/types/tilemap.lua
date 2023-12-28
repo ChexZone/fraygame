@@ -38,7 +38,7 @@ function Tilemap.new(atlasPath, tileSize, width, height, layers)
         local activeLayer = newTilemap.Layers[1]
         for i = 1, height do
             for j = 1, width do
-                activeLayer[#activeLayer+1] = math.random(0,4)
+                activeLayer[#activeLayer+1] = math.random(0,1)
             end
         end
     else
@@ -245,6 +245,8 @@ function Tilemap:CollisionInfo(other)
         
         local boxLeft, boxRight, boxTop, boxBottom, tileID
 
+        local storeHit, storeHDist, storeVDist
+
         for x = xStart, xEnd do
             for y = yStart, yEnd do
                 
@@ -256,6 +258,7 @@ function Tilemap:CollisionInfo(other)
                     boxBottom = sTopEdge + realTileY * (y)
 
                     local hit, hDist, vDist = boxCollide(boxLeft,boxRight,boxTop,boxBottom,oLeftEdge,oRightEdge,oTopEdge,oBottomEdge)
+
 
                     if hit then
                         return hit, hDist, vDist, tileID
