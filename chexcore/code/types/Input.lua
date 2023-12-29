@@ -8,10 +8,13 @@ local Input = {
 
     -- internal properties
     _isDown = {},
+    _justPressed = {},
     _cache = setmetatable({}, {__mode = "k"}), -- cache has weak keys
     _super = "Object",      -- Supertype
     _global = true
 }
+
+
 local function sendInputDown(device, key)
     for listener in pairs(Input._cache) do
         if listener.Active then
@@ -45,6 +48,7 @@ function Input.new(map)
 
     newListener.CustomMap = map
     newListener._isDown = {}
+    newListener._justPressed = {}
 
     return newListener
 end

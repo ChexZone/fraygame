@@ -7,7 +7,7 @@ local scene = Scene.new{
     Update = function (self, dt)
         Scene.Update(self, dt)
         self.Camera.Position = (self:GetDescendent("Player").Position - V{0, self:GetDescendent("Player").Size.Y/2})/2
-        self.Camera.Zoom = 1.5 --math.sin(Chexcore._clock)
+        self.Camera.Zoom = 2 --math.sin(Chexcore._clock)
     end
 }
 
@@ -58,7 +58,7 @@ local crate2
 local wheel = scene:GetLayer("Gameplay"):Adopt(Prop.new{
     Name = "Wheel",
     Solid = false, Visible = false,
-    Position = V{ 0, 0 }, Size = V{ 64, 64 },
+    Position = V{ 0, 0 }, Size = V{ 128, 128 },
     Color = V{.8,.8,.8},
     AnchorPoint = V{ .5, .5 },
     Rotation = 0,
@@ -72,7 +72,7 @@ wheel:Adopt(Prop.new{
     Name = "WheelBase",
     Solid = false, Visible = true,
     Position = V{ 0, 0 } / 2,   -- V stands for Vector
-    Size = V{ 64, 64 },
+    Size = V{ 128, 128 },
     Color = V{.9,.9,.9},
     AnchorPoint = V{ .5, .5 },
     Rotation = 0,
@@ -87,7 +87,7 @@ wheel:Adopt(Prop.new{
     Name = "WheelBase",
     Solid = false, Visible = true,
     Position = V{ 0, 0 } / 2,   -- V stands for Vector
-    Size = V{ 64, 64 },
+    Size = V{ 128, 128 },
     Color = V{.9,.9,.9},
     AnchorPoint = V{ .5, .5 },
     Rotation = 0,
@@ -102,7 +102,7 @@ wheel:Adopt(Prop.new{
     Name = "Semi1",
     Solid = true, Visible = true,
     Position = V{ 340, 220 } / 2,   -- V stands for Vector
-    Size = V{ 20, 8 },
+    Size = V{ 20, 8 } * 2,
     AnchorPoint = V{ 0.5, 0.5 },
     Rotation = 0,
     Texture = Texture.new("chexcore/assets/images/test/semisolid.png"),
@@ -114,7 +114,7 @@ wheel:Adopt(Prop.new{
     Name = "Semi2",
     Solid = true, Visible = true,
     Position = V{ 340, 220 } / 2,   -- V stands for Vector
-    Size = V{ 20, 8 },
+    Size = V{ 20, 8 } * 2,
     AnchorPoint = V{ 0.5, 0.5 },
     Rotation = 0,
     Texture = Texture.new("chexcore/assets/images/test/semisolid.png"),
@@ -126,7 +126,7 @@ wheel:Adopt(Prop.new{
     Name = "Semi3",
     Solid = true, Visible = true,
     Position = V{ 340, 220 } / 2,   -- V stands for Vector
-    Size = V{ 20, 8 },
+    Size = V{ 20, 8 } * 2,
     AnchorPoint = V{ 0.5, 0.5 },
     Rotation = 0,
     Texture = Texture.new("chexcore/assets/images/test/semisolid.png"),
@@ -138,7 +138,7 @@ wheel:Adopt(Prop.new{
     Name = "Semi4",
     Solid = true, Visible = true,
     Position = V{ 340, 220 } / 2,   -- V stands for Vector
-    Size = V{ 20, 8 },
+    Size = V{ 20, 8 } * 2,
     AnchorPoint = V{ 0.5, 0.5 },
     Rotation = 0,
     Texture = Texture.new("chexcore/assets/images/test/semisolid.png"),
@@ -147,8 +147,33 @@ wheel:Adopt(Prop.new{
     end
 })
 
+mainLayer:Adopt(Prop.new{
+    Name = "Semi5",
+    Solid = true, Visible = true,
+    Position = V{ 0, 0 },   -- V stands for Vector
+    Size = V{ 20, 8 } * 2,
+    AnchorPoint = V{ 0.5, 0.5 },
+    Rotation = 0,
+    Texture = Texture.new("chexcore/assets/images/test/semisolid.png"),
+    Update = function (self, dt)
+        self.Position = V{50 + math.sin(Chexcore._clock*2)*100, -80}
+    end
+})
 
-Chexcore:AddType("game.player")
+mainLayer:Adopt(Prop.new{
+    Name = "Semi6",
+    Solid = true, Visible = true,
+    Position = V{ 0, 0 },   -- V stands for Vector
+    Size = V{ 20, 8 } * 2,
+    AnchorPoint = V{ 0.5, 0.5 },
+    Rotation = 0,
+    Texture = Texture.new("chexcore/assets/images/test/semisolid.png"),
+    Update = function (self, dt)
+        self.Position = V{300, -50 - math.sin(Chexcore._clock*1-0.25)*100}
+    end
+})
+
+Chexcore:AddType("game.player.player")
 
 local player = Player.new()
 mainLayer:Adopt(player)
@@ -159,17 +184,19 @@ local tilemap = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/tilemap
     4, 6, 1, 1, 1, 1, 7, 4,
     13, 13, 13, 13, 13, 13, 13, 13,
     0, 0, 0, 0, 0, 0, 0, 0,
-    1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1,
+    0, 1, 1, 1, 1, 1, 1, 1,
+    0, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1,
 }})):AddProperties{
     Position = V{64,0},
     AnchorPoint = V{0,0},
-    Scale = 1,
+    Scale = 1/2,
     Update = function (self, dt)
         --self.Scale = self.Scale + 0.002
     end
 }
+
+tilemap:Clone(true):AddProperties{Position = V{199,0}}
 -- local crate = scene:GetDescendent("Crate")
 -- crate2 = scene:GetDescendent("Crate2")
 
@@ -558,12 +585,12 @@ Chexcore.MountScene(scene)
 --     Texture = Texture.new("chexcore/assets/images/arrow-right.png")
 -- })
 
--- scene:GetLayer("Gameplay"):GetChild("RayOrigin").Draw = function(self)
+-- scene:GetLayer("Gameplay"):GetChild("RayOrigin").Draw = function(self, tx, ty)
 --     love.graphics.setColor(self.Color)
---     self.Texture:DrawToScreen(self.Position[1], self.Position[2], self.Rotation, self.Size[1], self.Size[2], self.AnchorPoint[1], self.AnchorPoint[2])
---     for i = 1, 10 do
+--     --self.Texture:DrawToScreen(self.Position[1], self.Position[2], self.Rotation, self.Size[1], self.Size[2], self.AnchorPoint[1], self.AnchorPoint[2])
+--     for i = 1, 100 do
 --         local testRay = Ray.new(self.Position + V{0, 0}, Chexcore._clock/4 * i/2 - i*2, 128)
---         testRay:Draw(scene:GetLayer("Gameplay"))
+--         testRay:Draw(scene:GetLayer("Gameplay"), nil, tx, ty)
 --         --local _, hitPos = testRay:Hits(scene:GetLayer("Gameplay"))
 --         --print(hitPos)
 

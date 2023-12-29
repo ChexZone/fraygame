@@ -742,6 +742,9 @@ local function deepCopy(tab)
 end
 _G.deepCopy = deepCopy
 
+_G.sign = function (n)
+    return n < 0 and -1 or n > 0 and 1 or 0
+end
 
 --- Draw stuff 
 

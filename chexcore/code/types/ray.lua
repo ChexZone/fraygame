@@ -27,15 +27,17 @@ function Ray.new(origin, direction, length)
 end
 
 local originTexture
-function Ray:Draw(container, ignore)
+function Ray:Draw(container, ignore, tx, ty)
+    tx = tx or 0
+    ty = ty or 0
     love.graphics.setColor(1,1,1,1)
     originTexture = originTexture or Texture.new("chexcore/assets/images/arrow-right.png")
-    originTexture:DrawToScreen(self.Position[1], self.Position[2], self.Angle, 8, 8, .5, .5)
+    originTexture:DrawToScreen(self.Position[1] - tx, self.Position[2] - ty, self.Angle, 8, 8, .5, .5)
     local ux, uy = math.cos(self.Angle), math.sin(self.Angle)
     local ex, ey = self.Position.X + ux*self.Length, self.Position.Y + uy*self.Length
     local _, hitPos
     if container then
-        _, hitPos = self:Cast(container, ignore, true)
+        _, hitPos = self:Cast(container, ignore, true, tx, ty)
 
     end
     love.graphics.setColor(1,1,1,1)
@@ -44,19 +46,19 @@ function Ray:Draw(container, ignore)
         cdrawline(self.Position.X, self.Position.Y, hitPos.X, hitPos.Y, 2, 0)
 
         love.graphics.setColor(1,0,0)
-        love.graphics.circle("fill", hitPos.X, hitPos.Y, 2)
+        love.graphics.circle("fill", hitPos.X - tx, hitPos.Y - ty, 2)
     else
-        cdrawline(self.Position.X, self.Position.Y, ex, ey, 2, 0)
+        cdrawline(self.Position.X - tx, self.Position.Y - ty, ex - tx, ey - ty, 2, 0)
 
         love.graphics.setColor(1,1,1,0.5)
-        love.graphics.circle("line", self.Position.X, self.Position.Y, self.Length)
+        love.graphics.circle("line", self.Position.X - tx, self.Position.Y - ty, self.Length)
     end
 
 end
 
 local rm, floor = table.remove, math.floor
 local HUGE, THRESHOLD, MAX_PASSES = math.huge, .5, 50
-function Ray:Cast(containerObject, ignore, visualize)
+function Ray:Cast(containerObject, ignore, visualize, tx, ty)
     -- containerObject holds the object whose children we are going to iterate through
     -- ignore is ignore list or ignore function
     local angleVector = Vector.FromAngle(self.Angle)
@@ -94,11 +96,11 @@ function Ray:Cast(containerObject, ignore, visualize)
 
         if visualize then
             love.graphics.setColor(1,1,1,0.5)
-            love.graphics.circle("line", movingVector[1], movingVector[2], stepSize)
+            love.graphics.circle("line", movingVector[1] - (tx or 0), movingVector[2] - (ty or 0), stepSize)
             movingVector[1] = movingVector[1] + angleVector[1] * stepSize
             movingVector[2] = movingVector[2] + angleVector[2] * stepSize
             love.graphics.setColor(0.5,0.5,1,1)
-            love.graphics.circle("line", movingVector[1], movingVector[2], 2)
+            love.graphics.circle("line", movingVector[1] - (tx or 0), movingVector[2] - (ty or 0), 2)
         else
             movingVector[1] = movingVector[1] + angleVector[1] * stepSize
             movingVector[2] = movingVector[2] + angleVector[2] * stepSize

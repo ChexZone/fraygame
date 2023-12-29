@@ -24,7 +24,7 @@ function love.draw() Chexcore.Draw() end
 
 ---------------- UPDATE LOOPS ------------------
 function Chexcore.Update(dt)
-    Chexcore._clock = Chexcore._clock + dt
+    Chexcore._clock = Chexcore._clock + dt * 1
 
     -- global updaters first
     for _, func in ipairs(Chexcore._globalUpdates) do
