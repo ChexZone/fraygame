@@ -755,7 +755,7 @@ local floor = math.floor
 _G.cdraw = function(drawable, x, y, r, sx, sy, ox, oy, kx, ky, ignoreSnap)
     love_graphics_draw(
         drawable,
-        ignoreSnap and (x or 0) or floor(x or 0), 
+        ignoreSnap and (x or 0) or floor(x or 0),
         ignoreSnap and (y or 0) or floor(y or 0), r,
         1 / drawable:getWidth() * sx,
         1 / drawable:getHeight() * sy,

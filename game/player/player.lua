@@ -7,10 +7,12 @@ local Player = {
     Visible = true,
     Solid = false,
     Rotation = 0,
-    Position = V{50,-50},
+    Position = V{80,-50},
     Size = V{24,24},
 
-    MaxSpeed = V{1.2, 3},
+    MaxSpeed = V{6, 6},                 -- the absolute velocity caps (+/-) of the player
+    RunSpeed = 1.2,                     -- how fast the player runs by default
+    TerminalVelocity = 3.5,           -- how many units per frame the player can fall
     AccelerationSpeed = 0.1,           -- how much the player accelerates per frame to the goal speed
     AirAccelerationSpeed = 0.08,       -- how much the player accelerates per frame in the air
     ForwardDeceleration = 0.2,        -- how much the player speed decreases while idle
@@ -20,6 +22,9 @@ local Player = {
     AirForwardDeceleration = 0.15,  -- how much the player decelerates while in the air, moving in the same direction
     AirIdleDeceleration = 0.1,     -- how much the player decelerates while idle in the air
     MoveDir = 0,                -- 1 for left, -1 for right, 0 for neutral
+
+    CoyoteFrames = 6,           -- when running off the side of an object, you get this many frames to jump
+    CoyoteStatus = 0,           -- how many coyote frames are remaining
 
     -- vars
     XHitbox = nil,              -- the player's hitbox for walls
@@ -106,7 +111,9 @@ function Player:DisconnectFromFloor()
     self.FloorPos = nil
     self.FloorLeftEdge, self.FloorRightEdge = nil, nil
     self.DistanceAlongFloor = nil
-    self.FloorDelta = nil
+    
+    -- we actually don't do this until later; FloorDelta is set to nil once there are no more coyote frames
+    -- self.FloorDelta = nil
 end
 
 function Player:ConnectToFloor(floor)
@@ -116,7 +123,7 @@ function Player:ConnectToFloor(floor)
     self.FloorRightEdge = floor:GetEdge("right")
     self.FramesSinceGrounded = 0
     self.DistanceAlongFloor = (self.Position.X - self.FloorLeftEdge) + (self.FloorRightEdge - self.FloorLeftEdge)
-    self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Loop = true}
+    -- self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Loop = true}
 end
 
 function Player:AlignWithFloor()
@@ -196,9 +203,20 @@ function Player:ValidateFloor()
 
         local hit, hDist, vDist = self.Floor:CollisionInfo(self.YHitbox)
         if not hit then
+            if self.FloorDelta then
+                -- inherit some velocity of the floor object
+                local amt = math.floor(self.FloorDelta.X*2+0.5)
+                if math.abs(amt) > 1 then
+                    if -sign(amt) == self.MoveDir then
+                        self.Velocity.X = self.Velocity.X - amt/2
+                    end
+                end
+            end
             self:DisconnectFromFloor()
-            
             self.Texture.Clock = 0
+
+            -- set up coyote frames
+            self.CoyoteStatus = self.CoyoteFrames
         end
     end
 end
@@ -209,7 +227,9 @@ function Player:ProcessInput()
     local input = self.InputListener
     
     -- jump input
-    if self.JustPressed["jump"] and self.Floor then
+    if self.JustPressed["jump"] and (self.Floor or self.CoyoteStatus > 0) then
+        self.Velocity.Y = -3
+        self.FramesSinceJump = 0
         if self.FloorDelta then
             -- inherit the velocity of the floor object
             local amt = math.floor(self.FloorDelta.X*2+0.5)
@@ -220,14 +240,18 @@ function Player:ProcessInput()
                 else
                     self.Velocity.X = self.Velocity.X - amt
                 end
-                
+            end
+
+            -- give some height if the dy is up
+            if self.FloorDelta.Y > 0.5 then
+                self.Velocity.Y = self.Velocity.Y - self.FloorDelta.Y
             end
         end
         self:DisconnectFromFloor()
-        self.Velocity.Y = -3
-        self.FramesSinceJump = 0
     end
     
+    -- print(self.Velocity.Y)
+
     self.MoveDir = (input:IsDown("move_left") and -1 or 0) + (input:IsDown("move_right") and 1 or 0)
     if self.MoveDir ~= 0 then
         
@@ -237,10 +261,10 @@ function Player:ProcessInput()
         
         
     else
+        
         -- connect to floor while idle
-        if self.Floor and (not self.FloorDelta or self.FloorDelta ~= EMPTYVEC) then
+        if self.Floor and self.FloorDelta and self.FloorDelta ~= EMPTYVEC and self.Velocity.X == 0 then
             self:AlignWithFloor()
-            
         end
         
         self.Acceleration.X = 0
@@ -256,15 +280,15 @@ function Player:UpdateAnimation()
         else
             -- run anim
             self.DrawScale.X = self.MoveDir
-            self.Texture:AddProperties{LeftBound = 5, RightBound = 10, Duration = 0.72, PlaybackScaling = 3 - math.abs(self.Velocity.X)*1.25, IsPlaying = true}
+            self.Texture:AddProperties{LeftBound = 5, RightBound = 10, Duration = 0.72, PlaybackScaling = 3 - math.abs(self.Velocity.X)*1.25, IsPlaying = true, Loop = true}
         end
     else -- no floor; in air
         if self.FramesSinceJump == 0 then
             -- just jumped
-            self.Texture:AddProperties{LeftBound = 25, RightBound = 28, Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
+            self.Texture:AddProperties{LeftBound = 13, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
         elseif self.FramesSinceJump == -1 then
             -- just falling
-            self.Texture:AddProperties{LeftBound = 27, RightBound = 28, Duration = 0.4, PlaybackScaling = 1, Loop = false}
+            self.Texture:AddProperties{LeftBound = 15, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false}
         end
     end
 end
@@ -281,6 +305,13 @@ function Player:UpdateFrameValues()
             self.FramesSinceJump = self.FramesSinceJump + 1
         end
     end
+
+    if self.CoyoteStatus > 0 then
+        self.CoyoteStatus = self.CoyoteStatus - 1
+    elseif self.FloorDelta then
+        -- reset floor delta at the end of coyote time
+        self.FloorDelta = nil
+    end
 end
 
 -- physics updates
@@ -290,7 +321,7 @@ function Player:UpdatePhysics()
     self.Position = self.Position + self.Velocity
     self.Velocity = self.Velocity + self.Acceleration
 
-    local decelGoal = math.abs(self.MoveDir) > 0 and self.MaxSpeed.X or 0
+    local decelGoal = math.abs(self.MoveDir) > 0 and self.RunSpeed or 0
     local speedOver = math.abs(self.Velocity.X) - decelGoal
     if speedOver > 0 then
         -- player is moving faster than the maximum horizontal speed
@@ -326,7 +357,14 @@ function Player:UpdatePhysics()
         end
     end
 
-    -- self.Velocity.X = min(max(self.Velocity.X, -self.MaxSpeed.X), self.MaxSpeed.X)
+
+    -- account for gravity
+    if self.Velocity.Y > self.TerminalVelocity then
+        self.Velocity.Y = self.TerminalVelocity
+    end
+
+    -- adhere to MaxSpeed
+    self.Velocity.X = min(max(self.Velocity.X, -self.MaxSpeed.X), self.MaxSpeed.X)
     self.Velocity.Y = min(max(self.Velocity.Y, -self.MaxSpeed.Y), self.MaxSpeed.Y)
 
 end

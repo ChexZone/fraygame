@@ -6,18 +6,20 @@ require "chexcore"
 local scene = Scene.new{
     Update = function (self, dt)
         Scene.Update(self, dt)
-        self.Camera.Position = (self:GetDescendent("Player").Position - V{0, self:GetDescendent("Player").Size.Y/2})/2
-        self.Camera.Zoom = 2 --math.sin(Chexcore._clock)
+        self.Camera.Position = (self:GetDescendent("Player").Position - V{0, self:GetDescendent("Player").Size.Y/2})
+        self.Camera.Zoom = 2 --+ (math.sin(Chexcore._clock)+1)/2
     end
 }
 
 -- Scenes have a list of Layers, which each hold their own Props
-scene:AddLayer(Layer.new("Background", 320, 180)).Draw = function (self)
+local bgTex = Texture.new("chexcore/assets/images/test/bg.png")
+scene:AddLayer(Layer.new("Background", 320, 180)):AddProperties{ ZoomInfluence = 0, TranslationInfluence = 0.5,
+Draw = function (self)
     self.Canvases[1]:Activate()
-    love.graphics.setColor(V{52, 168, 235}/255)
-    love.graphics.rectangle("fill", 0, 0, 320, 180)
+    love.graphics.setColor(1,1,1)
+    bgTex:DrawToScreen(0,0,0,320,180)
     self.Canvases[1]:Deactivate()
-end
+end}
 
 local mainLayer = scene:AddLayer(Layer.new("Gameplay", 640, 360))
 
@@ -66,6 +68,7 @@ local wheel = scene:GetLayer("Gameplay"):Adopt(Prop.new{
     Texture = Texture.new("chexcore/assets/images/test/wheel.png"),
     Update = function (self, dt)
         self.Rotation = Chexcore._clock - math.rad(10)/2
+        self.Position = V{0, 100 * math.sin(Chexcore._clock)}
     end
 })
 wheel:Adopt(Prop.new{
@@ -80,6 +83,8 @@ wheel:Adopt(Prop.new{
     Update = function (self, dt)
         self.Rotation = Chexcore._clock - Chexcore._clock%math.rad(10)
         --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
+        self.Position = V{0, 100 * math.sin(Chexcore._clock)}
+
         --crate2:SetPosition(self:GetPoint((math.sin(Chexcore._clock*20)+1)/2, (math.cos(Chexcore._clock*20)+1)/2)())
     end
 })
@@ -91,8 +96,11 @@ wheel:Adopt(Prop.new{
     Color = V{.9,.9,.9},
     AnchorPoint = V{ .5, .5 },
     Rotation = 0,
+    
     Texture = Texture.new("chexcore/assets/images/test/wheel.png"),
     Update = function (self, dt)
+        self.Position = V{0, 100 * math.sin(Chexcore._clock)}
+
         self.Rotation = Chexcore._clock - Chexcore._clock%math.rad(10)
         --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
         --crate2:SetPosition(self:GetPoint((math.sin(Chexcore._clock*20)+1)/2, (math.cos(Chexcore._clock*20)+1)/2)())

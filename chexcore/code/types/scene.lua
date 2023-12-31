@@ -77,26 +77,22 @@ function Scene:CombineLayers()
     lg.setColor(1,1,1,1)
 
     -- collect a list of all Canvases from all Layers
-    local canvases = {}
+    local masterCanvasSize = self.MasterCanvas:GetSize()
     for layer in self:EachChild() do
         for _, canvas in ipairs(layer.Canvases) do
-            canvases[#canvases+1] = canvas
-        end
-    end
-
-    local masterCanvasSize = self.MasterCanvas:GetSize()
-
-    for _, canvas in ipairs(canvases) do
-        -- by default, we'll just stretch each Canvas to fit the MasterCanvas. 
+            -- canvases[#canvases+1] = canvas
+                    -- by default, we'll just stretch each Canvas to fit the MasterCanvas. 
         -- maybe make this a property later ?
         canvas:DrawToScreen(
             masterCanvasSize.X/2,
             masterCanvasSize.Y/2, 0,
-            masterCanvasSize.X * self.Camera.Zoom,
-            masterCanvasSize.Y * self.Camera.Zoom,
+            masterCanvasSize.X + masterCanvasSize.X * (self.Camera.Zoom-1) * layer.ZoomInfluence,
+            masterCanvasSize.Y + masterCanvasSize.Y * (self.Camera.Zoom-1) * layer.ZoomInfluence,
             0.5, 0.5
         )
+        end
     end
+
 
     self.MasterCanvas:Deactivate()
 end
