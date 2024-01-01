@@ -26,25 +26,19 @@ function love.draw() Chexcore.Draw() end
 function Chexcore.Update(dt)
     Chexcore._clock = Chexcore._clock + dt * 1
 
-    -- global updaters first
-    for _, func in ipairs(Chexcore._globalUpdates) do
-        func(dt)
-    end
-
     -- update all active Scenes
     for sceneid, scene in ipairs(Chexcore._scenes) do
         if scene.Active then
             scene:Update(dt)
         end
     end
+
+    for _, func in ipairs(Chexcore._globalUpdates) do
+        func(dt)
+    end
 end
 
 function Chexcore.Draw()
-    -- global updaters first
-    for _, func in ipairs(Chexcore._globalDraws) do
-        func()
-    end
-    
     -- draw all visible Scenes
     for id, scene in ipairs(Chexcore._scenes) do
         if scene.Visible then
@@ -52,6 +46,9 @@ function Chexcore.Draw()
         end
     end
 
+    for _, func in ipairs(Chexcore._globalDraws) do
+        func()
+    end
 end
 ------------------------------------------------
 

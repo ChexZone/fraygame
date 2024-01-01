@@ -18,7 +18,7 @@ function love.load()
     Draw = function (self)
         self.Canvases[1]:Activate()
         love.graphics.setColor(1,1,1)
-        bgTex:DrawToScreen(0,0,0,320,180)
+        bgTex:DrawToScreen(160,90 - scene.Camera.Position.Y/20,0,320,320,0.5,0.5)
         self.Canvases[1]:Deactivate()
     end}
 
@@ -69,7 +69,7 @@ function love.load()
         Texture = Texture.new("chexcore/assets/images/test/wheel.png"),
         Update = function (self, dt)
             self.Rotation = Chexcore._clock - math.rad(10)/2
-            self.Position = V{-32, 100 * math.sin(Chexcore._clock)}
+            self.Position = V{-60 - 100 * math.cos(Chexcore._clock), 100 * math.sin(Chexcore._clock)}
         end
     })
     wheel:Adopt(Prop.new{
@@ -82,9 +82,9 @@ function love.load()
         Rotation = 0,
         Texture = Texture.new("chexcore/assets/images/test/wheelbase.png"),
         Update = function (self, dt)
-            self.Rotation = Chexcore._clock - Chexcore._clock%math.rad(10)
+            --self.Rotation = Chexcore._clock - Chexcore._clock%math.rad(10)
             --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
-            self.Position = V{-32, 100 * math.sin(Chexcore._clock)}
+            self.Position = self._parent.Position
 
             --crate2:SetPosition(self:GetPoint((math.sin(Chexcore._clock*20)+1)/2, (math.cos(Chexcore._clock*20)+1)/2)())
         end
@@ -100,7 +100,7 @@ function love.load()
         
         Texture = Texture.new("chexcore/assets/images/test/wheel.png"),
         Update = function (self, dt)
-            self.Position = V{-32, 100 * math.sin(Chexcore._clock)}
+            self.Position = self._parent.Position
 
             self.Rotation = Chexcore._clock - Chexcore._clock%math.rad(10)
             --crate2.Position = self:GetPoint((math.sin(Chexcore._clock)+1)/2, (math.cos(Chexcore._clock)+1)/2)
@@ -199,9 +199,9 @@ function love.load()
     }})):AddProperties{
         Position = V{64,0},
         AnchorPoint = V{0,0},
-        Scale = 1/2,
+        Scale = 1,
         Update = function (self, dt)
-            --self.Scale = self.Scale + 0.002
+            self.Scale = self.Scale
         end
     }
 

@@ -88,7 +88,6 @@ function Animation:Update(dt)
     self.CurrentFrame = self.LeftBound + floor(range * self:GetProgress())
 end
 
-local V = Vector
 function Animation:GetSize()
     return self._quadSize:Clone()
 end
