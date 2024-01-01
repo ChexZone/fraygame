@@ -180,6 +180,7 @@ function love.run()
 		-- Update dt, as we'll be passing it to update
 		if love.timer then dt = love.timer.step() end
 
+
 		-- Call update and draw
         frameTime = frameTime + dt
 

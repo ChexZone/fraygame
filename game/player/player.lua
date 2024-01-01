@@ -1,34 +1,48 @@
 local Player = {
     -- properties
-    Name = "Player",           -- Easy identifier
+    Name = "Player",
     AnchorPoint = V{ 0.5, 1 },
-    Velocity = V{.3, -1},
-    Acceleration = V{0,0.15},
+    Velocity = V{0, 0},
+    Acceleration = V{0,0},
     Visible = true,
     Solid = false,
     Rotation = 0,
     Position = V{80,-50},
     Size = V{24,24},
 
+    VelocityLastFrame = V{0,0}, -- the velocity of the player the previous frame (valid after Player:UpdatePhysics())
+
     MaxSpeed = V{6, 6},                 -- the absolute velocity caps (+/-) of the player
     RunSpeed = 1.2,                     -- how fast the player runs by default
-    TerminalVelocity = 3.5,           -- how many units per frame the player can fall
-    AccelerationSpeed = 0.1,           -- how much the player accelerates per frame to the goal speed
-    AirAccelerationSpeed = 0.08,       -- how much the player accelerates per frame in the air
-    ForwardDeceleration = 0.2,        -- how much the player speed decreases while idle
-    BackwardDeceleration = 0.5,
-    IdleDeceleration = 0.2,
+    Gravity = 0.15,                     -- how many pixels the player falls per frame
+    JumpGravity = 0.14,                 -- how many pixels the player falls per frame while in the upward arc of a jump
+    AfterJumpGravity = 0.5,             -- the gravity of the player in the upward jump arc after jump has been released
+    TerminalVelocity = 3.5,             -- how many units per frame the player can fall
+    HangTime = 3,                       -- how many frames of hang time are afforded in the jump arc
+    HalfHangTime = 1,                   -- how many frames of hang time are afforded for medium-height jumps
+    HangTimeActivationTime = 16,      -- how many frames the player must hold jump before they are owed hang time
+    HalfHangTimeActivationTime = 10,  -- activation energy for half hang time (medium-height jumps)
+    DropHangTime = 3,                   -- how many frames of hang time are offered from falling off the side of a platform
+    HangStatus = 0,                     -- tracker for the status of hang time
+    JumpPower = 3,                      -- the base initial upward momentum of a jump
+    AccelerationSpeed = 0.1,            -- how much the player accelerates per frame to the goal speed
+    AirAccelerationSpeed = 0.08,        -- how much the player accelerates per frame in the air
+    ForwardDeceleration = 0.2,          -- how much the player speed decreases while idle on the ground
+    BackwardDeceleration = 0.5,         -- how fast the player speed decreases while "braking" on the ground
+    IdleDeceleration = 0.2,             -- how fast the player halts to a stop while idle on the ground
     AirBackwardDeceleration = 0.25,     -- how much the player decelerates while in the air, against the movement direction
-    AirForwardDeceleration = 0.15,  -- how much the player decelerates while in the air, moving in the same direction
-    AirIdleDeceleration = 0.1,     -- how much the player decelerates while idle in the air
-    MoveDir = 0,                -- 1 for left, -1 for right, 0 for neutral
+    AirForwardDeceleration = 0.15,      -- how much the player decelerates while in the air, moving in the same direction
+    AirIdleDeceleration = 0.1,          -- how much the player decelerates while idle in the air
+    MoveDir = 0,                        -- 1 for left, -1 for right, 0 for neutral
 
-    CoyoteFrames = 6,           -- when running off the side of an object, you get this many frames to jump
-    CoyoteStatus = 0,           -- how many coyote frames are remaining
+    CoyoteFrames = 6,                   -- when running off the side of an object, you get this many frames to jump
+    CoyoteBuffer = 0,                   -- how many coyote frames are remaining
+    JumpFrames = 3,                     -- how many frames after a jump input can still result in a jump
+    JumpBuffer = 0,                     -- how many jump frames are remaining
 
     -- vars
-    XHitbox = nil,              -- the player's hitbox for walls
-    YHitbox = nil,              -- the player's hitbox for ceilings/floors
+    XHitbox = nil,                     -- the player's hitbox for walls
+    YHitbox = nil,                     -- the player's hitbox for ceilings/floors
 
     Floor = nil,                -- the current Prop acting as the "floor"
     FloorPos = nil,             -- the last recorded floor position (for deltas)
@@ -178,7 +192,14 @@ function Player:Unclip()
         end
         
     end
-    self.Position.Y = self.Position.Y + pushY
+
+    -- try to "undo" if the player clipped too hard
+    if math.abs(pushY) > self.Size.Y/2 then
+        self.Position.Y = self.Position.Y - self.VelocityLastFrame.Y
+    else
+        self.Position.Y = self.Position.Y + pushY
+    end
+    
 
     local pushX = 0
     for solid, hDist, vDist, tileID in self.XHitbox:CollisionPass(self._parent, true) do
@@ -190,7 +211,14 @@ function Player:Unclip()
         end
         
     end
-    self.Position.X = self.Position.X + pushX
+
+    -- again, try to "undo" and extreme clipping
+    -- try to "undo" if the player clipped too hard
+    if math.abs(pushX) > self.Size.X/2 then
+        self.Position.X = self.Position.X - self.VelocityLastFrame.X
+    else
+        self.Position.X = self.Position.X + pushX
+    end
 end
 
 function Player:ValidateFloor()
@@ -214,9 +242,9 @@ function Player:ValidateFloor()
             end
             self:DisconnectFromFloor()
             self.Texture.Clock = 0
-
+            self.HangStatus = self.DropHangTime+1
             -- set up coyote frames
-            self.CoyoteStatus = self.CoyoteFrames
+            self.CoyoteBuffer = self.CoyoteFrames
         end
     end
 end
@@ -227,8 +255,15 @@ function Player:ProcessInput()
     local input = self.InputListener
     
     -- jump input
-    if self.JustPressed["jump"] and (self.Floor or self.CoyoteStatus > 0) then
-        self.Velocity.Y = -3
+
+    if self.JustPressed["jump"] then
+        -- let the jump input linger for a few frames in case player inputs early
+        self.JumpBuffer = self.JumpFrames
+    end
+
+    if self.JumpBuffer > 0 and (self.Floor or self.CoyoteBuffer > 0) then
+        self.JumpBuffer = 0
+        self.Velocity.Y = -self.JumpPower
         self.FramesSinceJump = 0
         if self.FloorDelta then
             -- inherit the velocity of the floor object
@@ -247,9 +282,11 @@ function Player:ProcessInput()
                 self.Velocity.Y = self.Velocity.Y - self.FloorDelta.Y
             end
         end
+        self.Texture.Clock = 0 -- reset jump animation
         self:DisconnectFromFloor()
     end
     
+
     -- print(self.Velocity.Y)
 
     self.MoveDir = (input:IsDown("move_left") and -1 or 0) + (input:IsDown("move_right") and 1 or 0)
@@ -306,21 +343,82 @@ function Player:UpdateFrameValues()
         end
     end
 
-    if self.CoyoteStatus > 0 then
-        self.CoyoteStatus = self.CoyoteStatus - 1
+    if self.CoyoteBuffer > 0 then
+        self.CoyoteBuffer = self.CoyoteBuffer - 1
     elseif self.FloorDelta then
         -- reset floor delta at the end of coyote time
         self.FloorDelta = nil
+    end
+
+    if self.JumpBuffer > 0 then
+        self.JumpBuffer = self.JumpBuffer - 1
+    end
+
+    if self.HangStatus > 0 then
+        self.HangStatus = self.HangStatus - 1
     end
 end
 
 -- physics updates
 local min, max = math.min, math.max
 function Player:UpdatePhysics()
-    -- update position before velocity, so that there is at least 1 frame of whatever Velocity is set by prev frame
-    self.Position = self.Position + self.Velocity
-    self.Velocity = self.Velocity + self.Acceleration
 
+    
+    -- gravity is dependent on the jump state of the character
+    if self.HangStatus > 0 then
+        -- the player is owed hang time
+        
+        self.Velocity.Y = 0
+    elseif self.FramesSinceJump > -1 then
+        -- the player is in the air from a jump
+        if self.InputListener:IsDown("jump") then
+            -- the player is still holding jump and should get maximum height
+            if self.Velocity.Y < 0 then
+                -- player is moving upwards
+                self.Velocity.Y = self.Velocity.Y + self.JumpGravity
+
+                if self.Velocity.Y > 0 then
+                    -- give the player a couple grace frames
+                    self.Velocity.Y = 0
+                    self.HangStatus = self.HangTime+1 -- + 1 because the update function decreases it
+                end
+            else
+                -- player is moving down
+                self.Velocity.Y = self.Velocity.Y + self.Gravity
+            end
+        else
+            -- the player jumped but isn't holding jump anymore
+            if self.Velocity.Y < 0 then
+                -- end the jump arc immediately
+                self.Velocity.Y = self.Velocity.Y + self.AfterJumpGravity
+
+                -- check if we crossed the velocity threshold
+                if self.Velocity.Y > 0 then
+                    -- give the player a couple grace frames
+                    
+
+                    -- in this case, only give hang time if the jump was beyond a threshold of frames long
+                    if self.FramesSinceJump >= self.HangTimeActivationTime then
+                        -- jump was high enough to deserve full hang time
+                        self.Velocity.Y = 0
+                        self.HangStatus = self.HangTime+1 -- + 1 because the update function decreases it
+                    elseif self.FramesSinceJump >= self.HalfHangTimeActivationTime then
+                        -- jump deserves some hang time, but not as much
+                        self.Velocity.Y = 0
+                        self.HangStatus = self.HalfHangTime+1 -- + 1 because the update function decreases it
+                    end
+                end
+            else
+                -- regular gravity
+                self.Velocity.Y = self.Velocity.Y + self.Gravity
+            end
+        end
+    else
+        self.Velocity.Y = self.Velocity.Y + self.Gravity
+    end
+    
+
+    
     local decelGoal = math.abs(self.MoveDir) > 0 and self.RunSpeed or 0
     local speedOver = math.abs(self.Velocity.X) - decelGoal
     if speedOver > 0 then
@@ -364,9 +462,14 @@ function Player:UpdatePhysics()
     end
 
     -- adhere to MaxSpeed
+
+    -- update position before velocity, so that there is at least 1 frame of whatever Velocity is set by prev frame
+    self.Position = self.Position + self.Velocity
+    self.VelocityLastFrame = self.Velocity -- other guys use this later
+    self.Velocity = self.Velocity + self.Acceleration
+    
     self.Velocity.X = min(max(self.Velocity.X, -self.MaxSpeed.X), self.MaxSpeed.X)
     self.Velocity.Y = min(max(self.Velocity.Y, -self.MaxSpeed.Y), self.MaxSpeed.Y)
-
 end
 
 ------------------------ MAIN UPDATE LOOP -----------------------------
@@ -374,6 +477,9 @@ function Player:Update(dt)
     ------------------- PHYSICS PROCESSING ----------------------------------
     -- if we're on a moving floor let's move with it
     self:FollowFloor()
+
+    -- listen for inputs here
+    self:ProcessInput()
 
     -- update position based on velocity, velocity based on acceleration, etc
     self:UpdatePhysics()
@@ -384,8 +490,7 @@ function Player:Update(dt)
     -- confirm the floor remains the floor
     self:ValidateFloor()
 
-    -- listen for inputs here
-    self:ProcessInput()
+
 
     -- set the proper animation state
     self:UpdateAnimation()
