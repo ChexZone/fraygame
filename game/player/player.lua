@@ -333,7 +333,12 @@ end
 function Player:UpdateAnimation()
     if self.FramesSinceRoll > -1 and self.FramesSinceRoll ~= self.RollLength then
         -- player is in a roll (regardless of air state)
-        self.Texture:AddProperties{LeftBound = 25, RightBound = 27, Duration = 1/60*self.RollLength, PlaybackScaling = 1, Loop = false}
+        if self.Floor then
+            self.Texture:AddProperties{LeftBound = 25, RightBound = 27, Duration = 1/60*self.RollLength, PlaybackScaling = 1, Loop = false}
+        else
+            -- this animation is 1px up to make the black outline work
+            self.Texture:AddProperties{LeftBound = 37, RightBound = 39, Duration = 1/60*self.RollLength, PlaybackScaling = 1, Loop = false}
+        end
     elseif self.Floor then
         -- player is grounded
         if self.MoveDir == 0 then
