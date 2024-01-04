@@ -62,8 +62,11 @@ local clamp = function(n, min, max)
     return n < min and min or n > max and max or n
 end
 
+local floor = math.floor
 function Animation:DrawToScreen(...)
     -- render the Texture
+    local range = self.RightBound - self.LeftBound + 1
+    self.CurrentFrame = self.LeftBound + floor(range * self:GetProgress())
     draw(self._texture._drawable, self._frames[clamp(self.CurrentFrame,1,#self._frames)], self._quadSize[1], self._quadSize[2], ...)
 end
 
@@ -72,7 +75,6 @@ function Animation:GetProgress()
     return (self.Clock%self.Duration) / self.Duration
 end
 
-local floor = math.floor
 function Animation:Update(dt)
     -- print(self.Clock)
     if self.Loop then
@@ -84,8 +86,6 @@ function Animation:Update(dt)
             self.Clock = self.Clock - dt
         end
     end
-    local range = self.RightBound - self.LeftBound + 1
-    self.CurrentFrame = self.LeftBound + floor(range * self:GetProgress())
 end
 
 function Animation:GetSize()
