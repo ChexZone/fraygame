@@ -65,7 +65,6 @@ end
 
 local setCanvas, setShader = lg.setCanvas, lg.setShader
 function Canvas:Activate()
-    self._oldShader = love.graphics.getShader()
     self._oldCanvas = love.graphics.getCanvas()
     setCanvas(self._drawable)
     if self.Shader then self.Shader:Activate() end

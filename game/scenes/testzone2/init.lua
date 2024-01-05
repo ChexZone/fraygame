@@ -2,8 +2,10 @@ local scene = Scene.new{
     Update = function (self, dt)
         Scene.Update(self, dt)
         self.Camera.Position = (self:GetDescendent("Player").Position - V{0, self:GetDescendent("Player").Size.Y/2})
-        self.Camera.Zoom = 1 --+ (math.sin(Chexcore._clock)+1)/2
-    end
+        self.Camera.Zoom = 2 --+ (math.sin(Chexcore._clock)+1)/2
+    end,
+
+    DrawSize = V{320, 180}*2
 }
 
 -- Scenes have a list of Layers, which each hold their own Props
@@ -14,12 +16,12 @@ scene:AddLayer(Layer.new("Background", 320, 180)):AddProperties{ ZoomInfluence =
 Draw = function (self)
     self.Canvases[1]:Activate()
     love.graphics.setColor(1,1,1)
-    bgTex:DrawToScreen(160,50,0,320,320,0.5,0.5)
-    wind1:DrawToScreen(160 + (Chexcore._clock*5)%320,50,0,320,320,0.5,0.5)
-    wind1:DrawToScreen(160 - 320 + (Chexcore._clock*5)%320,50,0,320,320,0.5,0.5)
+    bgTex:DrawToScreen(160,50 - scene.Camera.Position.Y/60,0,320,320,0.5,0.5)
+    wind1:DrawToScreen(160 + (Chexcore._clock*5)%320,50 - scene.Camera.Position.Y/60,0,320,320,0.5,0.5)
+    wind1:DrawToScreen(160 - 320 + (Chexcore._clock*5)%320,50 - scene.Camera.Position.Y/60,0,320,320,0.5,0.5)
 
-    wind2:DrawToScreen(160 - (Chexcore._clock*6)%320,50,0,320,320,0.5,0.5)
-    wind2:DrawToScreen(160 + 320 - (Chexcore._clock*6)%320,50,0,320,320,0.5,0.5)
+    wind2:DrawToScreen(160 - (Chexcore._clock*6)%320,50 - scene.Camera.Position.Y/60,0,320,320,0.5,0.5)
+    wind2:DrawToScreen(160 + 320 - (Chexcore._clock*6)%320,50 - scene.Camera.Position.Y/60,0,320,320,0.5,0.5)
     self.Canvases[1]:Deactivate()
 end}
 
@@ -30,9 +32,9 @@ Draw = function (self)
     self.Canvases[1]:Activate()
     love.graphics.clear()
     love.graphics.setColor(1,1,1)
-    buildingsTex:DrawToScreen(160 - scene.Camera.Position.X/15,130 - scene.Camera.Position.Y/15,0,320,320,0.5,0.5)
-    buildingsTex:DrawToScreen(160 + 320 - scene.Camera.Position.X/15,130 - scene.Camera.Position.Y/15,0,320,320,0.5,0.5)
-    buildingsTex:DrawToScreen(160 - 320 - scene.Camera.Position.X/15,130 - scene.Camera.Position.Y/15,0,320,320,0.5,0.5)
+    buildingsTex:DrawToScreen(160 - math.floor(scene.Camera.Position.X/15),130 - scene.Camera.Position.Y/15,0,320,320,0.5,0.5)
+    buildingsTex:DrawToScreen(160 + 320 - math.floor(scene.Camera.Position.X/15),130 - scene.Camera.Position.Y/15,0,320,320,0.5,0.5)
+    buildingsTex:DrawToScreen(160 - 320 - math.floor(scene.Camera.Position.X/15),130 - scene.Camera.Position.Y/15,0,320,320,0.5,0.5)
     self.Canvases[1]:Deactivate()
 end}
 

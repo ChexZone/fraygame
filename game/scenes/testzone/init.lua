@@ -2,17 +2,24 @@ local scene = Scene.new{
     Update = function (self, dt)
         Scene.Update(self, dt)
         self.Camera.Position = (self:GetDescendent("Player").Position - V{0, self:GetDescendent("Player").Size.Y/2})
-        self.Camera.Zoom = 2 --+ (math.sin(Chexcore._clock)+1)/2
+        self.Camera.Zoom = 1 --+ (math.sin(Chexcore._clock)+1)/2
     end
 }
 
 -- Scenes have a list of Layers, which each hold their own Props
-local bgTex = Texture.new("chexcore/assets/images/test/bg.png")
+local bgTex = Texture.new("game/scenes/testzone2/skybox.png")
+local wind1 = Texture.new("game/scenes/testzone2/wind1.png")
+local wind2 = Texture.new("game/scenes/testzone2/wind2.png")
 scene:AddLayer(Layer.new("Background", 320, 180)):AddProperties{ ZoomInfluence = 0, TranslationInfluence = 0.5,
 Draw = function (self)
     self.Canvases[1]:Activate()
     love.graphics.setColor(1,1,1)
-    bgTex:DrawToScreen(160,90 - scene.Camera.Position.Y/20,0,320,320,0.5,0.5)
+    bgTex:DrawToScreen(160,50 - scene.Camera.Position.Y/60,0,320,320,0.5,0.5)
+    wind1:DrawToScreen(160 + (Chexcore._clock*5)%320,50 - scene.Camera.Position.Y/60,0,320,320,0.5,0.5)
+    wind1:DrawToScreen(160 - 320 + (Chexcore._clock*5)%320,50 - scene.Camera.Position.Y/60,0,320,320,0.5,0.5)
+
+    wind2:DrawToScreen(160 - (Chexcore._clock*6)%320,50 - scene.Camera.Position.Y/60,0,320,320,0.5,0.5)
+    wind2:DrawToScreen(160 + 320 - (Chexcore._clock*6)%320,50 - scene.Camera.Position.Y/60,0,320,320,0.5,0.5)
     self.Canvases[1]:Deactivate()
 end}
 
@@ -191,7 +198,7 @@ local tilemap = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/tilemap
     Scale = 1,
     Active = true,
     Update = function (self, dt)
-        self.Position.Y = self.Position.Y - 1
+        -- self.Position.Y = self.Position.Y - 1
     end
 }
 
