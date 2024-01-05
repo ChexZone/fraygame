@@ -31,7 +31,7 @@ local Player = {
     DropHangTime = 3,                   -- how many frames of hang time are offered from falling off the side of a platform
     HangStatus = 0,                     -- tracker for the status of hang time
     JumpPower = 3,                      -- the base initial upward momentum of a jump
-    DoubleJumpFrameLength = 9,          -- how many frames a double jump takes
+    DoubleJumpFrameLength = 12,          -- how many frames a double jump takes
     DoubleJumpPower = 3,                -- the base initial upward momentum of a double jump
     DoubleJumpStoredSpeed = 0,          -- how fast the player was moving horizontally when they double jumped
     RollPower = 4.5,
@@ -64,6 +64,7 @@ local Player = {
     FloorLeftEdge = nil,                -- last recorded left edge of the floor (not tilemaps)
     FloorRightEdge = nil,               -- last recorded right edge of the floor (not tilemaps)
     DistanceAlongFloor = nil,           -- how far the player's position is along the floor (not tilemaps)
+    VelocityBeforeHittingGround = 0,    -- the Y velocity of the player the frame they made contact with the floor
 
     -- input vars
     JustPressed = {},                   -- all inputs from the previous frame
@@ -160,11 +161,13 @@ function Player:DisconnectFromFloor()
 end
 
 function Player:ConnectToFloor(floor)
+    self.VelocityBeforeHittingGround = self.Velocity.Y
     self.Floor = floor
     self.FloorPos = floor.Position:Clone()
     self.FloorLeftEdge = floor:GetEdge("left")
     self.FloorRightEdge = floor:GetEdge("right")
     self.FramesSinceGrounded = 0
+    self.Position.Y = math.floor(self.Position.Y)
     self.DistanceAlongFloor = (self.Position.X - self.FloorLeftEdge) + (self.FloorRightEdge - self.FloorLeftEdge)
     -- self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Loop = true}
 end
@@ -378,15 +381,58 @@ function Player:DoubleJump()
 end
 
 function Player:SetBodyOrientation(dir)
+    
     self.DrawScale.X = sign(dir ~= 0 and dir or self:GetBodyOrientation())
 end
 
 function Player:GetBodyOrientation()
-    return self.DrawScale.X
+    return sign(self.DrawScale.X)
 end
+
+
+local yscale_jump = {0.75, 0.8, 0.8, 0.85, 0.85, 1.28, 1.28, 1.28, 1.28, 1.28, 1.25, 1.25, 1.25, 1.25, 1.25, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1}
+local xscale_jump = {1.3, 1.25, 1.25, 1.15, 1.15, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.9, 0.9, 0.9, 0.95, 0.95, 0.95, 1, 1, 1, 1, 1}
+local yscale_doublejump = {0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.1, 1.1, 1.1, 1.1}
+local xscale_doublejump = {1.25, 1.25, 1.25, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.9, 0.9, 0.9, 0.9, 0.9, 1}
+local yscale_roll = {0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 1, 1,1,1,1,1,1,1,1,1}
+local xscale_roll = {1.25, 1.25, 1.25, 0.7, 0.7, 0.7, 0.7, 0.8, 0.8, 0.8, 0.8, 0.9, 0.9, 0.9, 0.9, 0.9, 1}
+local yscale_land = {0.8, 0.8, 0.8, 0.8, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9}
+local yscale_land_small = {0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 1, 1}
 
 -- Animation picking
 function Player:UpdateAnimation()
+
+    -- squash and stretch
+    if self.FramesSinceDoubleJump > -1 and self.FramesSinceDoubleJump < #yscale_doublejump then
+        -- just double jumped
+        self.DrawScale.Y = yscale_doublejump[self.FramesSinceDoubleJump+1]
+        self.DrawScale.X = sign(self.DrawScale.X) * xscale_doublejump[self.FramesSinceDoubleJump+1]
+    elseif self.FramesSinceJump > -1 and self.FramesSinceJump < #yscale_jump then
+        -- just jumped
+        self.DrawScale.Y = yscale_jump[self.FramesSinceJump+1]
+        self.DrawScale.X = sign(self.DrawScale.X) * xscale_jump[self.FramesSinceJump+1]
+    elseif self.FramesSinceRoll > -1 and self.FramesSinceRoll < #yscale_roll then
+        -- just rolled
+        self.DrawScale.Y = yscale_roll[self.FramesSinceRoll+1]
+        self.DrawScale.X = sign(self.DrawScale.X) * xscale_roll[self.FramesSinceRoll+1]
+    elseif self.FramesSinceGrounded > -1 and self.FramesSinceGrounded < #yscale_land then
+        -- just landed on the ground
+        if self.VelocityBeforeHittingGround >= self.TerminalVelocity then
+            -- player was falling at terminal velocity (bigger visual impact)
+            self.DrawScale.Y = yscale_land[self.FramesSinceGrounded+1]
+        elseif self.VelocityBeforeHittingGround > 0.5 then
+            -- player was falling less than terminal velocity (smaller visual impact)
+            self.DrawScale.Y = yscale_land_small[self.FramesSinceGrounded+1]
+        else
+            -- player was not falling (no visual impact)
+            self.DrawScale.Y = 1
+        end
+        self.DrawScale.X = sign(self.DrawScale.X)
+    else
+        self.DrawScale.X = sign(self.DrawScale.X)
+        self.DrawScale.Y = 1
+    end
+
     if self.FramesSinceRoll > -1 and self.FramesSinceRoll ~= self.RollLength then
         -- player is in a roll (regardless of air state)
         if self.Floor then
@@ -664,28 +710,30 @@ function Player:Draw(tx, ty)
     -- draw the textures n shit to the canvas
     self.Canvas:Activate()
         love.graphics.clear()
-        love.graphics.setColor(self.Color * self.TailColor)
         local sx = self.Size[1] * (self.DrawScale[1]-1)
         local sy = self.Size[2] * (self.DrawScale[2]-1)
         
-        -- draw the tail
-        local points = {}
-        local p1 = self.TailPoints[1]
-        local cx = self.Canvas:GetWidth()/2
-        local cy = self.Canvas:GetHeight()/2 + 6 * self.DrawScale.Y
-        for i, point in ipairs(self.TailPoints) do
-            if i == 1 or i % 2 == 0 then
-                points[#points+1] = point[1] - p1[1] + cx
-                points[#points+1] = point[2] - p1[2] + cy
+        if not (self.Floor and self.Velocity.X == 0) then
+            -- draw the tail
+            love.graphics.setColor(self.Color * self.TailColor)
+            local points = {}
+            local p1 = self.TailPoints[1]
+            local cx = self.Canvas:GetWidth()/2
+            local cy = self.Canvas:GetHeight()/2 + 6 * self.DrawScale.Y
+            for i, point in ipairs(self.TailPoints) do
+                if i == 1 or i % 2 == 0 then
+                    points[#points+1] = point[1] - p1[1] + cx
+                    points[#points+1] = point[2] - p1[2] + cy
+                end
             end
-        end
-        
-        local c = -sign(self.DrawScale.X)
-        for i = 3, #points, 2 do
-            cdrawline(points[i-2], points[i-1], points[i], points[i+1])
-            cdrawline(points[i-2], points[i-1]+1, points[i], points[i+1]+1)
-            cdrawline(points[i-2]+c, points[i-1], points[i]+c, points[i+1])
-            cdrawline(points[i-2]+c, points[i-1]+1, points[i]+c, points[i+1]+1)
+            
+            local c = -sign(self.DrawScale.X)
+            for i = 3, #points, 2 do
+                cdrawline(points[i-2], points[i-1], points[i], points[i+1])
+                cdrawline(points[i-2], points[i-1]+1, points[i], points[i+1]+1)
+                cdrawline(points[i-2]+c, points[i-1], points[i]+c, points[i+1])
+                cdrawline(points[i-2]+c, points[i-1]+1, points[i]+c, points[i+1]+1)
+            end
         end
 
         love.graphics.setColor(self.Color)

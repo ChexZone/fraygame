@@ -2,7 +2,7 @@ local scene = Scene.new{
     Update = function (self, dt)
         Scene.Update(self, dt)
         self.Camera.Position = (self:GetDescendent("Player").Position - V{0, self:GetDescendent("Player").Size.Y/2})
-        self.Camera.Zoom = 1 --+ (math.sin(Chexcore._clock)+1)/2
+        self.Camera.Zoom = 2 --+ (math.sin(Chexcore._clock)+1)/2
     end
 }
 
@@ -20,6 +20,19 @@ Draw = function (self)
 
     wind2:DrawToScreen(160 - (Chexcore._clock*6)%320,50 - scene.Camera.Position.Y/60,0,320,320,0.5,0.5)
     wind2:DrawToScreen(160 + 320 - (Chexcore._clock*6)%320,50 - scene.Camera.Position.Y/60,0,320,320,0.5,0.5)
+    self.Canvases[1]:Deactivate()
+end}
+
+local buildingsTex = Texture.new("game/scenes/testzone2/CityBG.png")
+scene:AddLayer(Layer.new("Buildings", 320, 180)):AddProperties{ ZoomInfluence = 0, TranslationInfluence = 0.5,
+Draw = function (self)
+    -- if true then return end
+    self.Canvases[1]:Activate()
+    love.graphics.clear()
+    love.graphics.setColor(1,1,1)
+    buildingsTex:DrawToScreen(160 - math.floor(scene.Camera.Position.X/15),130 - scene.Camera.Position.Y/15,0,320,320,0.5,0.5)
+    buildingsTex:DrawToScreen(160 + 320 - math.floor(scene.Camera.Position.X/15),130 - scene.Camera.Position.Y/15,0,320,320,0.5,0.5)
+    buildingsTex:DrawToScreen(160 - 320 - math.floor(scene.Camera.Position.X/15),130 - scene.Camera.Position.Y/15,0,320,320,0.5,0.5)
     self.Canvases[1]:Deactivate()
 end}
 
