@@ -208,7 +208,7 @@ function Player:Unclip()
         local face = Prop.GetHitFace(hDist,vDist)
         -- we check the "sign" of the direction to make sure the player is "moving into" the object before clipping back
         local faceSign = face == "bottom" and 1 or face == "top" and -1 or 0
-        if solid ~= self.YHitbox and (face == "top" or face == "bottom") and faceSign == sign(self.Velocity.Y) then
+        if solid ~= self.YHitbox and (face == "top" or face == "bottom") and faceSign == sign(self.Velocity.Y +0.01) then
             self.Velocity.Y = 0
             pushY = math.abs(pushY) > math.abs(vDist) and pushY or vDist
             if face == "bottom" then
@@ -527,7 +527,7 @@ function Player:UpdatePhysics()
                 self.Velocity.Y = self.Velocity.Y + self.Gravity
             end
         end
-    else
+    elseif not self.Floor then
         self.Velocity.Y = self.Velocity.Y + self.Gravity
     end
     
