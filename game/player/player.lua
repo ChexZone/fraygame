@@ -33,6 +33,7 @@ local Player = {
     JumpPower = 3,                      -- the base initial upward momentum of a jump
     DoubleJumpFrameLength = 9,          -- how many frames a double jump takes
     DoubleJumpPower = 3,                -- the base initial upward momentum of a double jump
+    DoubleJumpStoredSpeed = 0,          -- how fast the player was moving horizontally when they double jumped
     RollPower = 4.5,
     RollLength = 14,
     AccelerationSpeed = 0.1,            -- how much the player accelerates per frame to the goal speed
@@ -49,6 +50,7 @@ local Player = {
     CoyoteBuffer = 0,                   -- how many coyote frames are remaining
     JumpFrames = 4,                     -- how many frames after a jump input can still result in a jump
     JumpBuffer = 0,                     -- how many jump frames are currently remaining
+    DJMomentumCancelOpportunity = 8,    -- how many frames after a double jump the player can release either direction and cancel momentum
     ActionFrames = 5,                   -- how many frames after an action input can still result in action
     ActionBuffer = 0,                   -- how many action frames are currently remaining
 
@@ -69,7 +71,8 @@ local Player = {
     FramesSinceDoubleJump = -1,         -- will be -1 if the player is grounded, or in the air and hasn't double jumped
     FramesSinceGrounded = -1,           -- will be -1 if the player is in the air
     FramesSinceRoll = -1,               -- will be -1 if the player is not in a roll state
-
+    FramesSinceMoving = -1,             -- will be -1 if the player is currently idle
+    FramesSinceIdle = -1,               -- will be -1 if the player is currently moving
 
     -- other stuff
     Canvas = nil,                       -- rendering the player is hard
@@ -208,8 +211,8 @@ function Player:Unclip()
         local face = Prop.GetHitFace(hDist,vDist)
         -- we check the "sign" of the direction to make sure the player is "moving into" the object before clipping back
         local faceSign = face == "bottom" and 1 or face == "top" and -1 or 0
-        if solid ~= self.YHitbox and (face == "top" or face == "bottom") and faceSign == sign(self.Velocity.Y +0.01) then
-            self.Velocity.Y = 0
+        if solid ~= self.YHitbox and (faceSign == sign(self.Velocity.Y +0.01) or face == "none") then
+            -- self.Velocity.Y = 0
             pushY = math.abs(pushY) > math.abs(vDist) and pushY or vDist
             if face == "bottom" then
                 self:ConnectToFloor(solid)
@@ -314,13 +317,27 @@ function Player:ProcessInput()
     if self.MoveDir ~= 0 then
         local accelSpeed = self.Floor and self.AccelerationSpeed or self.AirAccelerationSpeed
         self.Acceleration.X = self.MoveDir*accelSpeed
+
+        if self.FramesSinceDoubleJump > -1 and self.FramesSinceDoubleJump <= self.DJMomentumCancelOpportunity then
+            if self.FramesSinceMoving == 0 then
+                self.Velocity.X = self.DoubleJumpStoredSpeed * self.MoveDir
+            elseif self.MoveDir == -self:GetBodyOrientation() then
+                self.Velocity.X = -self.Velocity.X
+                self:SetBodyOrientation(self.MoveDir)
+            end
+        end
     else
         -- connect to floor while idle
         if self.Floor and self.FloorDelta and self.FloorDelta ~= EMPTYVEC and self.Velocity.X == 0 then
             self:AlignWithFloor()
         end
         
+        -- no goal direction in this state
         self.Acceleration.X = 0
+
+        if self.FramesSinceDoubleJump > -1 and self.FramesSinceDoubleJump <= self.DJMomentumCancelOpportunity then
+            self.Velocity.X = 0
+        end
     end
 end
 
@@ -355,7 +372,8 @@ function Player:DoubleJump()
     self.FramesSinceDoubleJump = 0
     self.Texture.Clock = 0
     self.Velocity.Y = -self.DoubleJumpPower
-    self.Velocity.X = math.abs(self.Velocity.X) * self.MoveDir
+    self.DoubleJumpStoredSpeed = math.abs(self.Velocity.X)
+    self.Velocity.X = self.DoubleJumpStoredSpeed * self.MoveDir
     self:SetBodyOrientation(self.MoveDir)
 end
 
@@ -398,7 +416,7 @@ function Player:UpdateAnimation()
         elseif self.FramesSinceJump == 0 then
             -- just jumped
             self.Texture:AddProperties{LeftBound = 13, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
-        elseif self.FramesSinceJump == -1 then
+        elseif self.FramesSinceJump == -1 and self.FramesSinceDoubleJump == -1 then
             -- just falling
             self.Texture:AddProperties{LeftBound = 15, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false}
         else
@@ -452,6 +470,14 @@ function Player:UpdateFrameValues()
 
     if self.HangStatus > 0 then
         self.HangStatus = self.HangStatus - 1
+    end
+
+    if self.MoveDir == 0 then
+        self.FramesSinceMoving = -1
+        self.FramesSinceIdle = self.FramesSinceIdle + 1
+    else
+        self.FramesSinceIdle = -1
+        self.FramesSinceMoving = self.FramesSinceMoving + 1
     end
 
     self.FramesSinceInit = self.FramesSinceInit + 1
@@ -638,7 +664,7 @@ function Player:Draw(tx, ty)
     -- draw the textures n shit to the canvas
     self.Canvas:Activate()
         love.graphics.clear()
-        love.graphics.setColor(self.TailColor)
+        love.graphics.setColor(self.Color * self.TailColor)
         local sx = self.Size[1] * (self.DrawScale[1]-1)
         local sy = self.Size[2] * (self.DrawScale[2]-1)
         

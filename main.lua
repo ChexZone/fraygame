@@ -25,7 +25,7 @@ end
 --     Canvases = { Canvas.new(320, 180) }     -- pixel gameplay layer @ 320x180p
 -- })
 
--- scene:AddLayer(Layer.new{
+-- scene:AddLayer(Layer.new{s
 --     Name = "GUI",
 --     Canvases = { Canvas.new(1920, 1080) }  -- hd gui layer @ 1920x1080p
 -- })
