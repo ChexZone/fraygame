@@ -1,5 +1,5 @@
 local Player = {
-    -- properties
+    -- inherited properties
     Name = "Player",
     AnchorPoint = V{ 0.5, 1 },
     Velocity = V{0, 0},
@@ -12,7 +12,7 @@ local Player = {
     Position = V{80,-50},
     Size = V{24,24},
 
-    FramesSinceInit = 0,
+    FramesSinceInit = 0,                -- how many frames since the Player object was created
 
     VelocityLastFrame = V{0,0},         -- the velocity of the player the previous frame (valid after Player:UpdatePhysics())
 
@@ -31,11 +31,11 @@ local Player = {
     DropHangTime = 3,                   -- how many frames of hang time are offered from falling off the side of a platform
     HangStatus = 0,                     -- tracker for the status of hang time
     JumpPower = 3,                      -- the base initial upward momentum of a jump
-    DoubleJumpFrameLength = 12,          -- how many frames a double jump takes
+    DoubleJumpFrameLength = 12,         -- how many frames a double jump takes
     DoubleJumpPower = 3,                -- the base initial upward momentum of a double jump
     DoubleJumpStoredSpeed = 0,          -- how fast the player was moving horizontally when they double jumped
-    RollPower = 4.5,
-    RollLength = 14,
+    RollPower = 4.5,                    -- the player's X velocity on the first frame of a roll
+    RollLength = 60,                    -- how long the player must wait after a roll before rolling again (how many frames the roll animation lasts) 
     AccelerationSpeed = 0.1,            -- how much the player accelerates per frame to the goal speed
     AirAccelerationSpeed = 0.08,        -- how much the player accelerates per frame in the air
     ForwardDeceleration = 0.2,          -- how much the player speed decreases while idle on the ground
@@ -677,8 +677,6 @@ function Player:Update(dt)
 
     -- listen for inputs here
     self:ProcessInput()
-
-    
 
     -- update position based on velocity, velocity based on acceleration, etc
     self:UpdatePhysics()
