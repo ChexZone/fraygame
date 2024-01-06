@@ -4,7 +4,7 @@ require "chexcore"
 
 -- Scenes contain all the components of the game
 function love.load()
-    local scene = require"game.scenes.testzone2.init"
+    local scene = require"game.scenes.testzone.init"
 
     Chexcore:AddType("game.player.player")
 

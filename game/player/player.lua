@@ -713,7 +713,7 @@ function Player:Draw(tx, ty)
         local sx = self.Size[1] * (self.DrawScale[1]-1)
         local sy = self.Size[2] * (self.DrawScale[2]-1)
         
-        if not (self.Floor and self.Velocity.X == 0) then
+        -- if not (self.Floor and self.Velocity.X == 0) then
             -- draw the tail
             love.graphics.setColor(self.Color * self.TailColor)
             local points = {}
@@ -721,10 +721,10 @@ function Player:Draw(tx, ty)
             local cx = self.Canvas:GetWidth()/2
             local cy = self.Canvas:GetHeight()/2 + 6 * self.DrawScale.Y
             for i, point in ipairs(self.TailPoints) do
-                if i == 1 or i % 2 == 0 then
+                -- if i == 1 or i % 2 == 0 then
                     points[#points+1] = point[1] - p1[1] + cx
                     points[#points+1] = point[2] - p1[2] + cy
-                end
+                -- end
             end
             
             local c = -sign(self.DrawScale.X)
@@ -734,7 +734,7 @@ function Player:Draw(tx, ty)
                 cdrawline(points[i-2]+c, points[i-1], points[i]+c, points[i+1])
                 cdrawline(points[i-2]+c, points[i-1]+1, points[i]+c, points[i+1]+1)
             end
-        end
+        -- end
 
         love.graphics.setColor(self.Color)
         self.Texture:DrawToScreen(
