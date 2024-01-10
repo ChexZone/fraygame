@@ -173,7 +173,7 @@ function Player:ConnectToFloor(floor)
 end
 
 function Player:AlignWithFloor()
-    self.Position.X = math.floor(self.Position.X) + (self.Floor.Position.X - math.floor(self.Floor.Position.X))
+    self.Position.X = math.floor(self.Position.X + 0.5) + (self.Floor.Position.X - math.floor(self.Floor.Position.X))
 end
 
 function Player:AlignHitboxes()
