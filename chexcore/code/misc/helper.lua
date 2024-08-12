@@ -454,7 +454,7 @@ if replaceCoreLuaFunctions then
         end
 
         indent = indent or 0
-        if indent > 30 then return "..." end
+        if indent > Chexcore.MAX_TABLE_OUTPUT_INDENT then return "..." end
 
         local output = breaks and ("{ # " .. _tostring(tab):sub(8, 22) .. "\n") or "{"
 
@@ -652,7 +652,16 @@ function _G.filteredListIterator(self, arg1, arg2, children)
     end
 end
 
+local rawGetSize = love.graphics.getDimensions
+-- just returns screen size as a vector
+function _G.getWindowSize()
+    return V{rawGetSize()}
+end
 
+-- simple clamp
+function math.clamp(n, min, max)
+    return n < min and min or n > max and max or n
+end
 
 -- Too lazy to redocument. Same deal as above, just does the whole list at once
 function _G.filteredList(self, arg1, arg2, children, list)
@@ -771,7 +780,7 @@ _G.cdrawquad = function(drawable, quad, qx, qy, x, y, r, sx, sy, ox, oy, kx, ky,
         quad,
         ignoreSnap and (x or 0) or floor(x or 0), 
         ignoreSnap and (y or 0) or floor(y or 0), r,
-        1 / qy * (sx or 1),
+        1 / qx * (sx or 1),
         1 / qy * (sy or 1),
         ox and (ox <= 1 and qx * ox or ox),
         oy and (oy <= 1 and qy * oy or oy),
@@ -808,4 +817,19 @@ function _G.cdrawline(x1, y1, x2, y2, length, offset)
         end
     end
     drawPoints(points)
+  end
+
+  local love_graphics_circle = love.graphics.circle
+  function _G.cdrawlinethick(x1, y1, x2, y2, thickness, length, offset)
+    length = length or -1
+    offset = offset or 0
+
+    local dx, dy = x2 - x1, y2 - y1
+    local len = max(abs(dx), abs(dy))
+
+    for i = 0, len do -- including first and last points
+        if (offset-i) % (length*2) < length or length == -1 then
+            love_graphics_circle("fill", x1 + dx * i/len, y1 + dy * i/len, thickness)
+        end
+    end
   end

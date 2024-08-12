@@ -51,7 +51,7 @@ function Shader:Deactivate()
 end
 
 function Shader:Send(...)
-    self._realShader:send(...)
+    if self._realShader then self._realShader:send(...) end
     return self
 end
 

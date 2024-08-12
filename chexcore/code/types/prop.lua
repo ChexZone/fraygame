@@ -294,8 +294,6 @@ function Prop:CollisionPass(container, deep, preference)
         until not container[i] or hit
 
         if type(hit) == "table" then
-            
-
             queue = hit
             
             queuePos = 1

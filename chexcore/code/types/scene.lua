@@ -19,12 +19,15 @@ local Scene = {
 function Scene.new(properties)
     local newScene = Scene:SuperInstance()
     
-    for k, v in pairs(properties) do
-        newScene[k] = v
+    if properties then
+        for k, v in pairs(properties) do
+            newScene[k] = v
+        end
     end
 
     newScene.Camera = newScene.Camera or Scene.Camera:Clone()
     newScene.DrawSize = newScene.DrawSize or Scene.DrawSize:Clone()
+    newScene.MasterCanvas = newScene.MasterCanvas or Canvas.new(newScene.DrawSize.X, newScene.DrawSize.Y):AddProperties{AlphaMode = "premultiplied"}
 
     return Scene:Connect(newScene)
 end
@@ -33,6 +36,10 @@ end
 function Scene:Update(dt)
     for layer in self:EachChild() do
         layer:Update(dt)
+    end
+
+    if self.Camera.Update then
+        self.Camera:Update(dt)
     end
 end
 

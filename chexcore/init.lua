@@ -6,6 +6,9 @@ _G.Chexcore = {
     _scenes = {},           -- stores all mounted Scene references
     _globalUpdates = {},    -- for any types that want independent update control
     _globalDraws = {},      -- for any types that want independent draw control
+
+    -- constants
+    MAX_TABLE_OUTPUT_INDENT = 30, -- how many layers deep tostring() will expand a table into.
 }
 
 -- when an Object is indexed, this variable helps keep the referenced up the type chain
@@ -149,54 +152,58 @@ function Chexcore.UnmountScene(scene)
 end
 
 local fps = 0
-local FRAMELIMIT = 60
+local FRAMELIMIT = 150
 local frameTime = 0
-function love.run()
-	if love.load then love.load(love.arg.parseGameArguments(arg), arg) end
+local mode = "standard"
 
-	-- We don't want the first frame's dt to include time taken by love.load.
-	if love.timer then love.timer.step() end
+if mode ~= "web" then
+    function love.run()
+        if love.load then love.load(love.arg.parseGameArguments(arg), arg) end
 
-	local dt = 0
+        -- We don't want the first frame's dt to include time taken by love.load.
+        if love.timer then love.timer.step() end
 
-	-- Main loop time.
-	return function()
-		-- Process events.
-		if love.event then
-			love.event.pump()
-			for name, a,b,c,d,e,f in love.event.poll() do
-				if name == "quit" then
-					if not love.quit or not love.quit() then
-						return a or 0
-					end
-				end
-				love.handlers[name](a,b,c,d,e,f)
-			end
-		end
+        local dt = 0
 
-		-- Update dt, as we'll be passing it to update
-		if love.timer then dt = love.timer.step() end
+        -- Main loop time.
+        return function()
+            -- Process events.
+            if love.event then
+                love.event.pump()
+                for name, a,b,c,d,e,f in love.event.poll() do
+                    if name == "quit" then
+                        if not love.quit or not love.quit() then
+                            return a or 0
+                        end
+                    end
+                    love.handlers[name](a,b,c,d,e,f)
+                end
+            end
 
-
-		-- Call update and draw
-        frameTime = frameTime + dt
-
-        if frameTime >= 1/FRAMELIMIT and love.graphics and love.graphics.isActive() then
-            frameTime = frameTime - 1/FRAMELIMIT
-
-            if love.update then love.update(1/FRAMELIMIT) end -- will pass 0 if love.timer is disabled
-
-			love.graphics.origin()
-			love.graphics.clear(love.graphics.getBackgroundColor())
-
-			if love.draw then love.draw() end
-
-			love.graphics.present()
-		end
+            -- Update dt, as we'll be passing it to update
+            if love.timer then dt = love.timer.step() end
 
 
-		if love.timer then love.timer.sleep(1/60) end
-	end
+            -- Call update and draw
+            frameTime = frameTime + dt
+
+            if frameTime >= 1/FRAMELIMIT and love.graphics and love.graphics.isActive() then
+                frameTime = frameTime - 1/FRAMELIMIT
+
+                if love.update then love.update(1/FRAMELIMIT) end -- will pass 0 if love.timer is disabled
+
+                love.graphics.origin()
+                love.graphics.clear(love.graphics.getBackgroundColor())
+
+                if love.draw then love.draw() end
+
+                love.graphics.present()
+            end
+
+
+            if love.timer then love.timer.sleep(1/60) end
+        end
+    end
 end
 ------------------------------------------------
 

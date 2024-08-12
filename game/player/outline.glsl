@@ -12,7 +12,7 @@ uniform vec2 step;
         //    return Texel(texture, texturePos) * col;
         //} else 
         if(alpha > 0.0f && Texel(texture,texturePos).a == 0.0f) {
-            return vec4( 0.0f,0.0f,0.0f, 1.0f );
+            return vec4( 0.0f, 0.0f, 0.0f, 1.0f );
         } else if(Texel(texture,texturePos).a == 0.0f) {
             // return vec4(1.0f,1.0f,1.0f,1.0f) * col;
             return Texel(texture, texturePos) * col;

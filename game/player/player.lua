@@ -172,8 +172,9 @@ function Player:ConnectToFloor(floor)
     -- self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Loop = true}
 end
 
+
 function Player:AlignWithFloor()
-    self.Position.X = math.floor(self.Position.X + 0.5) + (self.Floor.Position.X - math.floor(self.Floor.Position.X))
+    self.Position.X = math.floor(self.Position.X) + (self.Floor.Position.X - math.floor(self.Floor.Position.X))
 end
 
 function Player:AlignHitboxes()
@@ -205,8 +206,13 @@ function Player:FollowFloor()
     end
 end
 
-------- collison :O
+------- collison function
 function Player:Unclip()
+    
+    if self.Floor then
+        self.Position.Y = self.Position.Y + 1
+    end
+
     -- make sure hitboxes are aligned first!!!
     self:AlignHitboxes()
     local pushY = 0
@@ -228,9 +234,11 @@ function Player:Unclip()
     if math.abs(pushY) > self.Size.Y/2 then
         self.Position.Y = self.Position.Y - self.VelocityLastFrame.Y
     else
-        self.Position.Y = self.Position.Y + pushY
+        self.Position.Y = self.Position.Y + pushY - sign(pushY) * 0.01
     end
     
+   
+
 
     local pushX = 0
     for solid, hDist, vDist, tileID in self.XHitbox:CollisionPass(self._parent, true) do
@@ -243,7 +251,7 @@ function Player:Unclip()
         
     end
 
-    -- again, try to "undo" and extreme clipping
+    -- again, try to "undo" any extreme clipping
     if math.abs(pushX) > self.Size.X/2 then
         self.Position.X = self.Position.X - self.VelocityLastFrame.X
     else
@@ -401,6 +409,8 @@ local yscale_land_small = {0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 1, 1}
 
 -- Animation picking
 function Player:UpdateAnimation()
+
+    print(self.Floor, self.Velocity)
 
     -- squash and stretch
     if self.FramesSinceDoubleJump > -1 and self.FramesSinceDoubleJump < #yscale_doublejump then
@@ -681,6 +691,7 @@ function Player:Update(dt)
     -- update position based on velocity, velocity based on acceleration, etc
     self:UpdatePhysics()
 
+    -- update tail (based on physics)
     self:UpdateTail()
 
     -- make sure collision is all good

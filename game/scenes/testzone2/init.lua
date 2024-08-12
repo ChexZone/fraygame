@@ -2,7 +2,7 @@ local scene = Scene.new{
     Update = function (self, dt)
         Scene.Update(self, dt)
         self.Camera.Position = (self:GetDescendent("Player").Position - V{0, self:GetDescendent("Player").Size.Y/2})
-        self.Camera.Zoom = 2 --+ (math.sin(Chexcore._clock)+1)/2
+        self.Camera.Zoom = 1 --+ (math.sin(Chexcore._clock)+1)/2
     end,
 
     DrawSize = V{320, 180}*2

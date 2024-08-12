@@ -13,7 +13,8 @@ local Animation = {
 
     -- internal properties
     _cache = setmetatable({}, {__mode = "k"}), -- cache has weak keys
-    _quadSize = V{0,0},
+    _quadSize = V{0,0}, -- the amount of pixels in the spritesheet
+    _quadSizeFrames = V{0, 0}, -- the amount of frames in the spritesheet
     _frames = nil,
     _texture = nil,
     _super = "Object",      -- Supertype
@@ -48,6 +49,7 @@ function Animation.new(spritesheetPath, rows, cols)
     end
 
     newAnimation._quadSize = V{segx, segy}
+    newAnimation._quadSizeFrames = V{rows, cols}
     newAnimation.LeftBound = 1
     newAnimation.RightBound = #newAnimation._frames
 

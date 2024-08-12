@@ -35,6 +35,12 @@ function Vector:__call()
     return unpack(self)
 end
 
+-- for normal people
+function Vector:Unpack()
+    return unpack(self)
+end
+
+
 -------------- regular methods ---------------------------------
 local sin, cos =  math.sin, math.cos
 function Vector.FromAngle(rad)
@@ -63,6 +69,15 @@ function Vector:Normalize()
     return self / self:Magnitude()
 end
 
+-- returns a ratio of a Vector such that the first axis = 1.
+function Vector:Ratio()
+    local nv = Vector{1}
+    for i = 2, #self do
+        nv[i] = self[i]/self[1]
+    end
+    return nv
+end
+
 function Vector:ToAngle()
     return math.atan2(self[1], self[2])
 end
@@ -88,10 +103,22 @@ function Vector:SetXYZ(x, y, z)
     self[2] = y or 0
     self[2] = z or 0
 end
-
+-- i could write code like this!~
 function Vector:AddAxis(init)
     self[#self+1] = init or 0
 end
+
+-- basic linear interpolation
+local clamp = math.clamp
+function Vector.Lerp(v1, v2, t)
+    local v3 = Vector{}
+    t = clamp(t, 0, 1)
+    for i = 1, #v1 do
+        v3[i] = v1[i] + (v2[i] - v1[i]) * t
+    end
+    return v3
+end
+
 -------------- relational operator stuff ----------------------------
 -- addition
 function Vector.__add(v1, v2)
@@ -259,3 +286,6 @@ function Vector:ToString()
 end
 
 return Vector
+
+
+
