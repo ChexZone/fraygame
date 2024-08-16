@@ -1,7 +1,7 @@
 local Object = {
     -- properties
     Name = "Object",        -- Easy identifier
-    test = true,
+    Active = true,
     -- internal properties
     _isObject = true,       -- true for all Objects
     _super = "Object",      -- Supertype
@@ -249,8 +249,8 @@ function Object:GetChild(arg1, arg2)
     return nil
 end
 
-function Object:GetDescendent(arg1, arg2)
-    return self:EachDescendent(arg1, arg2)()
+function Object:GetDescendant(arg1, arg2)
+    return self:EachDescendant(arg1, arg2)()
 end
 
 --[[  
@@ -275,12 +275,50 @@ function Object:GetChildren(arg1, arg2)
     return filter(self._children, arg1, arg2)
 end
 
-function Object:GetDescendents(arg1, arg2, current)
+function Object:GetDescendants(arg1, arg2, current)
     local s = self._children -- just to be damn safe
     if not arg2 and type2(arg1) == "string" then
         return filter(self._children, "Name", arg1, true, current)
     end
     return filter(self._children, arg1, arg2, true, current)
+end
+
+local function getAncestorRecursive(self, arg1, arg2)
+    -- GetAncestor(name)
+    if not arg2 and type2(arg1) == "string" and self.Name == arg1 then return self
+    
+    -- GetAncestor(func, arg2)
+    elseif type2(arg1) == "function" and arg1(self, arg2) then return self
+
+    -- GetAncestor({property = val, ...}, [inclusive])
+    elseif type2(arg1) == "table" then
+        if arg2 then -- inclusive
+            for k, v in pairs(arg1) do
+                if self[k] == v then return self end
+            end
+        else -- exclusive
+            local disqualify = false
+            for k, v in pairs(arg1) do
+                if self[k] ~= v then disqualify = true; break; end
+            end
+            if not disqualify then return self end
+        end
+
+    -- GetAncestor(property, value)
+    elseif arg1 ~= nil and arg2 ~= nil and self[arg1] == arg2 then return self end
+
+    -- if none of this worked, check for ancestry in parent:
+    if self._parent then
+        return getAncestorRecursive(self._parent, arg1, arg2)
+    end
+
+    return nil
+end
+
+function Object:GetAncestor(arg1, arg2)
+    if self._parent then return getAncestorRecursive(self._parent, arg1, arg2) end
+    
+    return nil
 end
 
 --[[  
@@ -305,7 +343,7 @@ function Object:EachChild(arg1, arg2)
     return iterFilter(self._children, arg1, arg2)
 end
 
-function Object:EachDescendent(arg1, arg2)
+function Object:EachDescendant(arg1, arg2)
 
     -- OK what the hell about that line above. The reason this line is here
     -- is because the child table just, fucking, disappears??? if it is not
@@ -404,6 +442,7 @@ function Object:AddProperties(properties)
     end
     return self
 end
+Object.Properties = Object.AddProperties
 
 function Object:IsA(type)
     if self._type == type then
@@ -415,6 +454,8 @@ function Object:IsA(type)
     end
 end
 
+
+
 function Object:IsChildOf(parent)
     -- return parent._childHash[self] and true or false
     -- i'm keeping this line here   bc   it was the original implementation and 
@@ -422,13 +463,13 @@ function Object:IsChildOf(parent)
     return parent == self._parent
 end
 
-function Object:IsAncestorOf(descendent)
-    local p = descendent
+function Object:IsAncestorOf(descendant)
+    local p = descendant
     repeat p = p._parent until p == self or not p
     return p and true or false
 end
 
-function Object:IsDescendentOf(ancestor)
+function Object:IsDescendantOf(ancestor)
     return ancestor:IsAncestorOf(self)
 end
 

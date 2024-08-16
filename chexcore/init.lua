@@ -152,7 +152,7 @@ function Chexcore.UnmountScene(scene)
 end
 
 local fps = 0
-local FRAMELIMIT = 150
+local FRAMELIMIT = 60
 local frameTime = 0
 local mode = "standard"
 
@@ -201,7 +201,7 @@ if mode ~= "web" then
             end
 
 
-            if love.timer then love.timer.sleep(1/60) end
+            if love.timer then love.timer.sleep(1/FRAMELIMIT) end
         end
     end
 end
@@ -213,8 +213,9 @@ end
 -- load in some essential types
 local types = {
     "chexcore.code.types.object",
-    "chexcore.code.types.number",
     "chexcore.code.types.vector",
+    "chexcore.code.types.constant",
+    "chexcore.code.types.number",
     "chexcore.code.types.input",
     "chexcore.code.types.ray",
     "chexcore.code.types.sound",

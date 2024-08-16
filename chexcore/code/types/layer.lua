@@ -31,7 +31,7 @@ end
 -- default update pipeline for a Layer
 function Layer:Update(dt)
     -- loop through each child
-    for child in self:EachDescendent("Active", true) do
+    for child in self:EachDescendant("Active", true) do
         child:Update(dt)
     end
 end
@@ -57,7 +57,7 @@ function Layer:Draw(tx, ty)
     for child in self:EachChild() do
         if child.Visible then
             child:Draw(tx, ty)
-        else
+        elseif child.DrawChildren then
             child:DrawChildren(tx, ty)
         end
     end

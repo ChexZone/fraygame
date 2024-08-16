@@ -8,10 +8,13 @@ function love.load()
 
 
     -- Load the Chexcore example Scene!
-    local scene = require"chexcore.scenes.example.doodle" -- path to the .lua file of the scene
+    local scene = require"chexcore.scenes.example.init" -- path to the .lua file of the scene
 
     -- A scene will only be processed by Chexcore while it is "mounted"
     Chexcore.MountScene(scene)
 
+    local v =  V{1} 
+    v:Properties{X = 5}
+    -- print(CONST(scene):AddProperties("a"))
     -- You can unmount (or deactivate) a scene by using Chexcore.UnmountScene(scene)
 end

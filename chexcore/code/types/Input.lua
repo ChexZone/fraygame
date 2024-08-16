@@ -16,7 +16,7 @@ local Input = {
 
 Input._globalUpdate = function (dt)
     for k, _ in pairs(Input._justPressed) do
-        listener._justPressed[k] = nil
+        Input._justPressed[k] = nil
     end
 
     for listener in pairs(Input._cache) do
@@ -30,7 +30,8 @@ end
 
 local function sendInputDown(device, key)
     Input._isDown[key] = true
-
+    Input._justPressed[key] = true 
+    
     for listener in pairs(Input._cache) do
         if listener.Active then
             listener._isDown[key] = true

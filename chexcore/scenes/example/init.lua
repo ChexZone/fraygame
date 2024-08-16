@@ -26,7 +26,7 @@ local logo = layer:Adopt( Prop.new() )
 logo.Visible = true
 
 -- let's position the Prop so it's in the center of the Camera view we set up earlier:
-logo.Position = V{500, 500}
+logo.Position = V{400, 500}
 
 -- we're going to give this Prop an an animated texture using a spritesheet.
 -- first, we'll set the Prop to the same size as its texture (in this case, 750x300):
@@ -68,16 +68,16 @@ function logo:Update(dt)
     -- the mouse has gone off the screen, but it doesn't know for sure.
     
     -- we'll place the new position of our object based on its origin:
-    local goalPos = V{500, 500}
+    local goalPos = V{500, 400}
 
     if inWindow then
         -- right now, mousePos is normalized in the 0-1 range. 
         -- first we'll re-normalize the center to be 0 instead of 0.5.
         mousePos = mousePos - 0.5  -- this will subtract 0.5 from every axis of mousePos
         -- then we'll scale mousePos up so the range is (-100) to (100).
-        mousePos = mousePos * 200  -- this will multiply every axis by 200.
+        mousePos = mousePos * 150  -- this will multiply every axis by 150.
         -- finally, apply the transformation to the goal position
-        goalPos = goalPos + mousePos
+        goalPos = goalPos - mousePos
     end
 
     -- we could set the position directly, but to make it look smoother, we'll 
@@ -87,22 +87,69 @@ function logo:Update(dt)
 
     -- Vector1:Lerp(Vector2, distance)
     self.Position = self.Position:Lerp(goalPos, progress)
-
-    
 end
 
-local cursor = layer:Adopt(Prop.new{
-    Name = "Cursor",
-    AnchorPoint = V{0.5, 0.5},
-    Position = V{500,500},
-    Size = V{100,100},
-    Update = function(self, dt)
-        self.Position = self.Position:Lerp(self:GetParent():GetMousePosition(), 25*dt)
-        self.Rotation = self.Rotation + dt
-        self.Size = V{50,50} + math.sin(Chexcore._clock*2)*25
+local button1 = layer:Adopt(Prop.new{
+    Name = "Button1",
+    AnchorPoint = V{.5, .5},
+    Position = V{500, 700},
+    Size = V{300, 100},
+    Texture = Texture.new("chexcore/assets/images/square.png"),
+
+    goalDrawScale = V{1,1}, -- user-defined
+    goalColor = Constant.COLOR.PINK,   -- user-defined
+
+    Update = function (self, dt)
+
+        -- check if button is hovered over
+        if self:IsUnderMouse() then
+            self.goalDrawScale = V{0.9, 0.9}
+            self.goalColor.G = 0.5
+
+            -- if clicking, make the button "pop"
+            if Input:JustPressed("m_1") then
+                self.DrawScale = V{1.1, 1.1}
+                self.Color = Constant.COLOR.WHITE
+            end
+        else
+            self.goalDrawScale = V{1, 1}
+            self.goalColor.G = 0
+        end
+
+        self.DrawScale = self.DrawScale:Lerp(self.goalDrawScale, 25*dt)
+        self.Color = self.Color:Lerp(self.goalColor, 8*dt)
+
+        -- self.Rotation = Chexcore._clock/2
     end
 })
 
-print(logo:ToString(true))
+local cursor = layer:Adopt(Prop.new{
+    Name = "Cursor",
+    Texture = Texture.new("chexcore/assets/images/cursor.png"),
+    AnchorPoint = V{0, 0},
+    Position = V{500,500},
+    Size = V{48,48},
+
+    goalSize = V{48, 48}, -- custom field
+
+    Update = function(self, dt)
+        self.Position = self.Position:Lerp(self:GetParent():GetMousePosition(), 25*dt)
+        self.Size = self.Size:Lerp(self.goalSize, 25*dt)
+
+        if Input:JustPressed("m_1") then
+            self.Size = V{64, 64}
+        end
+    end
+})
+
+-- layer:Adopt(CONST(V{1,2,3}):AddProperties{Update = function (self, dt)
+--     print(self, Chexcore._clock)
+-- end})
+
+
+
+
+-- local v = layer:Adopt()
+
 
 return scene

@@ -79,6 +79,18 @@ function Prop:Update(dt)
 
 end
 
+
+local isA = Object.IsA
+function Prop:GetLayer()
+    return self:GetAncestor(Object.IsA, "Layer")
+end
+
+-- quickly detect if the mouse is currently hovering over this prop
+function Prop:IsUnderMouse()
+    local mousePos = self:GetLayer():GetMousePosition()
+    return self:DistanceFromPoint(mousePos) == 0
+end
+
 local d90 = math.rad(90)
 function Prop:GetPoint(x, y)
     local v1 = Vector.FromAngle(self.Rotation) * (self.Size.X * (x - self.AnchorPoint.X))
@@ -86,7 +98,7 @@ function Prop:GetPoint(x, y)
     return self.Position + v1 + v2
 end
 
--- moves current object and all Anchored descendents
+-- moves current object and all Anchored Descendants
 function Prop:SetPosition(x, y)
     local dx = x - self.Position[1]
     local dy = y - self.Position[2]
@@ -94,7 +106,7 @@ function Prop:SetPosition(x, y)
     self.Position[2] = y
 
     if self:HasChildren() then
-        for child in self:EachDescendent(function(s)return s:IsA("Prop") and s.Anchored end) do
+        for child in self:EachDescendant(function(s)return s:IsA("Prop") and s.Anchored end) do
             child.Position[1] = child.Position[1] + dx
             child.Position[2] = child.Position[2] + dy
         end
@@ -263,12 +275,12 @@ function Prop:CollisionPass(container, deep, preference)
     local nsf = function(c) return c ~= self end
     
     if not container then
-        container = deep and self._parent:GetDescendents(nsf) or self._parent:GetChildren(nsf)
+        container = deep and self._parent:GetDescendants(nsf) or self._parent:GetChildren(nsf)
     elseif container._type then
         if self._parent == container then
-            container = deep and container:GetDescendents(nsf) or container:GetChildren(nsf)
+            container = deep and container:GetDescendants(nsf) or container:GetChildren(nsf)
         else
-            container = deep and container:GetDescendents() or container:GetChildren()
+            container = deep and container:GetDescendants() or container:GetChildren()
         end
     end
 

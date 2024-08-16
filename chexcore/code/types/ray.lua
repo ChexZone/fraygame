@@ -63,7 +63,7 @@ function Ray:Cast(containerObject, ignore, visualize, tx, ty)
     -- ignore is ignore list or ignore function
     local angleVector = Vector.FromAngle(self.Angle)
     local movingVector = self.Position + 0
-    local searchList = containerObject._type and containerObject:GetDescendents("Solid", true) or containerObject
+    local searchList = containerObject._type and containerObject:GetDescendants("Solid", true) or containerObject
     local bestMatch
     local distMoved = 0
 

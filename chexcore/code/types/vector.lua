@@ -20,7 +20,7 @@ setmetatable(Vector, {
     end
 })
 -- custom indexing to react to X, Y, Z
-local map, rg, rs, OBJ = {X = 1, Y = 2, Z = 3, A = 4}, rawget, rawset, Object
+local map, rg, rs, OBJ = {X = 1, Y = 2, Z = 3, A = 4, R = 1, G = 2, B = 3}, rawget, rawset, Object
 function Vector.__index(t, d)
     return rg(t, map[d]) or rg(Vector, d) or Vector.__index2(t, d)
 end
@@ -114,7 +114,7 @@ function Vector.Lerp(v1, v2, t)
     local v3 = Vector{}
     t = clamp(t, 0, 1)
     for i = 1, #v1 do
-        v3[i] = v1[i] + (v2[i] - v1[i]) * t
+        v3[i] = v1[i] + ((v2[i] or v1[i]) - v1[i]) * t
     end
     return v3
 end
@@ -282,6 +282,7 @@ function Vector:ToString()
     for _, item in ipairs(self) do
         out[#out+1] = tostring(item)
     end
+    
     return "V{" .. concat(out, ", ") .. "}"
 end
 

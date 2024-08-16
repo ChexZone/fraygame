@@ -507,7 +507,7 @@ function _G.filteredListIterator(self, arg1, arg2, children)
                 end
                 i = i + 1
                 if isObject(self[i]) and self[i]:HasChildren() then
-                    nest = self[i]:EachDescendent(arg1, arg2, true)
+                    nest = self[i]:EachDescendant(arg1, arg2, true)
                 end
                 return self[i]
             end
@@ -548,7 +548,7 @@ function _G.filteredListIterator(self, arg1, arg2, children)
                     
                     i = i + 1
                     if children and isObject(self[i]) and self[i]:HasChildren() then                        
-                        nest = self[i]:EachDescendent(arg1, arg2, true)
+                        nest = self[i]:EachDescendant(arg1, arg2, true)
                     end
                     local c = self[i]
                     if not c then return nil end
@@ -578,7 +578,7 @@ function _G.filteredListIterator(self, arg1, arg2, children)
                 while STOP - i > 0 do
                     i = i + 1
                     if children and isObject(self[i]) and self[i]:HasChildren() then
-                        nest = self[i]:EachDescendent(arg1, arg2, true)
+                        nest = self[i]:EachDescendant(arg1, arg2, true)
                     end
                     local c = self[i]
                     if not c then return nil end
@@ -608,7 +608,7 @@ function _G.filteredListIterator(self, arg1, arg2, children)
             while STOP - i > 0 do
                 i = i + 1
                 if children and isObject(self[i]) and self[i]:HasChildren() then
-                    nest = self[i]:EachDescendent(arg1, arg2, true)
+                    nest = self[i]:EachDescendant(arg1, arg2, true)
                 end
                 local c = self[i]
                 if not c then return nil end
@@ -623,7 +623,7 @@ function _G.filteredListIterator(self, arg1, arg2, children)
             end
         end
     elseif type(arg1) == "function" then
-        -- filteredListIterator( func )
+        -- filteredListIterator( func, arg )
 
         
         local i = 0; local nest
@@ -635,11 +635,11 @@ function _G.filteredListIterator(self, arg1, arg2, children)
             while STOP - i > 0 do
                 i = i + 1
                 if children and isObject(self[i]) and self[i]:HasChildren() then
-                    nest = self[i]:EachDescendent(arg1, arg2, true)
+                    nest = self[i]:EachDescendant(arg1, arg2, true)
                 end
                 local c = self[i]
                 if not c then return nil end
-                if arg1(c) then
+                if arg1(c, arg2) then
                     return c
                 end
 
@@ -663,6 +663,12 @@ function math.clamp(n, min, max)
     return n < min and min or n > max and max or n
 end
 
+-- simple round
+local floor = math.floor
+function math.round(n)
+    return floor(n+0.5)
+end
+
 -- Too lazy to redocument. Same deal as above, just does the whole list at once
 function _G.filteredList(self, arg1, arg2, children, list)
     list = list or {}
@@ -671,7 +677,7 @@ function _G.filteredList(self, arg1, arg2, children, list)
         for i, ref in ipairs(self) do
             list[#list+1] = ref
             if children and isObject(ref) and ref:HasChildren() then
-                ref:GetDescendents(arg1, arg2, list)
+                ref:GetDescendants(arg1, arg2, list)
             end
         end
         return list
@@ -692,7 +698,7 @@ function _G.filteredList(self, arg1, arg2, children, list)
                     list[#list+1] = child
                 end
                 if children and isObject(child) and child:HasChildren() then
-                    child:GetDescendents(arg1, arg2, list)
+                    child:GetDescendants(arg1, arg2, list)
                 end
             end
         else
@@ -708,7 +714,7 @@ function _G.filteredList(self, arg1, arg2, children, list)
                     list[#list+1] = child
                 end
                 if children and isObject(child) and child:HasChildren() then
-                    child:GetDescendents(arg1, arg2, list)
+                    child:GetDescendants(arg1, arg2, list)
                 end
             end
         end
@@ -719,17 +725,17 @@ function _G.filteredList(self, arg1, arg2, children, list)
                     list[#list+1] = child
                 end
                 if children and isObject(child) and child:HasChildren() then
-                    child:GetDescendents(arg1, arg2, list)
+                    child:GetDescendants(arg1, arg2, list)
                 end
             end
     elseif type(arg1) == "function" then
-        -- filteredList( func )
+        -- filteredList( func, arg )
         for index, child in ipairs(self) do
-            if arg1(child) then
+            if arg1(child, arg2) then
                 list[#list+1] = child
             end
             if children and isObject(child) and child:HasChildren() then
-                child:GetDescendents(arg1, arg2, list)
+                child:GetDescendants(arg1, arg2, list)
             end
         end
     end
@@ -739,6 +745,8 @@ end
 
 local smt, gmt, type, pairs = setmetatable, getmetatable, type, pairs
 local function deepCopy(tab)
+    if type(tab) ~= "table" then return tab end
+    
     local nt = smt({}, gmt(tab))
     for k, v in pairs(tab) do
         if type(v) == "table" then
@@ -755,12 +763,21 @@ _G.sign = function (n)
     return n < 0 and -1 or n > 0 and 1 or 0
 end
 
+
+
 --- Draw stuff 
 
 local love_graphics_draw = love.graphics.draw
 local floor = math.floor
 -- negative sx and sy values do default behavior; positive values are pixel measurements
 -- ox and oy values between 0 and 1 will be treated as a ratio to image size (anchor point)
+
+local love_graphics_setcolor = love.graphics.setColor
+function _G.setcolor(r, g, b, a)
+    print(type(r))
+    love_graphics_setcolor(r, g, b, a)
+end
+
 _G.cdraw = function(drawable, x, y, r, sx, sy, ox, oy, kx, ky, ignoreSnap)
     love_graphics_draw(
         drawable,
@@ -819,10 +836,14 @@ function _G.cdrawline(x1, y1, x2, y2, length, offset)
     drawPoints(points)
   end
 
-  local love_graphics_circle = love.graphics.circle
-  function _G.cdrawlinethick(x1, y1, x2, y2, thickness, length, offset)
+local love_graphics_circle = love.graphics.circle
+function _G.cdrawlinethick(x1, y1, x2, y2, thickness, length, offset)
     length = length or -1
     offset = offset or 0
+
+    if thickness == 0 then
+        return cdrawline(x1, y1, x2, y2, length, offset)
+    end
 
     local dx, dy = x2 - x1, y2 - y1
     local len = max(abs(dx), abs(dy))
@@ -832,4 +853,14 @@ function _G.cdrawline(x1, y1, x2, y2, length, offset)
             love_graphics_circle("fill", x1 + dx * i/len, y1 + dy * i/len, thickness)
         end
     end
-  end
+end
+
+
+
+function _G.cdrawcircle(mode, x, y, radius)
+    if radius > 0 then
+        love_graphics_circle(mode, x, y, radius)
+    else
+        drawPoints(x, y)
+    end
+end
