@@ -3,7 +3,7 @@ local Gui = {
     Name = "Gui",
     
     -- internal properties
-    _trackingMouse = false,     -- when you "set" Listening, it actually sets this
+    _trackingMouse = false,   -- internal flag for if the Gui is tracking the mouse
     _isUnderMouse = false,    -- NOT always being polled! Use Gui:IsUnderMouse() instead
     _selectedBy = {},       -- set in constructor
     _beingUsed = false,     -- (internal only, for performance) is the gui active with the mouse right now?
@@ -44,7 +44,7 @@ Gui._priorityGlobalUpdate = function ()
             guiElement._beingUsed = true
 
             -- deactivate any currently active elements
-            for n, _ in pairs(guiElement._selectedBy) do
+            for n in pairs(guiElement._selectedBy) do
                 if not Input:IsDown("m_"..n) then
                     guiElement._selectedBy[n] = nil
                     if guiElement.OnSelectEnd then guiElement:OnSelectEnd(n) end
@@ -57,7 +57,7 @@ Gui._priorityGlobalUpdate = function ()
             end
             
         elseif guiElement._beingUsed then -- need to reset selection state
-            for n, _ in pairs(guiElement._selectedBy) do
+            for n in pairs(guiElement._selectedBy) do
                 guiElement._selectedBy[n] = nil
                 if guiElement.OnSelectEnd then guiElement:OnSelectEnd(n) end
             end
