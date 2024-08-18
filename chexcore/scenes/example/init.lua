@@ -89,7 +89,7 @@ function logo:Update(dt)
     self.Position = self.Position:Lerp(goalPos, progress)
 end
 
-local button1 = layer:Adopt(Prop.new{
+local button1 = layer:Adopt(Textbox.new{
     Name = "Button1",
     AnchorPoint = V{.5, .5},
     Position = V{500, 700},
@@ -100,28 +100,60 @@ local button1 = layer:Adopt(Prop.new{
     goalColor = Constant.COLOR.PINK,   -- user-defined
 
     Update = function (self, dt)
-
         -- check if button is hovered over
         if self:IsUnderMouse() then
-            self.goalDrawScale = V{0.9, 0.9}
-            self.goalColor.G = 0.5
+            
 
             -- if clicking, make the button "pop"
             if Input:JustPressed("m_1") then
-                self.DrawScale = V{1.1, 1.1}
-                self.Color = Constant.COLOR.WHITE
+                
             end
         else
-            self.goalDrawScale = V{1, 1}
-            self.goalColor.G = 0
+            
         end
 
         self.DrawScale = self.DrawScale:Lerp(self.goalDrawScale, 25*dt)
         self.Color = self.Color:Lerp(self.goalColor, 8*dt)
 
-        -- self.Rotation = Chexcore._clock/2
-    end
+        self.Rotation = Chexcore._clock/2
+    end,
+
+    OnHoverStart = function (self)
+        self.goalDrawScale = V{0.9, 0.9}
+        self.goalColor.G = 0.5
+    end,
+    OnHoverEnd = function (self)
+        self.goalDrawScale = V{1, 1}
+        self.goalColor.G = 0
+    end,
+
+    OnSelectStart = function (self, button)
+        self.DrawScale = V{1.1, 1.1}
+        self.Color = Constant.COLOR.WHITE
+    end,
 })
+
+local myButton = Gui.new{
+    Size = V{100, 100},
+    Position = V{100, 150},
+    AnchorPoint = V{0.5, 0.5},
+
+    OnHoverStart = function (self)
+        self.DrawScale = V{1.1, 1.1}
+    end,
+    OnHoverEnd = function (self)
+        self.DrawScale = V{1, 1}
+    end,
+    OnSelectStart = function(self)
+        self.DrawScale = V{0.9, 0.9}
+    end,
+    OnSelectEnd = function(self)
+        self.DrawScale = V{1, 1}
+    end
+}
+
+layer:Adopt(myButton)
+
 
 local cursor = layer:Adopt(Prop.new{
     Name = "Cursor",

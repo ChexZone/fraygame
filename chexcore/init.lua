@@ -5,6 +5,7 @@ _G.Chexcore = {
     _types = {},            -- stores all type references
     _scenes = {},           -- stores all mounted Scene references
     _globalUpdates = {},    -- for any types that want independent update control
+    _priorityGlobalUpdates = {},    -- for any types that want to update before globalUpdates do
     _globalDraws = {},      -- for any types that want independent draw control
 
     -- constants
@@ -36,6 +37,9 @@ function Chexcore.Update(dt)
         end
     end
 
+    for _, func in ipairs(Chexcore._priorityGlobalUpdates) do
+        func(dt)
+    end
     for _, func in ipairs(Chexcore._globalUpdates) do
         func(dt)
     end
@@ -100,6 +104,9 @@ function Chexcore:AddType(type)
     -- assume the type may not have a metatable yet
     local metatable = getmetatable(type) or {}
 
+    if type._priorityGlobalUpdate then
+        Chexcore._priorityGlobalUpdates[#Chexcore._priorityGlobalUpdates+1] = type._priorityGlobalUpdate
+    end
     if type._globalUpdate then
         Chexcore._globalUpdates[#Chexcore._globalUpdates+1] = type._globalUpdate
     end
@@ -132,6 +139,7 @@ function Chexcore:AddType(type)
         end
     end
 
+    -- either set to a self-defined __index, or use the default __index2
     type.__index = type.__index or type.__index2
     
     return setmetatable(type, metatable)
@@ -222,11 +230,10 @@ local types = {
     "chexcore.code.types.texture",
     "chexcore.code.types.animation",
     "chexcore.code.types.prop",
+    "chexcore.code.types.gui",
+    "chexcore.code.types.textbox",
     "chexcore.code.types.tilemap",
-    "chexcore.code.types.specialObject",
-    "chexcore.code.types.specialObject2",
     "chexcore.code.types.camera",
-    "chexcore.code.types.sampleObject",
     "chexcore.code.types.scene",
     "chexcore.code.types.layer",
     "chexcore.code.types.canvas",
