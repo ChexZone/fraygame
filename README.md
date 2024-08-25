@@ -1,4 +1,4 @@
-**Chexcore** is an evolving solution for creating games in the [LÖVE game framework](https://love2d.org/). It's meant to be a viable solution for most 2D games—but it's especially optimized for *pixel-based* games right now. 
+**Chexcore** is an evolving solution for creating games in the [LÖVE game engine](https://love2d.org/). It's meant to be a viable solution for most 2D games—but it's especially optimized for *pixel-based* games right now. 
 
 Special class builders are used to greatly reduce the complexity of object-oriented design in Lua; all classes are also added to an inheritance chain which supply useful methods for familial relationships and serialization.
 
