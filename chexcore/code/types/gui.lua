@@ -5,8 +5,11 @@ local Gui = {
     -- internal properties
     _trackingMouse = false,   -- internal flag for if the Gui is tracking the mouse
     _isUnderMouse = false,    -- NOT always being polled! Use Gui:IsUnderMouse() instead
-    _selectedBy = {},       -- set in constructor
+    _selectedBy = {},       -- list of currently clicked mouse buttons on the gui (set in constructor)
     _beingUsed = false,     -- (internal only, for performance) is the gui active with the mouse right now?
+
+    _usingMouse = false,    -- (internal only) whether the mouse is interacting with the gui system
+
 
     _super = "Prop",      -- Supertype
     _global = true,
@@ -15,35 +18,37 @@ local Gui = {
     _hoverEvents = setmetatable({}, {__mode = "k"}),
     _selectEvents = setmetatable({}, {__mode = "k"})
 }
-local rg, rs, next = rawget, rawset, next
+local rg, rs = rawget, rawset
 local Input = Input
+local isUnderMouse = Prop.IsUnderMouse
 
 Gui._priorityGlobalUpdate = function ()
+    Gui._usingMouse = false
+
     for guiElement, _ in pairs(Gui._hoverEvents) do
-        local newHoverStatus = guiElement:IsUnderMouse()
+        local newHoverStatus = isUnderMouse(guiElement)
 
         if newHoverStatus ~= guiElement._isUnderMouse then
             if newHoverStatus == true then -- hover entered
                 if guiElement.OnHoverStart then guiElement:OnHoverStart() end
+                if guiElement.OnHoverWhileSelected and next(guiElement._selectedBy) then
+                    for n in pairs(guiElement._selectedBy) do
+                        guiElement:OnHoverWhileSelected(n)
+                    end
+                end
             else                            -- hover exited
                 if guiElement.OnHoverEnd then guiElement:OnHoverEnd() end
             end
-            rs(guiElement, "_isUnderMouse", newHoverStatus)
+            guiElement._isUnderMouse = newHoverStatus
         end
     end
-
-    -- which mouse button got pressed just this frame?
-    local justPressed = Input:JustPressed("m_1") and 1 or
-                            Input:JustPressed("m_2") and 2 or
-                            Input:JustPressed("m_3") and 3 or
-                            Input:JustPressed("m_4") and 4 or
-                            Input:JustPressed("m_5") and 5 or false
 
     for guiElement, _ in pairs(Gui._selectEvents) do
         if guiElement._isUnderMouse then
             guiElement._beingUsed = true
+            Gui._usingMouse = true
 
-            -- deactivate any currently active elements
+            -- deactivate any ended mouse clicks
             for n in pairs(guiElement._selectedBy) do
                 if not Input:IsDown("m_"..n) then
                     guiElement._selectedBy[n] = nil
@@ -51,20 +56,36 @@ Gui._priorityGlobalUpdate = function ()
                 end
             end
 
-            if justPressed then -- need to send some click event
-                if guiElement.OnSelectStart then guiElement:OnSelectStart(justPressed) end
-                guiElement._selectedBy[justPressed] = true
+            for i = 1, 5 do
+                if Input:JustPressed("m_"..i) then
+                    if guiElement.OnSelectStart then guiElement:OnSelectStart(i) end
+                    guiElement._selectedBy[i] = true
+                end
             end
-            
-        elseif guiElement._beingUsed then -- need to reset selection state
+        elseif guiElement._beingUsed then -- there might still be mouse selection
+            local c = 0
             for n in pairs(guiElement._selectedBy) do
-                guiElement._selectedBy[n] = nil
-                if guiElement.OnSelectEnd then guiElement:OnSelectEnd(n) end
+                if not Input:IsDown("m_"..n) then
+                    guiElement._selectedBy[n] = nil
+                    if guiElement.OnSelectEnd then guiElement:OnSelectEnd(n) end
+                else
+                    Gui._usingMouse = true
+                end
+                
+                c = c + 1
             end
-            guiElement._beingUsed = false
+
+            if c == 0 then -- set the gui as "not in use" if all buttons are released
+                guiElement._beingUsed = false
+            end
         end
     end
 end
+
+function Gui.UsingMouse()
+    return Gui._usingMouse
+end
+
 
 local listeners = {
     OnHoverStart = function (obj, key, val)
@@ -92,7 +113,14 @@ local listeners = {
         Gui._selectEvents[obj] = true
         obj._trackingMouse = true
         rs(obj, "_isUnderMouse", rg(obj, "_isUnderMouse") or false)
-    end
+    end,
+    OnHoverWhileSelected = function (obj, key, val)
+        rs(obj, key, val)
+        Gui._hoverEvents[obj] = true
+        Gui._selectEvents[obj] = true
+        obj._trackingMouse = true
+        rs(obj, "_isUnderMouse", rg(obj, "_isUnderMouse") or false)
+    end,
 }
 
 
@@ -118,6 +146,9 @@ function Gui.new(properties)
     return newGui
 end
 
+function Gui:IsUnderMouse()
+    return Gui._hoverEvents[self] and self._isUnderMouse or Prop.IsUnderMouse(self)
+end
 
 function Gui:GetMouseTracking()
     return self._trackingMouse

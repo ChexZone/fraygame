@@ -136,6 +136,7 @@ Constant.COLOR = CONST({
     PURPLE = V{ 155 / 255, 48 / 255, 255/ 255},
     VIOLET = V{138 / 255, 43 / 255, 226 / 255},
     WHITE = V{1, 1, 1},
-    BLACK = V{0, 0, 0}
+    BLACK = V{0, 0, 0},
+    GRAY = V{0.5, 0.5, 0.5}
 })
 return Constant

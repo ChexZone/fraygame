@@ -77,6 +77,17 @@ function Animation:GetProgress()
     return (self.Clock%self.Duration) / self.Duration
 end
 
+function Animation:SetFrame(frameNo)
+    self.CurrentFrame = frameNo
+    local frameProgress = (frameNo - self.LeftBound) / (self.RightBound - self.LeftBound)
+    self.Clock = self.Duration * frameProgress
+end
+
+function Animation:SetBounds(left, right)
+    self.LeftBound = left
+    self.RightBound = right or left
+end
+
 function Animation:Update(dt)
     -- print(self.Clock)
     if self.Loop then

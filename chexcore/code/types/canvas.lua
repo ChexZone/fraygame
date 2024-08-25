@@ -75,4 +75,16 @@ function Canvas:Deactivate()
     setCanvas(self._oldCanvas)
 end
 
+function Canvas:Clone()
+    local clone = Object.Clone(self)
+    
+    clone._drawable = love.graphics.newCanvas(clone._drawable:getDimensions())
+    clone._drawable:renderTo(function ()
+        love.graphics.setColor(1,1,1)
+        love.graphics.draw(self._drawable, 0, 0)
+    end)
+
+    return clone
+end
+
 return Canvas

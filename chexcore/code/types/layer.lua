@@ -6,13 +6,14 @@ local Layer = {
     TranslationInfluence = 1,
     ZoomInfluence = 1,
     AutoClearCanvas = true,
+    Static = false,         -- whether the top left corner of the canvas sits at V{0, 0} or not
 
     -- internal properties
     _super = "Object",      -- Supertype
     _global = true
 }
 
-function Layer.new(properties, width, height)
+function Layer.new(properties, width, height, static)
     local newLayer = Layer:SuperInstance()
     if type(properties) == "table" then
         for prop, val in pairs(properties) do
@@ -22,6 +23,8 @@ function Layer.new(properties, width, height)
         newLayer.Name = properties
         newLayer.Canvases = { Canvas.new(width, height) }
     end
+
+    newLayer.Static = static
 
     newLayer.Canvases = newLayer.Canvases or {}
 
@@ -50,8 +53,15 @@ function Layer:Draw(tx, ty)
     
     -- love.graphics.setColor(1,1,1,1)
     -- love.graphics.rectangle("fill", 0, 0, 1920,1080)
-    tx = tx * self.TranslationInfluence - self.Canvases[1]:GetWidth()/2
-    ty = ty * self.TranslationInfluence - self.Canvases[1]:GetHeight()/2
+
+    if self.Static then
+        tx, ty = 0, 0
+    else
+        tx = tx * self.TranslationInfluence - self.Canvases[1]:GetWidth()/2
+        ty = ty * self.TranslationInfluence - self.Canvases[1]:GetHeight()/2
+    end
+    
+    
 
     -- loop through each Visible child
     for child in self:EachChild() do
@@ -67,12 +77,13 @@ end
 local In = Input
 function Layer:GetMousePosition(canvasID)
     local normalizedPos, inWindow = In:GetMousePosition()
-    local cameraPosition = self._parent.Camera.Position
+    local activeCanvasSize = self.Canvases[canvasID or 1]:GetSize()
+    local cameraPosition = self.Static and activeCanvasSize/2 or self._parent.Camera.Position
     local cameraZoom = self._parent.Camera.Zoom
     local translationInfluence = self.TranslationInfluence
-    local zoomInfluence = self.ZoomInfluence
+    local zoomInfluence = self.Static and 0 or self.ZoomInfluence
     local masterCanvasSize = self._parent.MasterCanvas:GetSize()
-    local activeCanvasSize = self.Canvases[canvasID or 1]:GetSize()
+    
     local realScreenSize = getWindowSize()
 
     local screenToMasterRatio = 1/(masterCanvasSize:Ratio()/realScreenSize:Ratio())

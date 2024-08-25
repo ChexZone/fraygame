@@ -30,7 +30,7 @@ local Player = {
     HalfHangTimeActivationTime = 10,    -- activation energy for half hang time (medium-height jumps)
     DropHangTime = 3,                   -- how many frames of hang time are offered from falling off the side of a platform
     HangStatus = 0,                     -- tracker for the status of hang time
-    JumpPower = 3,                      -- the base initial upward momentum of a jump
+    JumpPower = 3.5,                      -- the base initial upward momentum of a jump
     DoubleJumpFrameLength = 12,         -- how many frames a double jump takes
     DoubleJumpPower = 3,                -- the base initial upward momentum of a double jump
     DoubleJumpStoredSpeed = 0,          -- how fast the player was moving horizontally when they double jumped
@@ -410,7 +410,7 @@ local yscale_land_small = {0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 1, 1}
 -- Animation picking
 function Player:UpdateAnimation()
 
-    print(self.Floor, self.Velocity)
+    -- print(self.Floor, self.Velocity)
 
     -- squash and stretch
     if self.FramesSinceDoubleJump > -1 and self.FramesSinceDoubleJump < #yscale_doublejump then
@@ -547,15 +547,16 @@ function Player:UpdatePhysics()
     -- gravity is dependent on the jump state of the character
     if self.HangStatus > 0 and self.Velocity.Y >= 0 then
         -- the player is owed hang time
-        
+        print("PHASE 3")
         self.Velocity.Y = 0
     elseif self.FramesSinceDoubleJump > -1 then
         -- the player is in the air from a double jump
         if self.Velocity.Y < 0 then
             -- player is in the upward arc
+            
             self.Velocity.Y = self.Velocity.Y + self.AfterDoubleJumpGravity
             if self.Velocity.Y > 0 then
-                print("e")
+                -- print("e")
                 -- give the player a couple grace frames
                 self.Velocity.Y = 0
                 self.HangStatus = self.DoubleJumpHangTime+1 -- + 1 because the update function decreases it                
@@ -571,9 +572,11 @@ function Player:UpdatePhysics()
             -- the player is still holding jump and should get maximum height
             if self.Velocity.Y < 0 then
                 -- player is moving upwards
+                print("PHASE 1")
                 self.Velocity.Y = self.Velocity.Y + self.JumpGravity
 
                 if self.Velocity.Y > 0 then
+                    print("PHASE 3")
                     -- give the player a couple grace frames
                     self.Velocity.Y = 0
                     self.HangStatus = self.HangTime+1 -- + 1 because the update function decreases it
@@ -581,10 +584,12 @@ function Player:UpdatePhysics()
             else
                 -- player is moving down
                 self.Velocity.Y = self.Velocity.Y + self.Gravity
+                print("PHASE 4")
             end
         else
             -- the player jumped but isn't holding jump anymore
             if self.Velocity.Y < 0 then
+                print("PHASE 2")
                 -- end the jump arc immediately
                 self.Velocity.Y = self.Velocity.Y + self.AfterJumpGravity
 

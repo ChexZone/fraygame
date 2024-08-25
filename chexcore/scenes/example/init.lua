@@ -1,5 +1,5 @@
 -- CHEXCORE EXAMPLE SCENE
-
+love.mouse.setVisible(false)
 -- create a Scene with this syntax:
 local scene = Scene.new()
 
@@ -89,7 +89,8 @@ function logo:Update(dt)
     self.Position = self.Position:Lerp(goalPos, progress)
 end
 
-local button1 = layer:Adopt(Textbox.new{
+local button1 = layer:Adopt(Gui.new{
+    Visible = true,
     Name = "Button1",
     AnchorPoint = V{.5, .5},
     Position = V{500, 700},
@@ -100,18 +101,6 @@ local button1 = layer:Adopt(Textbox.new{
     goalColor = Constant.COLOR.PINK,   -- user-defined
 
     Update = function (self, dt)
-        -- check if button is hovered over
-        if self:IsUnderMouse() then
-            
-
-            -- if clicking, make the button "pop"
-            if Input:JustPressed("m_1") then
-                
-            end
-        else
-            
-        end
-
         self.DrawScale = self.DrawScale:Lerp(self.goalDrawScale, 25*dt)
         self.Color = self.Color:Lerp(self.goalColor, 8*dt)
 
@@ -133,27 +122,83 @@ local button1 = layer:Adopt(Textbox.new{
     end,
 })
 
+for i = 1, 0 do
+    local b2 = button1:Clone(true)
+    b2.Position = button1.Position + V{math.random(-600,600)*2,math.random(-600,600)*2}
+    b2 .Size = V{math.random(10, 200),math.random(10, 200)}
+    b2.Color = ({Constant.COLOR.WHITE, Constant.COLOR.GREEN, Constant.COLOR.BLUE, Constant.COLOR.RED})[math.random(1, 4)]
+    b2.goalColor =  ({Constant.COLOR.WHITE, Constant.COLOR.GREEN, Constant.COLOR.BLUE, Constant.COLOR.RED})[math.random(1, 4)]
+    b2:SetMouseTracking(true)
+end
+
 local myButton = Gui.new{
     Size = V{100, 100},
     Position = V{100, 150},
     AnchorPoint = V{0.5, 0.5},
 
     OnHoverStart = function (self)
-        self.DrawScale = V{1.1, 1.1}
+        print("Hovering over me!")
     end,
     OnHoverEnd = function (self)
-        self.DrawScale = V{1, 1}
+        print("Stopped hovering over me!")
     end,
-    OnSelectStart = function(self)
-        self.DrawScale = V{0.9, 0.9}
+
+    OnSelectStart = function (self, button)
+        print("I just got clicked by mouse button " .. button)
     end,
-    OnSelectEnd = function(self)
-        self.DrawScale = V{1, 1}
+    OnSelectEnd = function (self, button)
+        print("I just got released by mouse button " .. button)
+    end,
+
+    Update = function (self, dt)
+        -- print(self:IsUnderMouse())
     end
 }
 
 layer:Adopt(myButton)
 
+local layer2 = scene:Adopt( Layer.new("exampleLayer", 1280, 720) ) -- specify the Name, and pixel width/height
+
+-- local testText = layer2:Adopt(Text.new{
+--     Name = "TestText",
+--     Position = V{500, 500},
+--     AlignMode = "justify",
+--     Size = V{500, 200},
+--     AnchorPoint = V{0.5, 0.5},
+--     Texture = Texture.new("chexcore/assets/images/square.png"),
+--     FontSize = 64,
+--     Margin = 4,
+--     TextColor = Constant.COLOR.WHITE,
+--     Color = Constant.COLOR.WHITE,
+--     Font = Font.new("chexcore/assets/fonts/chexfont_bold.ttf"),
+--     Text = {Constant.COLOR.BLACK, "The quick brown ",
+--             Constant.COLOR.ORANGE, "fox",
+--             Constant.COLOR.BLACK, " bounded over the ninth earth"},
+
+--     OnHoverStart = function (self)
+--         self.DrawScale = V{0.95,0.95}
+--     end,
+--     OnHoverEnd = function (self)
+--         self.DrawScale = V{1,1}
+--     end,
+--     OnSelectStart = function (self)
+--         self.DrawScale = V{0.9, 1.1}
+--     end,
+--     OnSelectEnd = function (self)
+--         if self:IsUnderMouse() then
+--             self.DrawScale = V{0.95, 0.95}
+--         else
+--             self.DrawScale = V{1, 1}
+--         end
+--     end,
+--     Update = function (self)
+--         self.Text[3].R = 1-math.sin(Chexcore._clock*10 + 1)
+--         self.Rotation = -Chexcore._clock * 0.25
+--         -- self.Size = self.Size + math.sin(Chexcore._clock*2)*2
+--         self.FontSize = self.FontSize + math.cos(Chexcore._clock*2)/3
+--         self.DrawScale:SetXY(self.DrawScale.X + math.sin(Chexcore._clock*2 + 1)/150, self.DrawScale.Y + math.cos(Chexcore._clock)/30)
+--     end
+-- })
 
 local cursor = layer:Adopt(Prop.new{
     Name = "Cursor",
@@ -165,6 +210,7 @@ local cursor = layer:Adopt(Prop.new{
     goalSize = V{48, 48}, -- custom field
 
     Update = function(self, dt)
+        
         self.Position = self.Position:Lerp(self:GetParent():GetMousePosition(), 25*dt)
         self.Size = self.Size:Lerp(self.goalSize, 25*dt)
 
@@ -179,9 +225,30 @@ local cursor = layer:Adopt(Prop.new{
 -- end})
 
 
+local obj = Object.new():Nest(layer):Properties{
+    Name = "boom",
+    Update = function (self, dt)
+        -- print(self)
+        -- print(Timer._timers)
+    end
+}
 
 
 -- local v = layer:Adopt()
 
+-- -- set up a timer that polls every second
+-- local poller poller = function ()
+--     if not obj.flagChecked then
+--         Timer.ScheduleFrames(60, poller)
+--         print("Polling...")
+--     else
+--         print("Polling complete")
+--     end
+-- end
+-- poller()
+
+-- Timer.Schedule(5, obj, "flagChecked", true)
+
+Timer.ScheduleFrames(60, print, "hello world")
 
 return scene

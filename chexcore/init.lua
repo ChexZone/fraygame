@@ -30,6 +30,10 @@ function love.draw() Chexcore.Draw() end
 function Chexcore.Update(dt)
     Chexcore._clock = Chexcore._clock + dt * 1
 
+    for _, func in ipairs(Chexcore._priorityGlobalUpdates) do
+        func(dt)
+    end
+    
     -- update all active Scenes
     for sceneid, scene in ipairs(Chexcore._scenes) do
         if scene.Active then
@@ -37,9 +41,7 @@ function Chexcore.Update(dt)
         end
     end
 
-    for _, func in ipairs(Chexcore._priorityGlobalUpdates) do
-        func(dt)
-    end
+
     for _, func in ipairs(Chexcore._globalUpdates) do
         func(dt)
     end
@@ -142,6 +144,8 @@ function Chexcore:AddType(type)
     -- either set to a self-defined __index, or use the default __index2
     type.__index = type.__index or type.__index2
     
+    type.__newindex = type.__newindex or type._superReference.__newindex
+
     return setmetatable(type, metatable)
 end
 
@@ -160,7 +164,7 @@ function Chexcore.UnmountScene(scene)
 end
 
 local fps = 0
-local FRAMELIMIT = 60
+Chexcore.FrameLimit = 500
 local frameTime = 0
 local mode = "standard"
 
@@ -191,14 +195,15 @@ if mode ~= "web" then
             -- Update dt, as we'll be passing it to update
             if love.timer then dt = love.timer.step() end
 
+            local frameLimit = (Chexcore._scenes[1] and Chexcore._scenes[1].FrameLimit) or Chexcore.FrameLimit
 
             -- Call update and draw
             frameTime = frameTime + dt
 
-            if frameTime >= 1/FRAMELIMIT and love.graphics and love.graphics.isActive() then
-                frameTime = frameTime - 1/FRAMELIMIT
+            if frameTime >= 1/frameLimit and love.graphics and love.graphics.isActive() then
+                frameTime = frameTime - 1/frameLimit
 
-                if love.update then love.update(1/FRAMELIMIT) end -- will pass 0 if love.timer is disabled
+                if love.update then love.update(1/frameLimit) end -- will pass 0 if love.timer is disabled
 
                 love.graphics.origin()
                 love.graphics.clear(love.graphics.getBackgroundColor())
@@ -209,7 +214,7 @@ if mode ~= "web" then
             end
 
 
-            if love.timer then love.timer.sleep(1/FRAMELIMIT) end
+            if love.timer then love.timer.sleep(1/frameLimit) end
         end
     end
 end
@@ -224,14 +229,16 @@ local types = {
     "chexcore.code.types.vector",
     "chexcore.code.types.constant",
     "chexcore.code.types.number",
+    "chexcore.code.types.timer",
     "chexcore.code.types.input",
     "chexcore.code.types.ray",
     "chexcore.code.types.sound",
     "chexcore.code.types.texture",
     "chexcore.code.types.animation",
+    "chexcore.code.types.font",
     "chexcore.code.types.prop",
     "chexcore.code.types.gui",
-    "chexcore.code.types.textbox",
+    "chexcore.code.types.text",
     "chexcore.code.types.tilemap",
     "chexcore.code.types.camera",
     "chexcore.code.types.scene",

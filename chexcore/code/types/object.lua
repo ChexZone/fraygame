@@ -73,6 +73,8 @@ function Object:Clone(sameParent)
 end
 
 
+function Object:Update(dt) end
+
 local function advancedType(name, var)
     local out
     if name:sub(1,1) == "_" then
@@ -375,6 +377,11 @@ function Object:Adopt(child)
     child._parent = self
 
     return child
+end
+
+-- inverse of Adopt()
+function Object:Nest(parent)
+    return parent:Adopt(self)
 end
 
 function Object:HasChildren()

@@ -109,8 +109,22 @@ function Vector:AddAxis(init)
 end
 
 -- basic linear interpolation
-local clamp = math.clamp
-function Vector.Lerp(v1, v2, t)
+local clamp, abs = math.clamp, math.abs
+local function lerp2(v1, v2, t, snapDelta)
+    local v3 = Vector{}
+    t = clamp(t, 0, 1)
+    for i = 1, #v1 do
+        v3[i] = v1[i] + ((v2[i] or v1[i]) - v1[i]) * t
+        if abs(v3[i] - v2[i]) < snapDelta then
+            v3[i] = v2[i]
+        end
+    end
+    return v3
+end
+
+
+function Vector.Lerp(v1, v2, t, snapDelta)
+    if snapDelta then return lerp2(v1, v2, t, snapDelta) end
     local v3 = Vector{}
     t = clamp(t, 0, 1)
     for i = 1, #v1 do

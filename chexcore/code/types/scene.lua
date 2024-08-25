@@ -90,11 +90,12 @@ function Scene:CombineLayers()
             -- canvases[#canvases+1] = canvas
                     -- by default, we'll just stretch each Canvas to fit the MasterCanvas. 
         -- maybe make this a property later ?
+        local zoomInfluence = layer.Static and 0 or layer.ZoomInfluence
         canvas:DrawToScreen(
             masterCanvasSize.X/2,
             masterCanvasSize.Y/2, 0,
-            masterCanvasSize.X + masterCanvasSize.X * (self.Camera.Zoom-1) * layer.ZoomInfluence,
-            masterCanvasSize.Y + masterCanvasSize.Y * (self.Camera.Zoom-1) * layer.ZoomInfluence,
+            masterCanvasSize.X + masterCanvasSize.X * (self.Camera.Zoom-1) * zoomInfluence,
+            masterCanvasSize.Y + masterCanvasSize.Y * (self.Camera.Zoom-1) * zoomInfluence,
             0.5, 0.5
         )
         end

@@ -1,4 +1,5 @@
 local scene = Scene.new{
+    FrameLimit = 60,
     Update = function (self, dt)
         Scene.Update(self, dt)
         self.Camera.Position = (self:GetDescendant("Player").Position - V{0, self:GetDescendant("Player").Size.Y/2})

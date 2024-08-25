@@ -662,6 +662,21 @@ end
 function math.clamp(n, min, max)
     return n < min and min or n > max and max or n
 end
+local clamp, abs = math.clamp, math.abs
+
+local function lerp2(a,b,t,s)
+    local n = a + (b - a) * clamp(t,0,1)
+    if abs(n-b) < s then
+        return b
+    else
+        return n
+    end
+end
+
+function math.lerp(a, b, t, s)
+    if s then return lerp2(a,b,t,s) end
+    return a + (b - a) * clamp(t,0,1)
+end
 
 -- simple round
 local floor = math.floor
@@ -778,7 +793,9 @@ function _G.setcolor(r, g, b, a)
     love_graphics_setcolor(r, g, b, a)
 end
 
+local lg = love.graphics
 _G.cdraw = function(drawable, x, y, r, sx, sy, ox, oy, kx, ky, ignoreSnap)
+    -- lg.push()
     love_graphics_draw(
         drawable,
         ignoreSnap and (x or 0) or floor(x or 0),
@@ -789,6 +806,7 @@ _G.cdraw = function(drawable, x, y, r, sx, sy, ox, oy, kx, ky, ignoreSnap)
         oy and (oy <= 1 and drawable:getHeight() * oy or oy),
         kx, ky
     )
+    -- lg.pop()
 end
 
 _G.cdrawquad = function(drawable, quad, qx, qy, x, y, r, sx, sy, ox, oy, kx, ky, ignoreSnap)
