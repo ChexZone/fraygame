@@ -68,13 +68,20 @@ local floor = math.floor
 function Animation:DrawToScreen(...)
     -- render the Texture
     local range = self.RightBound - self.LeftBound + 1
-    self.CurrentFrame = self.LeftBound + floor(range * self:GetProgress())
+    local prog = self:GetProgress()
+    if prog < 1 then
+        self.CurrentFrame = self.LeftBound + floor(range * prog)
+    else -- special case for progress == 1
+        self.CurrentFrame = self.RightBound
+    end
+
     draw(self._texture._drawable, self._frames[clamp(self.CurrentFrame,1,#self._frames)], self._quadSize[1], self._quadSize[2], ...)
 end
 
 -- by default, animation progress is based on delta time; returns 0-1
 function Animation:GetProgress()
-    return (self.Clock%self.Duration) / self.Duration
+    -- + 0.001 because if Clock == Duration, then the % will eval to 0 which is wrong
+    return (self.Clock%(self.Duration + 0.001)) / self.Duration
 end
 
 function Animation:SetFrame(frameNo)

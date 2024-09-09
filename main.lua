@@ -9,13 +9,14 @@ function love.load()
 
     -- Load the Chexcore example Scene!
     
-    -- Chexcore:AddType(require"game.player.player")
-    -- local scene = require"game.scenes.testzone.init"
-    -- local player = Player.new():Nest(scene:GetLayer("Gameplay"))
-    -- print(player.Size)
+    Chexcore:AddType(require"game.player.player")
+    local scene = require"game.scenes.testzone.init"
+    local player = Player.new():Nest(scene:GetLayer("Gameplay"))
+    print(player.Size)
 
 
-    local scene = require"chexcore.scenes.example.doodle" -- path to the .lua file of the scene
+
+    -- local scene = require"chexcore.scenes.example.doodle" -- path to the .lua file of the scene
 
     -- A scene will only be processed by Chexcore while it is "mounted"
     Chexcore.MountScene(scene)
@@ -24,6 +25,6 @@ function love.load()
 
     
     
-    -- print(CONST(scene):AddProperties("a"))
+    print(tostring(CONST(scene), true))
     -- You can unmount (or deactivate) a scene by using Chexcore.UnmountScene(scene)
 end

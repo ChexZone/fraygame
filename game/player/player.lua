@@ -17,11 +17,18 @@ local Player = {
     VelocityLastFrame = V{0,0},         -- the velocity of the player the previous frame (valid after Player:UpdatePhysics())
 
     MaxSpeed = V{6, 6},                 -- the absolute velocity caps (+/-) of the player
-    RunSpeed = 1.2,                     -- how fast the player runs by default
+    RunSpeed = 1.5,                     -- how fast the player runs by default
     Gravity = 0.15,                     -- how many pixels the player falls per frame
     JumpGravity = 0.14,                 -- how many pixels the player falls per frame while in the upward arc of a jump
     AfterDoubleJumpGravity = 0.2,
-    AfterJumpGravity = 0.5,             -- the gravity of the player in the upward jump arc after jump has been released
+    TrailLength = 1,                    -- (range 0-1) how long the trail should be
+    TrailColor = V{1, 1, 1, 0.9},       -- color of trail following player
+    CrouchTime = 0,                     -- how many frames the player has been crouching for (0 if not crouching)
+    CrouchEndBuffer = 0,                -- for animations, pretty much
+    CrouchDecelerationNeutral = 0.085,      -- how fast to decelerate the player to zero in a neutral crouch
+    CrouchDecelerationForward = 0.05,      -- how fast to decelerate the player to zero holding the velocity direction
+    CrouchDecelerationBackward = 0.15,     -- how fast to decelerate the player to zero holding against the velocity direction
+    AfterJumpGravity = 0.5,            -- the gravity of the player in the upward jump arc after jump has been released
     TerminalVelocity = 3.5,             -- how many units per frame the player can fall
     HangTime = 3,                       -- how many frames of hang time are afforded in the jump arc
     HalfHangTime = 1,                   -- how many frames of hang time are afforded for medium-height jumps
@@ -34,7 +41,15 @@ local Player = {
     DoubleJumpFrameLength = 12,         -- how many frames a double jump takes
     DoubleJumpPower = 3,                -- the base initial upward momentum of a double jump
     DoubleJumpStoredSpeed = 0,          -- how fast the player was moving horizontally when they double jumped
+    TimeSincePounce = -1,                -- how many frames since the player last "pounced" (crouch + roll + jump)
+    PounceWindow = 15,                  -- how many frames the player stays in "pounce"
+    CrouchAnimBounds = V{40, 44},       -- the current bounds of the crouch animation (so it change)
+    CrouchShimmyDelay = 0,              -- how many frames after crouching will pressing the action button still do a roll?
+    LastRollPower = 0,                  -- records the last RollPower used for the previous roll
+    ShimmyPower = 3,                   -- how much RollPower the player gets while crouching
     RollPower = 4.5,                    -- the player's X velocity on the first frame of a roll
+    PouncePower = 5.5,                  -- the X velocity out of a sideways pounce
+    PounceHeight = 2.2,                 -- the upward Y velocity out of a sideways pounce 
     RollLength = 14,                    -- how long the player must wait after a roll before rolling again (how many frames the roll animation lasts) 
     AccelerationSpeed = 0.1,            -- how much the player accelerates per frame to the goal speed
     AirAccelerationSpeed = 0.08,        -- how much the player accelerates per frame in the air
@@ -53,6 +68,8 @@ local Player = {
     DJMomentumCancelOpportunity = 8,    -- how many frames after a double jump the player can release either direction and cancel momentum
     ActionFrames = 5,                   -- how many frames after an action input can still result in action
     ActionBuffer = 0,                   -- how many action frames are currently remaining
+
+    
 
     -- vars
     XHitbox = nil,                      -- the player's hitbox for walls
@@ -77,9 +94,11 @@ local Player = {
 
     -- other stuff
     Canvas = nil,                       -- rendering the player is hard
-    CanvasSize = V{48, 48},
+    CanvasSize = V{84, 84, 0.25},
     TailPoints = nil,                   -- keeps track of where segments of the tail have been
-    TailLength = 4,
+    TailLength = 9,                     -- amount of tail segments to record
+    TailVisibleLength = 4,              -- actual drawn length
+    
 
     -- internal properties
     _super = "Prop",
@@ -91,13 +110,16 @@ local EMPTYVEC = V{0,0}
 Player.Shader = Shader.new("game/player/outline.glsl"):Send("step",{1/Player.CanvasSize.X,1/Player.CanvasSize.Y}) -- 1/ 24 (for tile size) / 12 (for tile count)
 
 
-
+local Y_HITBOX_HEIGHT = 16
+local X_HITBOX_HEIGHT = 12
+local Y_HITBOX_HEIGHT_CROUCH = 8
+local X_HITBOX_HEIGHT_CROUCH = 6
 
 -- yHitbox is used to detect floors/ceilings
 local yHitboxBASE = Prop.new{
     Name = "yHitbox",
     Texture = Texture.new("chexcore/assets/images/square.png"),
-    Size = V{8,16},
+    Size = V{8,Y_HITBOX_HEIGHT},
     Visible = false,
     Color = V{1,0,0,0.2},
     Solid = true,
@@ -107,7 +129,7 @@ local yHitboxBASE = Prop.new{
 local xHitboxBASE = Prop.new{
     Name = "xHitbox",
     Texture = Texture.new("chexcore/assets/images/square.png"),
-    Size = V{8,12},
+    Size = V{8,X_HITBOX_HEIGHT},
     Visible = false,
     Color = V{0,0,1,0.2},
     Solid = true,
@@ -128,7 +150,10 @@ function Player.new()
         a = "move_left",
         d = "move_right",
         space = "jump",
-        lshift = "action"
+        lshift = "action",
+        s = "crouch",
+
+        h = "HITBOXTOGGLE"
     }
 
     newPlayer.LastFrameInputs = {}
@@ -294,6 +319,12 @@ end
 function Player:ProcessInput()
     local input = self.InputListener
 
+    if input:JustPressed("HITBOXTOGGLE") then
+        self.XHitbox.Visible = not self.XHitbox.Visible
+        self.YHitbox.Visible = not self.YHitbox.Visible
+    end
+
+
     -- jump input
     if self.JustPressed["jump"] then
         -- let the jump input linger for a few frames in case player inputs early
@@ -308,15 +339,28 @@ function Player:ProcessInput()
         end
     end
 
+
+    -- crouch input
+    if self.CrouchTime == 0 and self.InputListener:IsDown("crouch") and self.Floor and (self.FramesSinceRoll == -1 or self.FramesSinceRoll == 12) then
+        self:StartCrouch()
+    end
+    
+    
+
     -- action input
     if self.JustPressed["action"] then
         -- let the action input linger for a few frames in case player inputs early
         self.ActionBuffer = self.ActionFrames
     end
 
-    if self.ActionBuffer > 0 and (self.Floor or self.CoyoteBuffer > 0) and self.FramesSinceRoll == -1 then
+    if self.ActionBuffer > 0 and (self.Floor or self.CoyoteBuffer > 0) and (self.CrouchTime > self.CrouchShimmyDelay or self.FramesSinceRoll == -1) then
         -- roll
-        self.Velocity.X = sign(self.DrawScale.X) * self.RollPower
+        local movementPower = self.CrouchTime > self.CrouchShimmyDelay and self.ShimmyPower or self.RollPower
+        self.LastRollPower = movementPower
+
+        self.Velocity.X = sign(self.DrawScale.X) * movementPower
+        self:ShrinkHitbox()
+
         self.FramesSinceRoll = 0
         self.ActionBuffer = 0
         self.Texture.Clock = 0
@@ -325,7 +369,24 @@ function Player:ProcessInput()
 
     -- left/right input
     self.MoveDir = (input:IsDown("move_left") and -1 or 0) + (input:IsDown("move_right") and 1 or 0)
-    if self.MoveDir ~= 0 then
+
+    if self.CrouchTime > 0 and self.Floor then
+        -- crouching; shouldnt move
+        self.Acceleration.X = 0
+        
+        local amt
+        if self.MoveDir == 0 then -- holding neutral
+            amt = self.CrouchDecelerationNeutral
+        elseif sign(self.Velocity.X) == self.MoveDir then -- holding sliding direction
+            amt = self.CrouchDecelerationForward
+        else -- holding against sliding direction
+            amt = self.CrouchDecelerationBackward
+        end
+        self:SetBodyOrientation(self.MoveDir)
+        -- self.DrawScale.X = self.MoveDir == 0 and self.DrawScale.X or self.MoveDir
+        self:Decelerate(amt)
+
+    elseif self.MoveDir ~= 0 then
         local accelSpeed = self.Floor and self.AccelerationSpeed or self.AirAccelerationSpeed
         self.Acceleration.X = self.MoveDir*accelSpeed
 
@@ -356,6 +417,13 @@ function Player:Jump()
     self.JumpBuffer = 0
     self.Velocity.Y = -self.JumpPower
     self.FramesSinceJump = 0
+
+    if self.FramesSinceRoll > 0 and self.LastRollPower == self.ShimmyPower then
+        self.Velocity.X = sign(self.Velocity.X) * self.PouncePower
+        self.Velocity.Y = sign(self.Velocity.Y) * self.PounceHeight
+        self.TimeSincePounce = 0
+    end
+
     if self.FloorDelta then
         -- inherit the velocity of the floor object
         local amt = math.floor(self.FloorDelta.X*2+0.5)
@@ -388,6 +456,32 @@ function Player:DoubleJump()
     self:SetBodyOrientation(self.MoveDir)
 end
 
+local bounds = {
+    V{29, 33, 0.25}, -- leftbound, rightbound, animDuration
+    V{40, 44, 0.25}
+}
+
+function Player:StartCrouch()
+    self.CrouchTime = 1
+    self.CrouchAnimBounds = bounds[math.random(#bounds)]
+    self:ShrinkHitbox()
+end
+
+function Player:EndCrouch()
+    self.CrouchTime = 0
+    self:GrowHitbox()
+end
+
+function Player:ShrinkHitbox()
+    self.XHitbox.Size.Y = X_HITBOX_HEIGHT_CROUCH
+    self.YHitbox.Size.Y = Y_HITBOX_HEIGHT_CROUCH
+end
+
+function Player:GrowHitbox()
+    self.XHitbox.Size.Y = X_HITBOX_HEIGHT
+    self.YHitbox.Size.Y = Y_HITBOX_HEIGHT
+end
+
 function Player:SetBodyOrientation(dir)
     
     self.DrawScale.X = sign(dir ~= 0 and dir or self:GetBodyOrientation())
@@ -406,14 +500,31 @@ local yscale_roll = {0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 1, 1,1,1,1,1,1,1,1,1}
 local xscale_roll = {1.25, 1.25, 1.25, 0.7, 0.7, 0.7, 0.7, 0.8, 0.8, 0.8, 0.8, 0.9, 0.9, 0.9, 0.9, 0.9, 1}
 local yscale_land = {0.8, 0.8, 0.8, 0.8, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9}
 local yscale_land_small = {0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 1, 1}
+local xscale_crouch = {1.3, 1.2, 1.2, 1.1, 1.1, 1.1, 1}
+local yscale_crouch = {0.7, 0.8, 0.8, 0.9, 0.9, 0.9, 1}
+local xscale_pounce = {1.3, 1.2, 1.2, 1.2, 1.2, 0.8, 0.9, 0.9}
+local yscale_pounce = {0.6, 0.6, 0.8, 0.8, 0.8, 1.1, 1.1, 1.1}
+
+
 
 -- Animation picking
 function Player:UpdateAnimation()
 
     -- print(self.Floor, self.Velocity)
 
+
+
+
     -- squash and stretch
-    if self.FramesSinceDoubleJump > -1 and self.FramesSinceDoubleJump < #yscale_doublejump then
+    if not self.Floor and self.TimeSincePounce > -1 then
+        -- just pounced
+        self.DrawScale.Y = yscale_pounce[self.TimeSincePounce+1] or 1
+        self.DrawScale.X = sign(self.DrawScale.X) * (xscale_pounce[self.TimeSincePounce+1] or 1)
+    elseif self.Floor and self.CrouchTime > 0 and self.CrouchTime < #xscale_crouch then
+        -- just crouched
+        self.DrawScale.Y = yscale_crouch[self.CrouchTime]
+        self.DrawScale.X = sign(self.DrawScale.X) * xscale_crouch[self.CrouchTime]
+    elseif self.FramesSinceDoubleJump > -1 and self.FramesSinceDoubleJump < #yscale_doublejump then
         -- just double jumped
         self.DrawScale.Y = yscale_doublejump[self.FramesSinceDoubleJump+1]
         self.DrawScale.X = sign(self.DrawScale.X) * xscale_doublejump[self.FramesSinceDoubleJump+1]
@@ -442,11 +553,36 @@ function Player:UpdateAnimation()
         self.DrawScale.X = sign(self.DrawScale.X)
         self.DrawScale.Y = 1
     end
-
-    if self.FramesSinceRoll > -1 and self.FramesSinceRoll ~= self.RollLength then
+    
+    if self.CrouchEndBuffer > 0 then
+        -- is in the end of a crouch
+        self.CrouchEndBuffer = self.CrouchEndBuffer - 1
+        self.Texture:AddProperties{LeftBound = 35, RightBound = 36, Duration = 4/60, PlaybackScaling = 1, Loop = false}
+    elseif self.CrouchTime > 0 and self.Floor then
+            -- is crouching
+            if not self.InputListener:IsDown("crouch") then
+                -- crouch just ended - we'll use this animation instead
+                self.CrouchEndBuffer = 4
+                self.Texture:AddProperties{LeftBound = 35, RightBound = 36, Duration = 4/60, PlaybackScaling = 1, Loop = false}
+                self.Texture:SetFrame(35)
+                self.Texture.Clock = 0
+            else
+                local animationBegun = self.Texture.LeftBound == self.CrouchAnimBounds[1] and self.Texture.RightBound == self.CrouchAnimBounds[2]
+                self.Texture:AddProperties{LeftBound = self.CrouchAnimBounds[1], RightBound = self.CrouchAnimBounds[2], Duration = self.CrouchAnimBounds[3], PlaybackScaling = 1, Loop = false}
+                if (not animationBegun) then self.Texture:SetFrame(self.CrouchAnimBounds[1]); self.Texture.IsPlaying = true end
+            end
+           
+    elseif self.FramesSinceRoll > -1 and self.FramesSinceRoll ~= self.RollLength then
         -- player is in a roll (regardless of air state)
         if self.Floor then
-            self.Texture:AddProperties{LeftBound = 25, RightBound = 27, Duration = 1/60*self.RollLength, PlaybackScaling = 1, Loop = false}
+            if self.CrouchTime > self.CrouchShimmyDelay then
+                self.Texture:AddProperties{LeftBound = 29, RightBound = 33, Duration = 0.25, PlaybackScaling = 1, Loop = false}
+                if self.FramesSinceRoll == 0 then
+                    self.Texture:SetFrame(29)
+                end
+            else
+                self.Texture:AddProperties{LeftBound = 25, RightBound = 27, Duration = 1/60*self.RollLength, PlaybackScaling = 1, Loop = false}
+            end
         else
             -- this animation is 1px up to make the black outline work
             self.Texture:AddProperties{LeftBound = 37, RightBound = 39, Duration = 1/60*self.RollLength, PlaybackScaling = 1, Loop = false}
@@ -504,7 +640,13 @@ function Player:UpdateFrameValues()
         self.FramesSinceRoll = self.FramesSinceRoll + 1
         if self.FramesSinceRoll > self.RollLength then
             self.FramesSinceRoll = -1
-            self.Texture.Clock = 0
+            
+            
+            if self.CrouchTime == 0 then
+                self.Texture.Clock = 0
+                self:GrowHitbox()
+            end
+
             -- self.Texture.IsPlaying = true
         end
     end
@@ -528,6 +670,19 @@ function Player:UpdateFrameValues()
         self.HangStatus = self.HangStatus - 1
     end
 
+    if self.TimeSincePounce > -1 then
+        self.TimeSincePounce = self.TimeSincePounce + 1
+        if self.Floor then
+            self.TimeSincePounce = -1
+        end
+    end
+
+    if self.CrouchTime > 0 and self.InputListener:IsDown("crouch") and self.Floor then
+        self.CrouchTime = self.CrouchTime + 1
+    elseif self.CrouchTime > 0 then
+        self:EndCrouch()
+    end
+
     if self.MoveDir == 0 then
         self.FramesSinceMoving = -1
         self.FramesSinceIdle = self.FramesSinceIdle + 1
@@ -547,7 +702,6 @@ function Player:UpdatePhysics()
     -- gravity is dependent on the jump state of the character
     if self.HangStatus > 0 and self.Velocity.Y >= 0 then
         -- the player is owed hang time
-        print("PHASE 3")
         self.Velocity.Y = 0
     elseif self.FramesSinceDoubleJump > -1 then
         -- the player is in the air from a double jump
@@ -572,11 +726,9 @@ function Player:UpdatePhysics()
             -- the player is still holding jump and should get maximum height
             if self.Velocity.Y < 0 then
                 -- player is moving upwards
-                print("PHASE 1")
                 self.Velocity.Y = self.Velocity.Y + self.JumpGravity
 
                 if self.Velocity.Y > 0 then
-                    print("PHASE 3")
                     -- give the player a couple grace frames
                     self.Velocity.Y = 0
                     self.HangStatus = self.HangTime+1 -- + 1 because the update function decreases it
@@ -584,12 +736,10 @@ function Player:UpdatePhysics()
             else
                 -- player is moving down
                 self.Velocity.Y = self.Velocity.Y + self.Gravity
-                print("PHASE 4")
             end
         else
             -- the player jumped but isn't holding jump anymore
             if self.Velocity.Y < 0 then
-                print("PHASE 2")
                 -- end the jump arc immediately
                 self.Velocity.Y = self.Velocity.Y + self.AfterJumpGravity
 
@@ -717,24 +867,94 @@ function Player:Update(dt)
     end
 end
 
+function Player:DrawTrail()
+    self.HelperCanvas = self.HelperCanvas or self.Canvas:Clone()
+    self.HelperCanvas.AlphaMode = "premultiplied"
+    self.HelperCanvas.BlendMode = "lighten"
+
+    
+    self.HelperCanvas:Activate()
+
+    local points = {}
+    love.graphics.clear()
+    love.graphics.setColor(1,1,1,1)
+    local p1 = self.TailPoints[1]
+        local cx = self.Canvas:GetWidth()/2
+        local cy = self.Canvas:GetHeight()/2 + 4 * self.DrawScale.Y
+        for i, point in ipairs(self.TailPoints) do
+            -- if i == 1 or i % 2 == 0 then
+                points[#points+1] = point[1] - p1[1] + cx
+                points[#points+1] = point[2] - p1[2] + cy
+            -- end
+        end
+        
+        local c = -sign(self.DrawScale.X)
+        local len = math.floor(#points * self.TrailLength)
+        for i = 3, len, 2 do
+            -- cdrawcircle("fill", points[i-2], points[i-1], (#points-i)/3)
+            local width = ((len-i)/4) * self.TrailLength + 0.5
+            -- if width < 0.5 then width = 0 end
+
+            -- love.graphics.setColor(1, 1, 1, 0.1)
+            cdrawlinethick(points[i-2], points[i-1], points[i], points[i+1], width)
+            -- cdrawlinethick(points[i-2], points[i-1]+1, points[i], points[i+1]+1, width)
+            -- cdrawlinethick(points[i-2]+c, points[i-1], points[i]+c, points[i+1], width)
+            -- cdrawlinethick(points[i-2]+c, points[i-1]+1, points[i]+c, points[i+1]+1, width)
+        end
+
+    self.HelperCanvas:Deactivate()
+end
+
 function Player:Draw(tx, ty)
     -- make sure hitboxes are re-aligned with player after position updates
     self:AlignHitboxes()
 
     -- draw the textures n shit to the canvas
+    local speed = self.Velocity:Magnitude()
+    print(self.TrailLength)
+    local shouldDrawTrail = self.TimeSincePounce > -1 or
+                            speed > 5
+                            
+
+    if shouldDrawTrail then
+        self.TrailLength = math.lerp(self.TrailLength, 1, 0.2, 0.1)
+    else
+        self.TrailLength = math.lerp(self.TrailLength, 0, 0.05, 0.1)
+    end
+
+    
+
+    if self.TrailLength > 0.1 then
+        self:DrawTrail()
+    end
+
     self.Canvas:Activate()
         love.graphics.clear()
         local sx = self.Size[1] * (self.DrawScale[1]-1)
         local sy = self.Size[2] * (self.DrawScale[2]-1)
+
         
+        
+
+       
+
+        
+        
+
+
+        local shouldDrawTail = (self.CrouchTime == 0)
+
         -- if not (self.Floor and self.Velocity.X == 0) then
+        if shouldDrawTail then
             -- draw the tail
             love.graphics.setColor(self.Color * self.TailColor)
             local points = {}
             local p1 = self.TailPoints[1]
             local cx = self.Canvas:GetWidth()/2
             local cy = self.Canvas:GetHeight()/2 + 6 * self.DrawScale.Y
-            for i, point in ipairs(self.TailPoints) do
+            for i = 1, self.TailVisibleLength do
+                local point = self.TailPoints[i]
+                if not point then break end
                 -- if i == 1 or i % 2 == 0 then
                     points[#points+1] = point[1] - p1[1] + cx
                     points[#points+1] = point[2] - p1[2] + cy
@@ -748,6 +968,7 @@ function Player:Draw(tx, ty)
                 cdrawline(points[i-2]+c, points[i-1], points[i]+c, points[i+1])
                 cdrawline(points[i-2]+c, points[i-1]+1, points[i]+c, points[i+1]+1)
             end
+        end
         -- end
 
         love.graphics.setColor(self.Color)
@@ -761,7 +982,24 @@ function Player:Draw(tx, ty)
         )
     self.Canvas:Deactivate()
 
+    -- love.graphics.draw(self.HelperCanvas._drawable, 0, 0)
+    if self.TrailLength > 0.1 then
+        love.graphics.setColor(self.TrailColor)
+        self.HelperCanvas:DrawToScreen(
+            math.floor(self.Position[1] - tx),
+            math.floor(self.Position[2] - ty + self.Canvas:GetHeight()/2 - self.Size.Y*self.DrawScale.Y/2),
+            self.Rotation,
+            self.Canvas:GetWidth(),
+            self.Canvas:GetHeight(),
+            self.AnchorPoint[1],
+            self.AnchorPoint[2]
+        )
+    end
+
     self.Shader:Activate()
+
+
+
 
     love.graphics.setColor(1, 1, 1)
     self.Canvas:DrawToScreen(
