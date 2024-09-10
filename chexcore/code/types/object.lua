@@ -252,6 +252,7 @@ function Object:GetChild(arg1, arg2)
 end
 
 function Object:GetDescendant(arg1, arg2)
+    
     return self:EachDescendant(arg1, arg2)()
 end
 
@@ -346,14 +347,10 @@ function Object:EachChild(arg1, arg2)
 end
 
 function Object:EachDescendant(arg1, arg2)
-
-    -- OK what the hell about that line above. The reason this line is here
-    -- is because the child table just, fucking, disappears??? if it is not
-    -- observed. i have no idea what this is or what terrible omens it carries
     if not arg2 and type2(arg1) == "string" then
         return iterFilter(self._children, "Name", arg1, true)
     end
-    
+
     return iterFilter(self._children, arg1, arg2, true)
 end
 

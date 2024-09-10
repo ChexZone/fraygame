@@ -1,7 +1,7 @@
-local scene = Scene.new{
+local scene = GameScene.new{
     FrameLimit = 60,
     Update = function (self, dt)
-        Scene.Update(self, dt)
+        GameScene.Update(self, dt)
         self.Camera.Position = (self:GetDescendant("Player").Position - V{0, self:GetDescendant("Player").Size.Y/2})
         self.Camera.Zoom = 2 --+ (math.sin(Chexcore._clock)+1)/2
     end
@@ -217,5 +217,18 @@ local tilemap = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/tilemap
 }
 
 tilemap:Clone(true):AddProperties{Position = V{199,0}}
+
+local tilemap2 = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/tilemap.png", 32, 50, 1, {{
+    1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1
+
+}})):AddProperties{
+    Position = V{500,0},
+    AnchorPoint = V{0,0},
+    Scale = 1,
+    Active = true,
+    Update = function (self, dt)
+        -- self.Position.Y = self.Position.Y - 1
+    end
+}
 
 return scene

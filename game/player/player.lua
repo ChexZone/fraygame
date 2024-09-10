@@ -26,7 +26,7 @@ local Player = {
     CrouchTime = 0,                     -- how many frames the player has been crouching for (0 if not crouching)
     CrouchEndBuffer = 0,                -- for animations, pretty much
     CrouchDecelerationNeutral = 0.085,      -- how fast to decelerate the player to zero in a neutral crouch
-    CrouchDecelerationForward = 0.05,      -- how fast to decelerate the player to zero holding the velocity direction
+    CrouchDecelerationForward = 0.085,      -- how fast to decelerate the player to zero holding the velocity direction
     CrouchDecelerationBackward = 0.15,     -- how fast to decelerate the player to zero holding against the velocity direction
     AfterJumpGravity = 0.5,            -- the gravity of the player in the upward jump arc after jump has been released
     TerminalVelocity = 3.5,             -- how many units per frame the player can fall
@@ -60,6 +60,18 @@ local Player = {
     AirForwardDeceleration = 0.15,      -- how much the player decelerates while in the air, moving in the same direction
     AirIdleDeceleration = 0.1,          -- how much the player decelerates while idle in the air
     MoveDir = 0,                        -- 1 for left, -1 for right, 0 for neutral
+
+    FramesSinceFlippedDirection = 0,   -- reset to 0 every time sign(DrawScale.X) changes
+    LastFaceDirection = 0,             -- last recorded facing direction ( sign(DrawScale.X) )
+
+    -- "safe ground" system for scenes to use
+    LastPosition = nil,                 -- the previous frame's Position
+    IdleStreak = 0,                     -- how many frames the player has been in the same Position
+    POSITION_SAFETY_THRESHOLD = 30, -- how large IdleStreak must become to replace LastSafePosition
+    LastSafePosition = nil,             -- ideally, a safe place to put the player back in.
+
+    FramesSinceRespawn = 0,             -- resets to 0 each time the player is respawned (from falling) 
+
 
     CoyoteFrames = 6,                   -- when running off the side of an object, you get this many frames to jump
     CoyoteBuffer = 0,                   -- how many coyote frames are remaining
@@ -186,12 +198,15 @@ function Player:DisconnectFromFloor()
 end
 
 function Player:ConnectToFloor(floor)
-    self.VelocityBeforeHittingGround = self.Velocity.Y
+    if not self.Floor then
+        self.VelocityBeforeHittingGround = self.Velocity.Y
+        self.FramesSinceGrounded = 0
+    end
     self.Floor = floor
     self.FloorPos = floor.Position:Clone()
     self.FloorLeftEdge = floor:GetEdge("left")
     self.FloorRightEdge = floor:GetEdge("right")
-    self.FramesSinceGrounded = 0
+    
     self.Position.Y = math.floor(self.Position.Y)
     self.DistanceAlongFloor = (self.Position.X - self.FloorLeftEdge) + (self.FloorRightEdge - self.FloorLeftEdge)
     -- self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Loop = true}
@@ -458,7 +473,7 @@ end
 
 local bounds = {
     V{29, 33, 0.25}, -- leftbound, rightbound, animDuration
-    V{40, 44, 0.25}
+    V{40, 43, 0.25}
 }
 
 function Player:StartCrouch()
@@ -504,6 +519,10 @@ local xscale_crouch = {1.3, 1.2, 1.2, 1.1, 1.1, 1.1, 1}
 local yscale_crouch = {0.7, 0.8, 0.8, 0.9, 0.9, 0.9, 1}
 local xscale_pounce = {1.3, 1.2, 1.2, 1.2, 1.2, 0.8, 0.9, 0.9}
 local yscale_pounce = {0.6, 0.6, 0.8, 0.8, 0.8, 1.1, 1.1, 1.1}
+local xscale_crouch_flip = {1.3, 1.2, 1.2, 1.1, 1.1, 1.1, 1}
+local yscale_crouch_flip = {0.7, 0.8, 0.8, 0.9, 0.9, 0.9, 1}
+
+
 
 
 
@@ -514,9 +533,14 @@ function Player:UpdateAnimation()
 
 
 
-
+    
     -- squash and stretch
-    if not self.Floor and self.TimeSincePounce > -1 then
+    if false then
+    elseif self.CrouchTime > 0 and self.FramesSinceFlippedDirection > 0 and self.FramesSinceFlippedDirection <= #xscale_crouch_flip then
+        -- crouching, turned around
+        self.DrawScale.Y = yscale_crouch_flip[self.FramesSinceFlippedDirection]
+        self.DrawScale.X = sign(self.DrawScale.X) * xscale_crouch_flip[self.FramesSinceFlippedDirection]
+    elseif not self.Floor and self.TimeSincePounce > -1 then
         -- just pounced
         self.DrawScale.Y = yscale_pounce[self.TimeSincePounce+1] or 1
         self.DrawScale.X = sign(self.DrawScale.X) * (xscale_pounce[self.TimeSincePounce+1] or 1)
@@ -539,6 +563,7 @@ function Player:UpdateAnimation()
     elseif self.FramesSinceGrounded > -1 and self.FramesSinceGrounded < #yscale_land then
         -- just landed on the ground
         if self.VelocityBeforeHittingGround >= self.TerminalVelocity then
+            print(self.FramesSinceGrounded)
             -- player was falling at terminal velocity (bigger visual impact)
             self.DrawScale.Y = yscale_land[self.FramesSinceGrounded+1]
         elseif self.VelocityBeforeHittingGround > 0.5 then
@@ -670,6 +695,16 @@ function Player:UpdateFrameValues()
         self.HangStatus = self.HangStatus - 1
     end
 
+    self.FramesSinceRespawn = self.FramesSinceRespawn + 1
+
+    local newFaceDir = sign(self.DrawScale.X)
+    if newFaceDir ~= self.LastFaceDirection then
+        self.FramesSinceFlippedDirection = 0
+    else
+        self.FramesSinceFlippedDirection = self.FramesSinceFlippedDirection + 1
+    end
+    self.LastFaceDirection = newFaceDir
+
     if self.TimeSincePounce > -1 then
         self.TimeSincePounce = self.TimeSincePounce + 1
         if self.Floor then
@@ -698,6 +733,18 @@ end
 local min, max = math.min, math.max
 function Player:UpdatePhysics()
 
+    -- some logic for recording previous position
+    if self.LastPosition == self.Position then -- player is 'idle'
+        self.IdleStreak = self.IdleStreak + 1
+
+        if self.IdleStreak == self.POSITION_SAFETY_THRESHOLD or not self.LastSafePosition then
+            self.LastSafePosition = self.LastPosition
+        end
+    elseif self.IdleStreak > 0 then -- reset IdleStreak
+        self.IdleStreak = 0
+    end
+
+    self.LastPosition = self.Position:Clone()
     
     -- gravity is dependent on the jump state of the character
     if self.HangStatus > 0 and self.Velocity.Y >= 0 then
@@ -825,6 +872,12 @@ end
 
 local insert = table.insert
 function Player:UpdateTail()
+    local dist = (self.Position - self.LastPosition):Magnitude()
+    -- print(self.FramesSinceRespawn)
+    if self.FramesSinceRespawn == 0 then
+        self.TailPoints = {}
+        return
+    end
     local tp = self.TailPoints
     if #tp < self.TailLength or (tp[1] ~= self.Position) then
         insert(tp, 1, self.Position:Clone())
@@ -836,6 +889,7 @@ end
 
 ------------------------ MAIN UPDATE LOOP -----------------------------
 function Player:Update(dt)
+    self.Color = V{math.random(0,1),math.random(0,1),math.random(0,1)}
     ------------------- PHYSICS PROCESSING ----------------------------------
     -- if we're on a moving floor let's move with it
     self:FollowFloor()
@@ -868,9 +922,12 @@ function Player:Update(dt)
 end
 
 function Player:DrawTrail()
-    self.HelperCanvas = self.HelperCanvas or self.Canvas:Clone()
-    self.HelperCanvas.AlphaMode = "premultiplied"
-    self.HelperCanvas.BlendMode = "lighten"
+    if not self.HelperCanvas then
+        self.HelperCanvas = self.Canvas:Clone()
+        self.HelperCanvas.AlphaMode = "premultiplied"
+        self.HelperCanvas.BlendMode = "lighten"
+    end
+    
 
     
     self.HelperCanvas:Activate()
@@ -911,7 +968,7 @@ function Player:Draw(tx, ty)
 
     -- draw the textures n shit to the canvas
     local speed = self.Velocity:Magnitude()
-    print(self.TrailLength)
+
     local shouldDrawTrail = self.TimeSincePounce > -1 or
                             speed > 5
                             
@@ -932,15 +989,6 @@ function Player:Draw(tx, ty)
         love.graphics.clear()
         local sx = self.Size[1] * (self.DrawScale[1]-1)
         local sy = self.Size[2] * (self.DrawScale[2]-1)
-
-        
-        
-
-       
-
-        
-        
-
 
         local shouldDrawTail = (self.CrouchTime == 0)
 
@@ -998,9 +1046,6 @@ function Player:Draw(tx, ty)
 
     self.Shader:Activate()
 
-
-
-
     love.graphics.setColor(1, 1, 1)
     self.Canvas:DrawToScreen(
         math.floor(self.Position[1] - tx),
@@ -1020,6 +1065,14 @@ function Player:Draw(tx, ty)
     
     love.graphics.setColor(1,0,0,1)
 
+end
+
+function Player:Respawn(pos)
+    pos = pos or self.LastSafePosition
+    
+    self.FramesSinceRespawn = 0
+    self.Position = pos
+    self.Velocity[1] = 0; self.Velocity[2] = 0;
 end
 
 return Player

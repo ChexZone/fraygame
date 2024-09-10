@@ -12,6 +12,7 @@
         "undefined-field",
         "param-type-mismatch",
         "need-check-nil",
-        "cast-local-type"
+        "cast-local-type",
+        "inject-field"
     ]
 }

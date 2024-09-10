@@ -497,6 +497,9 @@ local isObject = _G.isObject
 local STOP = 1000000
 function _G.filteredListIterator(self, arg1, arg2, children)
     
+    
+
+
     if not (arg1 or arg2) then  -- get entire set
         local i = 0; local nest
         if children then
@@ -518,6 +521,9 @@ function _G.filteredListIterator(self, arg1, arg2, children)
             end
         end
     end
+
+    
+    
 
     -- if not (arg1 or arg2) then  -- get entire set
     --     for i, ref in ipairs(self) do
@@ -596,6 +602,34 @@ function _G.filteredListIterator(self, arg1, arg2, children)
                 end
             end
         end
+    elseif type(arg1) == "function" then
+        -- filteredListIterator( func, arg )
+        
+        
+        local i = 0; local nest
+        return function()
+            if nest then
+                local res = nest()
+                if res then return res else nest = nil end
+            end
+            while STOP - i > 0 do
+                i = i + 1
+                if children and isObject(self[i]) and self[i]:HasChildren() then
+                    nest = self[i]:EachDescendant(arg1, arg2, true)
+                end
+                local c = self[i]
+                if not c then return nil end
+
+                if arg1(c, arg2) then
+                    return c
+                end
+
+                if nest then
+                    local res = nest()
+                    if res then return res else nest = nil end
+                end
+            end
+        end
     elseif arg2 ~= nil then
         -- filteredListIterator( property, value )
         
@@ -622,33 +656,7 @@ function _G.filteredListIterator(self, arg1, arg2, children)
                 end
             end
         end
-    elseif type(arg1) == "function" then
-        -- filteredListIterator( func, arg )
-
-        
-        local i = 0; local nest
-        return function()
-            if nest then
-                local res = nest()
-                if res then return res else nest = nil end
-            end
-            while STOP - i > 0 do
-                i = i + 1
-                if children and isObject(self[i]) and self[i]:HasChildren() then
-                    nest = self[i]:EachDescendant(arg1, arg2, true)
-                end
-                local c = self[i]
-                if not c then return nil end
-                if arg1(c, arg2) then
-                    return c
-                end
-
-                if nest then
-                    local res = nest()
-                    if res then return res else nest = nil end
-                end
-            end
-        end
+    
     end
 end
 
@@ -789,7 +797,6 @@ local floor = math.floor
 
 local love_graphics_setcolor = love.graphics.setColor
 function _G.setcolor(r, g, b, a)
-    print(type(r))
     love_graphics_setcolor(r, g, b, a)
 end
 

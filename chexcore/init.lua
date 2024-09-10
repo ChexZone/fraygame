@@ -239,6 +239,7 @@ local types = {
     "chexcore.code.types.prop",
     "chexcore.code.types.gui",
     "chexcore.code.types.text",
+    "chexcore.code.types.particles",
     "chexcore.code.types.tilemap",
     "chexcore.code.types.camera",
     "chexcore.code.types.scene",
