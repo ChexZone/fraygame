@@ -24,11 +24,16 @@ local Player = {
     TrailLength = 1,                    -- (range 0-1) how long the trail should be
     TrailColor = V{1, 1, 1, 0.9},       -- color of trail following player
     CrouchTime = 0,                     -- how many frames the player has been crouching for (0 if not crouching)
+    TimeSinceCrouching = 0,             -- how many frames since the player last ended a crouch
     CrouchEndBuffer = 0,                -- for animations, pretty much
     CrouchDecelerationNeutral = 0.085,      -- how fast to decelerate the player to zero in a neutral crouch
     CrouchDecelerationForward = 0.085,      -- how fast to decelerate the player to zero holding the velocity direction
     CrouchDecelerationBackward = 0.15,     -- how fast to decelerate the player to zero holding against the velocity direction
+    ImmediateJumpWindow = 5,            -- how many frames after a jump is considered "immediate jump"
+    ImmediatelyAfterJumpGravity = 1,       -- the gravity of the player in the upward jump arc after the player releases jump and they've been in the air more than ImmediateJumpWindow frames
     AfterJumpGravity = 0.5,            -- the gravity of the player in the upward jump arc after jump has been released
+    AfterPounceCancelGravity = 1,     -- the gravity of the player in the upward pounce arc after jump has been released 
+    ImmediatelyAfterPounceCancelGravity = 1.25,-- the gravity of the player in the upward pounce arc after jump has been released immediately after being pressed
     TerminalVelocity = 3.5,             -- how many units per frame the player can fall
     HangTime = 3,                       -- how many frames of hang time are afforded in the jump arc
     HalfHangTime = 1,                   -- how many frames of hang time are afforded for medium-height jumps
@@ -40,12 +45,15 @@ local Player = {
     JumpPower = 3.5,                      -- the base initial upward momentum of a jump
     DoubleJumpFrameLength = 12,         -- how many frames a double jump takes
     DoubleJumpPower = 3,                -- the base initial upward momentum of a double jump
+    DoubleJumpRequiredHeightFromGround = 5, -- number of pixels off the ground the player must be to be eligible to double jump
     DoubleJumpStoredSpeed = 0,          -- how fast the player was moving horizontally when they double jumped
     TimeSincePounce = -1,                -- how many frames since the player last "pounced" (crouch + roll + jump)
+    TimeAfterPounceCanDoubleJump = 5,   -- how many frames after a sideways pounce the player is allowed to double jump
+    RollWindowPastJump = 3,             -- how many frames after jumping will an action input still result in a hold
     PounceWindow = 15,                  -- how many frames the player stays in "pounce"
     CrouchAnimBounds = V{40, 44},       -- the current bounds of the crouch animation (so it change)
     CrouchShimmyDelay = 0,              -- how many frames after crouching will pressing the action button still do a roll?
-    LastRollPower = 0,                  -- records the last RollPower used for the previous roll
+    LastRollPower = 0,                  -- records the last RollPower used for the previous roll\
     ShimmyPower = 3,                   -- how much RollPower the player gets while crouching
     RollPower = 4.5,                    -- the player's X velocity on the first frame of a roll
     PouncePower = 5.5,                  -- the X velocity out of a sideways pounce
@@ -340,21 +348,6 @@ function Player:ProcessInput()
     end
 
 
-    -- jump input
-    if self.JustPressed["jump"] then
-        -- let the jump input linger for a few frames in case player inputs early
-        self.JumpBuffer = self.JumpFrames
-    end
-
-    if self.JumpBuffer > 0 then
-        if (self.Floor or self.CoyoteBuffer > 0) then
-            self:Jump()
-        elseif self.FramesSinceDoubleJump == -1 then
-            self:DoubleJump()
-        end
-    end
-
-
     -- crouch input
     if self.CrouchTime == 0 and self.InputListener:IsDown("crouch") and self.Floor and (self.FramesSinceRoll == -1 or self.FramesSinceRoll == 12) then
         self:StartCrouch()
@@ -368,19 +361,42 @@ function Player:ProcessInput()
         self.ActionBuffer = self.ActionFrames
     end
 
-    if self.ActionBuffer > 0 and (self.Floor or self.CoyoteBuffer > 0) and (self.CrouchTime > self.CrouchShimmyDelay or self.FramesSinceRoll == -1) then
+
+    if self.ActionBuffer > 0 and (self.Floor or self.CoyoteBuffer > 0 or self.FramesSinceJump < self.RollWindowPastJump) and (self.CrouchTime > self.CrouchShimmyDelay or self.FramesSinceRoll == -1) then
         -- roll
-        local movementPower = self.CrouchTime > self.CrouchShimmyDelay and self.ShimmyPower or self.RollPower
+        local movementPower = (self.CrouchTime > self.CrouchShimmyDelay or self.TimeSinceCrouching < 10) and self.ShimmyPower or self.RollPower
         self.LastRollPower = movementPower
 
         self.Velocity.X = sign(self.DrawScale.X) * movementPower
         self:ShrinkHitbox()
+
+        if self.InputListener:IsDown("jump") and self.FramesSinceJump <= self.RollWindowPastJump and self.TimeSinceCrouching < 5 then
+            -- rolled a few frames late after a jump - initiate a pounce instead
+            self:Jump()
+            
+        end
 
         self.FramesSinceRoll = 0
         self.ActionBuffer = 0
         self.Texture.Clock = 0
         self.Texture.IsPlaying = true
     end
+
+
+        -- jump input
+        if self.JustPressed["jump"] then
+            -- let the jump input linger for a few frames in case player inputs early
+            self.JumpBuffer = self.JumpFrames
+        end
+    
+        if self.JumpBuffer > 0 then
+            if (self.Floor or self.CoyoteBuffer > 0) then
+                self:Jump()
+            elseif self.FramesSinceDoubleJump == -1 and (self.TimeSincePounce == -1 or self.TimeSincePounce > self.TimeAfterPounceCanDoubleJump)  then
+                self:DoubleJump()
+            end
+        end
+
 
     -- left/right input
     self.MoveDir = (input:IsDown("move_left") and -1 or 0) + (input:IsDown("move_right") and 1 or 0)
@@ -431,14 +447,17 @@ end
 function Player:Jump()
     self.JumpBuffer = 0
     self.Velocity.Y = -self.JumpPower
-    self.FramesSinceJump = 0
-
-    if self.FramesSinceRoll > 0 and self.LastRollPower == self.ShimmyPower then
+    
+    -- pounce  handling
+    if (self.FramesSinceRoll > 0 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
         self.Velocity.X = sign(self.Velocity.X) * self.PouncePower
         self.Velocity.Y = sign(self.Velocity.Y) * self.PounceHeight
         self.TimeSincePounce = 0
+        self.FramesSinceRoll = -1
     end
 
+    self.FramesSinceJump = 0
+    
     if self.FloorDelta then
         -- inherit the velocity of the floor object
         local amt = math.floor(self.FloorDelta.X*2+0.5)
@@ -463,6 +482,20 @@ function Player:Jump()
 end
 
 function Player:DoubleJump()
+    -- first move the player down to make sure they're even allowed to double jump
+    local p = self.Position:Clone()
+    local f = self.Floor
+    self.Position.Y = self.Position.Y + self.DoubleJumpRequiredHeightFromGround
+    
+    self:Unclip()
+    if p + V{0, self.DoubleJumpRequiredHeightFromGround} ~= self.Position then
+        self.Position = p
+        self.Floor = f
+        return
+    end
+    self.Floor = f
+    self.Position = p
+
     self.FramesSinceDoubleJump = 0
     self.Texture.Clock = 0
     self.Velocity.Y = -self.DoubleJumpPower
@@ -478,12 +511,14 @@ local bounds = {
 
 function Player:StartCrouch()
     self.CrouchTime = 1
+    self.TimeSinceCrouching = -1
     self.CrouchAnimBounds = bounds[math.random(#bounds)]
     self:ShrinkHitbox()
 end
 
 function Player:EndCrouch()
     self.CrouchTime = 0
+    self.TimeSinceCrouching = 0
     self:GrowHitbox()
 end
 
@@ -676,6 +711,8 @@ function Player:UpdateFrameValues()
         end
     end
 
+    
+
     if self.CoyoteBuffer > 0 then
         self.CoyoteBuffer = self.CoyoteBuffer - 1
     elseif self.FloorDelta then
@@ -718,6 +755,10 @@ function Player:UpdateFrameValues()
         self:EndCrouch()
     end
 
+    if self.TimeSinceCrouching > -1 then
+        self.TimeSinceCrouching = self.TimeSinceCrouching + 1
+    end
+
     if self.MoveDir == 0 then
         self.FramesSinceMoving = -1
         self.FramesSinceIdle = self.FramesSinceIdle + 1
@@ -749,14 +790,17 @@ function Player:UpdatePhysics()
     -- gravity is dependent on the jump state of the character
     if self.HangStatus > 0 and self.Velocity.Y >= 0 then
         -- the player is owed hang time
+        print("1")
         self.Velocity.Y = 0
     elseif self.FramesSinceDoubleJump > -1 then
+        print("2")
         -- the player is in the air from a double jump
         if self.Velocity.Y < 0 then
             -- player is in the upward arc
-            
+            print("3")
             self.Velocity.Y = self.Velocity.Y + self.AfterDoubleJumpGravity
             if self.Velocity.Y > 0 then
+                print("4")
                 -- print("e")
                 -- give the player a couple grace frames
                 self.Velocity.Y = 0
@@ -767,46 +811,70 @@ function Player:UpdatePhysics()
             self.Velocity.Y = self.Velocity.Y + self.Gravity
         end
     elseif self.FramesSinceJump > -1 then
+        
         -- the player is in the air from a jump
         if self.InputListener:IsDown("jump") then
             
             -- the player is still holding jump and should get maximum height
             if self.Velocity.Y < 0 then
+                print("5")
                 -- player is moving upwards
                 self.Velocity.Y = self.Velocity.Y + self.JumpGravity
 
                 if self.Velocity.Y > 0 then
+                    print("6")
                     -- give the player a couple grace frames
                     self.Velocity.Y = 0
                     self.HangStatus = self.HangTime+1 -- + 1 because the update function decreases it
                 end
             else
+                print("7")
                 -- player is moving down
                 self.Velocity.Y = self.Velocity.Y + self.Gravity
             end
         else
+            
             -- the player jumped but isn't holding jump anymore
             if self.Velocity.Y < 0 then
+                print("8")
+
                 -- end the jump arc immediately
-                self.Velocity.Y = self.Velocity.Y + self.AfterJumpGravity
+                if self.TimeSincePounce > -1 then
+                    -- pounce height cancel
+                    if self.FramesSinceJump <= self.ImmediateJumpWindow then
+                        -- immediate pounce height cancel gravity
+                        self.Velocity.Y = self.Velocity.Y + self.ImmediatelyAfterPounceCancelGravity
+                    else
+                        self.Velocity.Y = self.Velocity.Y + self.AfterPounceCancelGravity
+                    end
+                    
+                elseif self.FramesSinceJump <= self.ImmediateJumpWindow then
+                    self.Velocity.Y = self.Velocity.Y + self.ImmediatelyAfterJumpGravity
+                else
+                    -- normal after jump gravity
+                    self.Velocity.Y = self.Velocity.Y + self.AfterJumpGravity
+                end
 
                 -- check if we crossed the velocity threshold
                 if self.Velocity.Y > 0 then
                     -- give the player a couple grace frames
-                    
+                    print("9")
 
                     -- in this case, only give hang time if the jump was beyond a threshold of frames long
                     if self.FramesSinceJump >= self.HangTimeActivationTime then
+                        print("10")
                         -- jump was high enough to deserve full hang time
                         self.Velocity.Y = 0
                         self.HangStatus = self.HangTime+1 -- + 1 because the update function decreases it
                     elseif self.FramesSinceJump >= self.HalfHangTimeActivationTime then
+                        print("11")
                         -- jump deserves some hang time, but not as much
                         self.Velocity.Y = 0
                         self.HangStatus = self.HalfHangTime+1 -- + 1 because the update function decreases it
                     end
                 end
             else
+                print("12")
                 -- regular gravity
                 self.Velocity.Y = self.Velocity.Y + self.Gravity
             end
@@ -889,7 +957,7 @@ end
 
 ------------------------ MAIN UPDATE LOOP -----------------------------
 function Player:Update(dt)
-    self.Color = V{math.random(0,1),math.random(0,1),math.random(0,1)}
+    -- self.Color = V{math.random(0,1),math.random(0,1),math.random(0,1)}
     ------------------- PHYSICS PROCESSING ----------------------------------
     -- if we're on a moving floor let's move with it
     self:FollowFloor()

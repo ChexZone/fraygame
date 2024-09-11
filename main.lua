@@ -20,7 +20,7 @@ function love.load()
     -- local scene = require"chexcore.scenes.example.doodle" -- path to the .lua file of the scene
 
     -- A scene will only be processed by Chexcore while it is "mounted"
-    -- Chexcore.MountScene(scene)
+    Chexcore.MountScene(scene)
 
 
     local particleData = {
@@ -44,6 +44,6 @@ function love.load()
 
 
     
-    -- print(player:Serialize())
+    print(player:ToString(true))
     -- You can unmount (or deactivate) a scene by using Chexcore.UnmountScene(scene)
 end
