@@ -106,6 +106,7 @@ end
 -- i could write code like this!~
 function Vector:AddAxis(init)
     self[#self+1] = init or 0
+    return self
 end
 
 -- basic linear interpolation

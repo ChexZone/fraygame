@@ -1,6 +1,8 @@
 _G.Chexcore = {
     -- internal properties
     _clock = 0,             -- keeps track of total game run time
+    _lastFrameTime = 0,     -- how long the previous frame actually took
+    _graphicsStats = {},        -- the output of love.graphics.getStats()
 
     _types = {},            -- stores all type references
     _scenes = {},           -- stores all mounted Scene references
@@ -58,6 +60,8 @@ function Chexcore.Draw()
     for _, func in ipairs(Chexcore._globalDraws) do
         func()
     end
+
+    Chexcore._graphicsStats = love.graphics.getStats()
 end
 ------------------------------------------------
 
@@ -195,6 +199,8 @@ if mode ~= "web" then
             -- Update dt, as we'll be passing it to update
             if love.timer then dt = love.timer.step() end
 
+            Chexcore._lastFrameTime = dt
+            
             local frameLimit = (Chexcore._scenes[1] and Chexcore._scenes[1].FrameLimit) or Chexcore.FrameLimit
 
             -- Call update and draw
@@ -214,7 +220,7 @@ if mode ~= "web" then
             end
 
 
-            if love.timer then love.timer.sleep(1/frameLimit) end
+            if love.timer then love.timer.sleep(_G.TRUE_FPS and 1/_G.TRUE_FPS or 1/frameLimit) end
         end
     end
 end

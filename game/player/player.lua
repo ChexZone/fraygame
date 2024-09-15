@@ -16,20 +16,20 @@ local Player = {
 
     VelocityLastFrame = V{0,0},         -- the velocity of the player the previous frame (valid after Player:UpdatePhysics())
 
-    MaxSpeed = V{6, 6},                 -- the absolute velocity caps (+/-) of the player
+    MaxSpeed = V{8, 6},                 -- the absolute velocity caps (+/-) of the player
     RunSpeed = 1.5,                     -- how fast the player runs by default
     Gravity = 0.15,                     -- how many pixels the player falls per frame
     JumpGravity = 0.14,                 -- how many pixels the player falls per frame while in the upward arc of a jump
     AfterDoubleJumpGravity = 0.2,
     TrailLength = 1,                    -- (range 0-1) how long the trail should be
-    TrailColor = V{1, 1, 1, 0.9},       -- color of trail following player
+    TrailColor = V{190/255, 140/255, 100/255, 0.4} + 0.3 ,       -- color of trail following player
     CrouchTime = 0,                     -- how many frames the player has been crouching for (0 if not crouching)
     TimeSinceCrouching = 0,             -- how many frames since the player last ended a crouch
     CrouchEndBuffer = 0,                -- for animations, pretty much
     CrouchDecelerationNeutral = 0.085,      -- how fast to decelerate the player to zero in a neutral crouch
     CrouchDecelerationForward = 0.085,      -- how fast to decelerate the player to zero holding the velocity direction
     CrouchDecelerationBackward = 0.15,     -- how fast to decelerate the player to zero holding against the velocity direction
-    ImmediateJumpWindow = 5,            -- how many frames after a jump is considered "immediate jump"
+    ImmediateJumpWindow = 7,            -- how many frames after a jump is considered "immediate jump"
     ImmediatelyAfterJumpGravity = 1,       -- the gravity of the player in the upward jump arc after the player releases jump and they've been in the air more than ImmediateJumpWindow frames
     AfterJumpGravity = 0.5,            -- the gravity of the player in the upward jump arc after jump has been released
     AfterPounceCancelGravity = 1,     -- the gravity of the player in the upward pounce arc after jump has been released 
@@ -50,7 +50,6 @@ local Player = {
     TimeSincePounce = -1,                -- how many frames since the player last "pounced" (crouch + roll + jump)
     TimeAfterPounceCanDoubleJump = 5,   -- how many frames after a sideways pounce the player is allowed to double jump
     RollWindowPastJump = 3,             -- how many frames after jumping will an action input still result in a hold
-    PounceWindow = 15,                  -- how many frames the player stays in "pounce"
     CrouchAnimBounds = V{40, 44},       -- the current bounds of the crouch animation (so it change)
     CrouchShimmyDelay = 0,              -- how many frames after crouching will pressing the action button still do a roll?
     LastRollPower = 0,                  -- records the last RollPower used for the previous roll\
@@ -59,14 +58,20 @@ local Player = {
     PouncePower = 5.5,                  -- the X velocity out of a sideways pounce
     PounceHeight = 2.2,                 -- the upward Y velocity out of a sideways pounce 
     RollLength = 14,                    -- how long the player must wait after a roll before rolling again (how many frames the roll animation lasts) 
-    AccelerationSpeed = 0.1,            -- how much the player accelerates per frame to the goal speed
+    ShimmyLength = 5,                   -- how long the player must wait after a shimmy before shimmying again
+    AccelerationSpeed = 0.12,            -- how much the player accelerates per frame to the goal speed
     AirAccelerationSpeed = 0.08,        -- how much the player accelerates per frame in the air
-    ForwardDeceleration = 0.2,          -- how much the player speed decreases while idle on the ground
-    BackwardDeceleration = 0.5,         -- how fast the player speed decreases while "braking" on the ground
+    PounceAccelerationSpeed = 0.155,      -- how much the player accelerates per frame during a pounce
+    ForwardDeceleration = 0.2,          -- how much the player speed decreases while moving forward
+    BackwardDeceleration = 0.7,         -- how fast the player speed decreases while "braking" on the ground
     IdleDeceleration = 0.2,             -- how fast the player halts to a stop while idle on the ground
     AirBackwardDeceleration = 0.25,     -- how much the player decelerates while in the air, against the movement direction
-    AirForwardDeceleration = 0.15,      -- how much the player decelerates while in the air, moving in the same direction
-    AirIdleDeceleration = 0.1,          -- how much the player decelerates while idle in the air
+    AirForwardDeceleration = 0.2,      -- how much the player decelerates while in the air, moving in the same direction
+    AirIdleDeceleration = 0.2,          -- how much the player decelerates while idle in the air
+    PounceForwardDeceleration = 0.25,   -- how much the player accelerates while in a pounce
+    PounceIdleDeceleration = 0.16,   -- how mucgh the player decelerates while idle in a pounce
+    PounceBackwardDeceleration = 0.25, -- how much the player decelerates while moving backwards in a pounce
+    ConsecutivePouncesSpeedMult = 1.75, -- how much the player's speed is multiplied by during a new pounce (basically, how easily the player can speed up doing chained pounces)
     MoveDir = 0,                        -- 1 for left, -1 for right, 0 for neutral
 
     FramesSinceFlippedDirection = 0,   -- reset to 0 every time sign(DrawScale.X) changes
@@ -114,7 +119,7 @@ local Player = {
 
     -- other stuff
     Canvas = nil,                       -- rendering the player is hard
-    CanvasSize = V{84, 84, 0.25},
+    CanvasSize = V{128, 128, 0.25},
     TailPoints = nil,                   -- keeps track of where segments of the tail have been
     TailLength = 9,                     -- amount of tail segments to record
     TailVisibleLength = 4,              -- actual drawn length
@@ -173,7 +178,8 @@ function Player.new()
         lshift = "action",
         s = "crouch",
 
-        h = "HITBOXTOGGLE"
+        h = "HITBOXTOGGLE",
+        j = "SLOWMODETOGGLE"
     }
 
     newPlayer.LastFrameInputs = {}
@@ -345,15 +351,19 @@ function Player:ProcessInput()
     if input:JustPressed("HITBOXTOGGLE") then
         self.XHitbox.Visible = not self.XHitbox.Visible
         self.YHitbox.Visible = not self.YHitbox.Visible
+        self:GetLayer():GetParent().GuiLayer:GetChild("StatsGui").Visible = not self:GetLayer():GetParent().GuiLayer:GetChild("StatsGui").Visible
     end
 
+    if input:JustPressed("SLOWMODETOGGLE") then
+        _G.TRUE_FPS = _G.TRUE_FPS == 5 and 60 or 5
+    end
 
     -- crouch input
     if self.CrouchTime == 0 and self.InputListener:IsDown("crouch") and self.Floor and (self.FramesSinceRoll == -1 or self.FramesSinceRoll == 12) then
         self:StartCrouch()
     end
     
-    
+    -- print("SPEED:",self.Velocity.X)
 
     -- action input
     if self.JustPressed["action"] then
@@ -361,22 +371,34 @@ function Player:ProcessInput()
         self.ActionBuffer = self.ActionFrames
     end
 
-
-    if self.ActionBuffer > 0 and (self.Floor or self.CoyoteBuffer > 0 or self.FramesSinceJump < self.RollWindowPastJump) and (self.CrouchTime > self.CrouchShimmyDelay or self.FramesSinceRoll == -1) then
+    -- print(self.FramesSinceJump, self.RollWindowPastJump)
+    local blockJump
+    if self.ActionBuffer > 0 and (self.Floor or self.CoyoteBuffer > 0 or (self.FramesSinceJump > -1 and self.FramesSinceJump < self.RollWindowPastJump)) and ((self.CrouchTime > self.CrouchShimmyDelay and (self.FramesSinceRoll == -1 or self.FramesSinceRoll >= self.ShimmyLength)) or self.FramesSinceRoll == -1) then
         -- roll
         local movementPower = (self.CrouchTime > self.CrouchShimmyDelay or self.TimeSinceCrouching < 10) and self.ShimmyPower or self.RollPower
         self.LastRollPower = movementPower
 
-        self.Velocity.X = sign(self.DrawScale.X) * movementPower
+        
+        
+
+        if self.CrouchTime > 0 then
+            self.Velocity.X = sign(self.DrawScale.X) * math.max(movementPower, math.abs(self.Velocity.X) * self.ConsecutivePouncesSpeedMult)
+        else
+            self.Velocity.X = sign(self.DrawScale.X) * movementPower
+        end
+        
         self:ShrinkHitbox()
 
+        self.FramesSinceRoll = 0
+        
         if self.InputListener:IsDown("jump") and self.FramesSinceJump <= self.RollWindowPastJump and self.TimeSinceCrouching < 5 then
             -- rolled a few frames late after a jump - initiate a pounce instead
-            self:Jump()
+            blockJump = true
             
+            self:Jump()
         end
 
-        self.FramesSinceRoll = 0
+        
         self.ActionBuffer = 0
         self.Texture.Clock = 0
         self.Texture.IsPlaying = true
@@ -389,10 +411,12 @@ function Player:ProcessInput()
             self.JumpBuffer = self.JumpFrames
         end
     
-        if self.JumpBuffer > 0 then
+        if self.JumpBuffer > 0 and not blockJump then
             if (self.Floor or self.CoyoteBuffer > 0) then
                 self:Jump()
+                
             elseif self.FramesSinceDoubleJump == -1 and (self.TimeSincePounce == -1 or self.TimeSincePounce > self.TimeAfterPounceCanDoubleJump)  then
+                
                 self:DoubleJump()
             end
         end
@@ -418,7 +442,8 @@ function Player:ProcessInput()
         self:Decelerate(amt)
 
     elseif self.MoveDir ~= 0 then
-        local accelSpeed = self.Floor and self.AccelerationSpeed or self.AirAccelerationSpeed
+        local accelSpeed = self.Floor and self.AccelerationSpeed or 
+                            (self.TimeSincePounce > -1 and self.PounceAccelerationSpeed or self.AirAccelerationSpeed)
         self.Acceleration.X = self.MoveDir*accelSpeed
 
         if self.FramesSinceDoubleJump > -1 and self.FramesSinceDoubleJump <= self.DJMomentumCancelOpportunity then
@@ -449,11 +474,14 @@ function Player:Jump()
     self.Velocity.Y = -self.JumpPower
     
     -- pounce  handling
-    if (self.FramesSinceRoll > 0 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
-        self.Velocity.X = sign(self.Velocity.X) * self.PouncePower
+    print(self.FramesSinceRoll)
+    print(self.FramesSinceRoll > 0, self.FramesSinceJump > -1, self.FramesSinceJump <= self.RollWindowPastJump,self.LastRollPower == self.ShimmyPower)
+    if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
+        self.Velocity.X = sign(self.Velocity.X) * math.max(self.PouncePower, math.abs(self.Velocity.X))
         self.Velocity.Y = sign(self.Velocity.Y) * self.PounceHeight
         self.TimeSincePounce = 0
         self.FramesSinceRoll = -1
+        
     end
 
     self.FramesSinceJump = 0
@@ -483,6 +511,7 @@ end
 
 function Player:DoubleJump()
     -- first move the player down to make sure they're even allowed to double jump
+    self.JumpBuffer = 0
     local p = self.Position:Clone()
     local f = self.Floor
     self.Position.Y = self.Position.Y + self.DoubleJumpRequiredHeightFromGround
@@ -506,7 +535,7 @@ end
 
 local bounds = {
     V{29, 33, 0.25}, -- leftbound, rightbound, animDuration
-    V{40, 43, 0.25}
+    V{41, 44, 0.25}
 }
 
 function Player:StartCrouch()
@@ -552,8 +581,8 @@ local yscale_land = {0.8, 0.8, 0.8, 0.8, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9}
 local yscale_land_small = {0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 1, 1}
 local xscale_crouch = {1.3, 1.2, 1.2, 1.1, 1.1, 1.1, 1}
 local yscale_crouch = {0.7, 0.8, 0.8, 0.9, 0.9, 0.9, 1}
-local xscale_pounce = {1.3, 1.2, 1.2, 1.2, 1.2, 0.8, 0.9, 0.9}
-local yscale_pounce = {0.6, 0.6, 0.8, 0.8, 0.8, 1.1, 1.1, 1.1}
+local xscale_pounce = {1, 1, 1.3, 1.3, 1.3, 1.2, 1.2, 1.2, 1.2, 1.1, 1.1, 1.1}
+local yscale_pounce = {1, 1, 0.8, 0.8, 0.8, 0.8, 0.8, 0.9, 0.9}
 local xscale_crouch_flip = {1.3, 1.2, 1.2, 1.1, 1.1, 1.1, 1}
 local yscale_crouch_flip = {0.7, 0.8, 0.8, 0.9, 0.9, 0.9, 1}
 
@@ -598,7 +627,6 @@ function Player:UpdateAnimation()
     elseif self.FramesSinceGrounded > -1 and self.FramesSinceGrounded < #yscale_land then
         -- just landed on the ground
         if self.VelocityBeforeHittingGround >= self.TerminalVelocity then
-            print(self.FramesSinceGrounded)
             -- player was falling at terminal velocity (bigger visual impact)
             self.DrawScale.Y = yscale_land[self.FramesSinceGrounded+1]
         elseif self.VelocityBeforeHittingGround > 0.5 then
@@ -614,7 +642,10 @@ function Player:UpdateAnimation()
         self.DrawScale.Y = 1
     end
     
-    if self.CrouchEndBuffer > 0 then
+    if not self.Floor and self.TimeSincePounce > -1 and self.FramesSinceDoubleJump == -1 then
+        -- just pounced
+        self.Texture:AddProperties{LeftBound = 45, RightBound = 48, Duration = 0.6, PlaybackScaling = 1, Loop = false}
+    elseif self.CrouchEndBuffer > 0 then
         -- is in the end of a crouch
         self.CrouchEndBuffer = self.CrouchEndBuffer - 1
         self.Texture:AddProperties{LeftBound = 35, RightBound = 36, Duration = 4/60, PlaybackScaling = 1, Loop = false}
@@ -703,7 +734,7 @@ function Player:UpdateFrameValues()
             
             
             if self.CrouchTime == 0 then
-                self.Texture.Clock = 0
+                if self.TimeSincePounce == -1 then self.Texture.Clock = 0 end
                 self:GrowHitbox()
             end
 
@@ -790,17 +821,17 @@ function Player:UpdatePhysics()
     -- gravity is dependent on the jump state of the character
     if self.HangStatus > 0 and self.Velocity.Y >= 0 then
         -- the player is owed hang time
-        print("1")
+
         self.Velocity.Y = 0
     elseif self.FramesSinceDoubleJump > -1 then
-        print("2")
+
         -- the player is in the air from a double jump
         if self.Velocity.Y < 0 then
             -- player is in the upward arc
-            print("3")
+
             self.Velocity.Y = self.Velocity.Y + self.AfterDoubleJumpGravity
             if self.Velocity.Y > 0 then
-                print("4")
+
                 -- print("e")
                 -- give the player a couple grace frames
                 self.Velocity.Y = 0
@@ -817,18 +848,18 @@ function Player:UpdatePhysics()
             
             -- the player is still holding jump and should get maximum height
             if self.Velocity.Y < 0 then
-                print("5")
+
                 -- player is moving upwards
                 self.Velocity.Y = self.Velocity.Y + self.JumpGravity
 
                 if self.Velocity.Y > 0 then
-                    print("6")
+
                     -- give the player a couple grace frames
                     self.Velocity.Y = 0
                     self.HangStatus = self.HangTime+1 -- + 1 because the update function decreases it
                 end
             else
-                print("7")
+
                 -- player is moving down
                 self.Velocity.Y = self.Velocity.Y + self.Gravity
             end
@@ -836,7 +867,6 @@ function Player:UpdatePhysics()
             
             -- the player jumped but isn't holding jump anymore
             if self.Velocity.Y < 0 then
-                print("8")
 
                 -- end the jump arc immediately
                 if self.TimeSincePounce > -1 then
@@ -858,23 +888,19 @@ function Player:UpdatePhysics()
                 -- check if we crossed the velocity threshold
                 if self.Velocity.Y > 0 then
                     -- give the player a couple grace frames
-                    print("9")
 
                     -- in this case, only give hang time if the jump was beyond a threshold of frames long
                     if self.FramesSinceJump >= self.HangTimeActivationTime then
-                        print("10")
                         -- jump was high enough to deserve full hang time
                         self.Velocity.Y = 0
                         self.HangStatus = self.HangTime+1 -- + 1 because the update function decreases it
                     elseif self.FramesSinceJump >= self.HalfHangTimeActivationTime then
-                        print("11")
                         -- jump deserves some hang time, but not as much
                         self.Velocity.Y = 0
                         self.HangStatus = self.HalfHangTime+1 -- + 1 because the update function decreases it
                     end
                 end
             else
-                print("12")
                 -- regular gravity
                 self.Velocity.Y = self.Velocity.Y + self.Gravity
             end
@@ -882,9 +908,7 @@ function Player:UpdatePhysics()
     elseif not self.Floor then
         self.Velocity.Y = self.Velocity.Y + self.Gravity
     end
-    
-
-    
+        
     local decelGoal = math.abs(self.MoveDir) > 0 and self.RunSpeed or 0
     local speedOver = math.abs(self.Velocity.X) - decelGoal
     if speedOver > 0 then
@@ -904,16 +928,33 @@ function Player:UpdatePhysics()
             end
         else
             -- player is in the air
-            if self.MoveDir == 0 then
-                -- player is idle
-                self:Decelerate(self.AirIdleDeceleration)
-            elseif sign(self.Velocity.X) == self.MoveDir then
-                -- player is moving "with" the direction of their momentum; don't slow down as much
-                self:Decelerate(self.AirForwardDeceleration)
+            if self.TimeSincePounce > -1 then
+                -- pounce velocity
+                if self.MoveDir == 0 then
+                    -- player is idle
+                    self:Decelerate(self.PounceIdleDeceleration)
+                elseif sign(self.Velocity.X) == self.MoveDir then
+                    -- player is moving "with" the direction of their momentum; don't slow down as much
+                    self:Decelerate(self.PounceForwardDeceleration)
+                else
+                    -- player is against the direction of momentum; normal deceleration
+                    self:Decelerate(self.PounceBackwardDeceleration)
+                end
             else
-                -- player is against the direction of momentum; normal deceleration
-                self:Decelerate(self.AirBackwardDeceleration)
+                -- regular air velocity
+                if self.MoveDir == 0 then
+                    -- player is idle
+                    self:Decelerate(self.AirIdleDeceleration)
+                elseif sign(self.Velocity.X) == self.MoveDir then
+                    
+                    -- player is moving "with" the direction of their momentum; don't slow down as much
+                    self:Decelerate(self.AirForwardDeceleration)
+                else
+                    -- player is against the direction of momentum; normal deceleration
+                    self:Decelerate(self.AirBackwardDeceleration)
+                end
             end
+
         end
         if math.abs(self.Velocity.X) < decelGoal then
             -- speed was fully "capped" and should be set as such
@@ -1037,7 +1078,7 @@ function Player:Draw(tx, ty)
     -- draw the textures n shit to the canvas
     local speed = self.Velocity:Magnitude()
 
-    local shouldDrawTrail = self.TimeSincePounce > -1 or
+    local shouldDrawTrail = (self.TimeSincePounce > -1 and self.FramesSinceDoubleJump == -1) or
                             speed > 5
                             
 
@@ -1063,6 +1104,11 @@ function Player:Draw(tx, ty)
         -- if not (self.Floor and self.Velocity.X == 0) then
         if shouldDrawTail then
             -- draw the tail
+            local ofs_x, ofs_y = 0, 0
+            if self.TimeSincePounce > -1 then
+                ofs_y = -3
+            end
+
             love.graphics.setColor(self.Color * self.TailColor)
             local points = {}
             local p1 = self.TailPoints[1]
@@ -1072,8 +1118,8 @@ function Player:Draw(tx, ty)
                 local point = self.TailPoints[i]
                 if not point then break end
                 -- if i == 1 or i % 2 == 0 then
-                    points[#points+1] = point[1] - p1[1] + cx
-                    points[#points+1] = point[2] - p1[2] + cy
+                    points[#points+1] = point[1] - p1[1] + cx + ofs_x
+                    points[#points+1] = point[2] - p1[2] + cy + ofs_y
                 -- end
             end
             

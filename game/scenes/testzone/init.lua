@@ -221,8 +221,29 @@ tilemap:Clone(true):AddProperties{Position = V{199,0}}
 local tilemap2 = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/tilemap.png", 32, 50, 1, {{
     1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1
 
+-- local tilemap2 = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/tilemap.png", 32, 50, 1, {{
+--     1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+
+
 }})):AddProperties{
     Position = V{500,0},
+    AnchorPoint = V{0,0},
+    Scale = 1,
+    Active = true,
+    Update = function (self, dt)
+        -- self.Position.Y = self.Position.Y - 1
+    end
+}
+
+-- local tilemap3 = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/tilemap.png", 32, 50, 1, {{
+--     1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1
+
+local tilemap3 = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/tilemap.png", 32, 50, 1, {{
+    1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+
+
+}})):AddProperties{
+    Position = V{1500,0},
     AnchorPoint = V{0,0},
     Scale = 1,
     Active = true,
