@@ -362,7 +362,11 @@ function Player:ProcessInput()
     end
 
     if self.JustPressed["SLOWMODETOGGLE"] then
-        _G.TRUE_FPS = _G.TRUE_FPS == 5 and 60 or 5
+        if _G.TRUE_FPS then
+            _G.TRUE_FPS = nil
+        else
+            _G.TRUE_FPS = 5
+        end
     end
 
     -- crouch input

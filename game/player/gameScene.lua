@@ -54,7 +54,7 @@ function GameScene.new(properties)
 
     newGameScene.statsGui = newGameScene.GuiLayer:Adopt(Gui.new{
         Name = "StatsGui",
-        Size = V{350, 340},
+        Size = V{350, 360},
         Position = V{0, 0},
         Texture = Texture.new("chexcore/assets/images/square.png"),
         Color = V{0, 0, 0, 0.8},
@@ -108,7 +108,7 @@ function GameScene.new(properties)
         Text = "STATS:",
         Visible = true,
         -- FontSize = 20,
-        Size = V{330, 330},
+        Size = V{330, 350},
         AnchorPoint = V{0.5, 0.5},
         Position = V{10, 10},
         Draw = function (self, tx, ty)
@@ -136,7 +136,7 @@ function GameScene:Update(dt)
             local curFpsRatio = (1/self.Player:GetLayer():GetParent().FrameLimit)/Chexcore._lastFrameTime
             self.lastFpsRatio = math.lerp(self.lastFpsRatio or curFpsRatio, curFpsRatio, 0.05)
 
-            self.statsGui:GetChild("Text").Text = {V{1,1,1,.8},"- STATS: -\n" , V{1,1,1}, 
+            self.statsGui:GetChild("Text").Text = {V{1,1,1,.8}," ~ STATS: ~ \n" , V{1,1,1}, 
                                         "Speed: V{ ", V{1,1 - ((math.abs(self.Player.Velocity.X) - self.Player.RollPower) / self.Player.MaxSpeed.X),1 - (math.abs(self.Player.Velocity.X) / self.Player.MaxSpeed.X)}, ("%0.2f"):format(self.Player.Velocity.X) .. ", ", V{1 - math.abs(self.Player.Velocity.Y)/self.Player.MaxSpeed.Y, 1, 1 - math.abs(self.Player.Velocity.Y)/self.Player.MaxSpeed.Y}, ("%0.2f"):format(self.Player.Velocity.Y), Constant.COLOR.WHITE, " }\n" ..
                                         "Force: V{ ", self.Player.Acceleration.X == 0 and Constant.COLOR.WHITE:AddAxis(0.5) or Constant.COLOR.PINK, ("%0.2f"):format(self.Player.Acceleration.X) .. ", ", self.Player.Acceleration.Y == 0 and (Constant.COLOR.WHITE:AddAxis(0.5) or true) or Constant.COLOR.PURPLE + 0.5, ("%0.2f"):format(self.Player.Acceleration.Y), Constant.COLOR.WHITE, " }\n"  ..
                                         "Floor:               ", self.Player.Floor and Constant.COLOR.GREEN or Constant.COLOR.RED + 0.5, tostring(self.Player.Floor or "NONE"), Constant.COLOR.WHITE, 
@@ -146,8 +146,9 @@ function GameScene:Update(dt)
                                         Constant.COLOR.WHITE, "\nFramesSinceCrouch: ", self.Player.CrouchTime == 0 and Constant.COLOR.ORANGE or Constant.COLOR.PURPLE + 0.5, self.Player.CrouchTime,
                                         Constant.COLOR.WHITE, "\nFramesSinceRoll: ", self.Player.FramesSinceRoll == -1 and Constant.COLOR.ORANGE or Constant.COLOR.ORANGE + 0.5, self.Player.FramesSinceRoll,
                                         Constant.COLOR.WHITE, "\nLastRollPower: ", V{1, 1 - (self.Player.LastRollPower - 0.5) / self.Player.RollPower, 1 - self.Player.LastRollPower / self.Player.RollPower}, self.Player.LastRollPower,
+                                        Constant.COLOR.WHITE, "\nPerformance Mode:                 ", self.PerformanceMode and Constant.COLOR.GREEN or Constant.COLOR.RED, self.PerformanceMode and "ON" or "OFF",
                                         Constant.COLOR.WHITE, "\nFrameTime: ", Constant.COLOR.GREEN:Lerp(Constant.COLOR.RED, 1-curFpsRatio), ("%.2fms"):format(Chexcore._lastFrameTime*1000), V{1 ,self.lastFpsRatio, self.lastFpsRatio}, ("\n            (%05.1f%% target FPS)"):format(self.lastFpsRatio*100),
-                                        Constant.COLOR.WHITE, "\nLOVE Drawcalls:                 ", V{0.5, 0.5, 1}, Chexcore._graphicsStats.drawcalls,
+                                        Constant.COLOR.WHITE, "\nLOVE Drawcalls:                     ", V{0.5, 0.5, 1}, Chexcore._graphicsStats.drawcalls,
                                     
                                         
                                     }
