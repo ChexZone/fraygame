@@ -126,6 +126,8 @@ local Player = {
     
 
     -- internal properties
+    _usingPerformanceMode = false,  -- the GameScene controls whether PerformanceMode is on. Player just listens. 
+    _updateStep = false,    -- internally used for performance mode handling
     _super = "Prop",
     _global = true
 }
@@ -179,7 +181,8 @@ function Player.new()
         s = "crouch",
 
         h = "HITBOXTOGGLE",
-        j = "SLOWMODETOGGLE"
+        j = "SLOWMODETOGGLE",
+        p = "PERFORMANCEMODETOGGLE"
     }
 
     newPlayer.LastFrameInputs = {}
@@ -325,7 +328,7 @@ function Player:ValidateFloor()
         if not hit then
             if self.FloorDelta then
                 -- inherit some velocity of the floor object
-                local amt = math.floor(self.FloorDelta.X*2+0.5)
+                local amt = math.floor(self.FloorDelta.X*2+0.5) / (self._usingPerformanceMode and 2 or 1)
                 if math.abs(amt) > 1 then
                     if -sign(amt) == self.MoveDir then
                         self.Velocity.X = self.Velocity.X - amt/2
@@ -348,13 +351,17 @@ end
 function Player:ProcessInput()
     local input = self.InputListener
 
-    if input:JustPressed("HITBOXTOGGLE") then
+    if self.JustPressed["HITBOXTOGGLE"] then
         self.XHitbox.Visible = not self.XHitbox.Visible
         self.YHitbox.Visible = not self.YHitbox.Visible
         self:GetLayer():GetParent().GuiLayer:GetChild("StatsGui").Visible = not self:GetLayer():GetParent().GuiLayer:GetChild("StatsGui").Visible
     end
 
-    if input:JustPressed("SLOWMODETOGGLE") then
+    if self.JustPressed["PERFORMANCEMODETOGGLE"] then
+        self:GetLayer():GetParent().PerformanceMode = not self:GetLayer():GetParent().PerformanceMode
+    end
+
+    if self.JustPressed["SLOWMODETOGGLE"] then
         _G.TRUE_FPS = _G.TRUE_FPS == 5 and 60 or 5
     end
 
@@ -474,21 +481,18 @@ function Player:Jump()
     self.Velocity.Y = -self.JumpPower
     
     -- pounce  handling
-    print(self.FramesSinceRoll)
-    print(self.FramesSinceRoll > 0, self.FramesSinceJump > -1, self.FramesSinceJump <= self.RollWindowPastJump,self.LastRollPower == self.ShimmyPower)
     if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
         self.Velocity.X = sign(self.Velocity.X) * math.max(self.PouncePower, math.abs(self.Velocity.X))
         self.Velocity.Y = sign(self.Velocity.Y) * self.PounceHeight
         self.TimeSincePounce = 0
         self.FramesSinceRoll = -1
-        
     end
 
     self.FramesSinceJump = 0
     
     if self.FloorDelta then
         -- inherit the velocity of the floor object
-        local amt = math.floor(self.FloorDelta.X*2+0.5)
+        local amt = math.floor(self.FloorDelta.X*2+0.5)  / (self._usingPerformanceMode and 2 or 1)
         if math.abs(amt) > 1 then
             if sign(amt) == self.MoveDir then
                 -- player is moving against the direction of the floor - give them some leeway
@@ -997,7 +1001,12 @@ function Player:UpdateTail()
 end
 
 ------------------------ MAIN UPDATE LOOP -----------------------------
-function Player:Update(dt)
+function Player:Update(engine_dt)
+    self._usingPerformanceMode = self:GetLayer():GetParent().PerformanceMode
+    -- also, engine_dt will be 1/60 in normal mode and 1/30 in performance mode
+    
+    local dt = 1/60 -- player value changes should always assume 60hz updates
+
     -- self.Color = V{math.random(0,1),math.random(0,1),math.random(0,1)}
     ------------------- PHYSICS PROCESSING ----------------------------------
     -- if we're on a moving floor let's move with it
@@ -1027,6 +1036,11 @@ function Player:Update(dt)
     -- flush input buffer at the end (in case anyone other than ProcessInput was sneakily looking at inputs)
     for k, _ in pairs(self.JustPressed) do
         self.JustPressed[k] = false
+    end
+
+    self._updateStep = not self._updateStep
+    if self._usingPerformanceMode and not self._updateStep then
+        self:Update(engine_dt)
     end
 end
 

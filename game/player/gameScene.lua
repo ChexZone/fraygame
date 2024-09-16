@@ -4,6 +4,11 @@ local GameScene = {
 
     Player = nil,   -- will search for this at runtime
     
+    FrameLimit = 60,  -- maximum FPS
+    PerformanceMode = false,    -- Performance (30fps) mode toggle
+    _normalFPS = 60,            -- normal mode target FPS
+    _performanceFPS = 30,       -- performance mode target FPS
+
     DeathHeight = 300, -- if the player's height is greater than this, respawn it
     InRespawn = false,  -- whether the player is in a respawn sequence or not
 
@@ -119,6 +124,9 @@ end
 
 local Scene = Scene
 function GameScene:Update(dt)
+
+    self.FrameLimit = self.PerformanceMode and self._performanceFPS or self._normalFPS
+
     if not self.Player then
         self.Player = self:GetDescendant(Object.IsA, "Player")
     else
@@ -171,8 +179,8 @@ function GameScene:Update(dt)
         if self.InRespawn then
             -- self.fallGuiTop.Rotation = self.fallGuiTop.Rotation + 0.002
             -- self.fallGuiBottom.Rotation = self.fallGuiBottom.Rotation - 0.002
-            self.fallGuiTop.Position.Y = self.fallGuiTop.Position.Y - 35
-            self.fallGuiBottom.Position.Y = self.fallGuiBottom.Position.Y - 35
+            self.fallGuiTop.Position.Y = self.fallGuiTop.Position.Y - 35 * 60 * dt
+            self.fallGuiBottom.Position.Y = self.fallGuiBottom.Position.Y - 35 * 60 * dt
 
             -- self.fallGuiTop.Size.Y = self.fallGuiTop.Size.Y + 5
         end
