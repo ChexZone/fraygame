@@ -1,6 +1,7 @@
 _G.Chexcore = {
     -- internal properties
     _clock = 0,             -- keeps track of total game run time
+    _preciseClock = 0,      -- return value of love.timer.getTime()
     _lastFrameTime = 0,     -- how long the previous frame actually took
     _graphicsStats = {},        -- the output of love.graphics.getStats()
 
@@ -31,6 +32,7 @@ function love.draw() Chexcore.Draw() end
 ---------------- UPDATE LOOPS ------------------
 function Chexcore.Update(dt)
     Chexcore._clock = Chexcore._clock + dt * 1
+    
 
     for _, func in ipairs(Chexcore._priorityGlobalUpdates) do
         func(dt)
@@ -183,6 +185,9 @@ if mode ~= "web" then
 
         -- Main loop time.
         return function()
+            Chexcore._preciseClock = love.timer.getTime()
+
+            local start_time = Chexcore._preciseClock
             -- Process events.
             if love.event then
                 love.event.pump()
@@ -220,7 +225,12 @@ if mode ~= "web" then
             end
 
 
-            if love.timer then love.timer.sleep(_G.TRUE_FPS and 1/_G.TRUE_FPS or 1/frameLimit) end
+            
+            local timeToWait = _G.TRUE_FPS and 1/_G.TRUE_FPS or 1/frameLimit
+            local frameOverTime = dt - timeToWait --math.max(dt - timeToWait, 0)
+            
+            local end_time = love.timer.getTime()
+            if love.timer then love.timer.sleep(timeToWait - (end_time - start_time)) end
         end
     end
 end

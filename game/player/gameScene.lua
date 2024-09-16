@@ -126,9 +126,7 @@ function GameScene:Update(dt)
         
         if self.statsGui.Visible then
             local curFpsRatio = (1/self.Player:GetLayer():GetParent().FrameLimit)/Chexcore._lastFrameTime
-            self.lastFpsRatio = self.lastFpsRatio or curFpsRatio
-
-            self.lastFpsRatio = math.lerp(self.lastFpsRatio, curFpsRatio, 0.05)
+            self.lastFpsRatio = math.lerp(self.lastFpsRatio or curFpsRatio, curFpsRatio, 0.05)
 
             self.statsGui:GetChild("Text").Text = {V{1,1,1,.8},"- STATS: -\n" , V{1,1,1}, 
                                         "Speed: V{ ", V{1,1 - ((math.abs(self.Player.Velocity.X) - self.Player.RollPower) / self.Player.MaxSpeed.X),1 - (math.abs(self.Player.Velocity.X) / self.Player.MaxSpeed.X)}, ("%0.2f"):format(self.Player.Velocity.X) .. ", ", V{1 - math.abs(self.Player.Velocity.Y)/self.Player.MaxSpeed.Y, 1, 1 - math.abs(self.Player.Velocity.Y)/self.Player.MaxSpeed.Y}, ("%0.2f"):format(self.Player.Velocity.Y), Constant.COLOR.WHITE, " }\n" ..
