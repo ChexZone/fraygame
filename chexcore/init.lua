@@ -24,10 +24,13 @@ love.graphics.setDefaultFilter("nearest", "nearest", 1)
 -- helper functions to make life easier ~ 
 require "chexcore.code.misc.helper"
 
----------------- LOVE2D BINDINGS ----------------
-function love.update(dt) Chexcore.Update(dt) end
-function love.draw() Chexcore.Draw() end
-------------------------------------------------
+function love.draw()
+    
+end
+
+function love.update()
+    
+end
 
 ---------------- UPDATE LOOPS ------------------
 function Chexcore.Update(dt)
@@ -214,12 +217,19 @@ if mode ~= "web" then
             if frameTime >= 1/frameLimit and love.graphics and love.graphics.isActive() then
                 frameTime = frameTime - 1/frameLimit
 
-                if love.update then love.update(1/frameLimit) end -- will pass 0 if love.timer is disabled
+                if love.update then
+                    love.update(1/frameLimit)
+                    Chexcore.Update(dt)
+                end
 
                 love.graphics.origin()
                 love.graphics.clear(love.graphics.getBackgroundColor())
 
-                if love.draw then love.draw() end
+                if love.draw then 
+                    love.draw() 
+                    
+                end
+                Chexcore.Draw()
 
                 love.graphics.present()
             end

@@ -136,7 +136,16 @@ function GameScene:Update(dt)
             local curFpsRatio = (1/self.Player:GetLayer():GetParent().FrameLimit)/Chexcore._lastFrameTime
             self.lastFpsRatio = math.lerp(self.lastFpsRatio or curFpsRatio, curFpsRatio, 0.05)
 
+            self.lastPos = self.lastPos or V{0, 0}
+
+            local pos_col_x = V{1 - math.abs(self.lastPos.X - self.Player.Position.X)/5, 1 - math.abs(self.lastPos.X - self.Player.Position.X)/13, 1}
+            local pos_col_y = V{1 - math.abs(self.lastPos.Y - self.Player.Position.Y)/5, 1, 1}
+
+            self.lastPos = self.Player.Position:Clone()
+
+
             self.statsGui:GetChild("Text").Text = {V{1,1,1,.8}," ~ STATS: ~ \n" , V{1,1,1}, 
+                                        "Position: V{ ", pos_col_x, ("%0.2f"):format(self.Player.Position.X) .. ", ", pos_col_y, ("%0.2f"):format(self.Player.Position.Y), Constant.COLOR.WHITE, " }\n" ..
                                         "Speed: V{ ", V{1,1 - ((math.abs(self.Player.Velocity.X) - self.Player.RollPower) / self.Player.MaxSpeed.X),1 - (math.abs(self.Player.Velocity.X) / self.Player.MaxSpeed.X)}, ("%0.2f"):format(self.Player.Velocity.X) .. ", ", V{1 - math.abs(self.Player.Velocity.Y)/self.Player.MaxSpeed.Y, 1, 1 - math.abs(self.Player.Velocity.Y)/self.Player.MaxSpeed.Y}, ("%0.2f"):format(self.Player.Velocity.Y), Constant.COLOR.WHITE, " }\n" ..
                                         "Force: V{ ", self.Player.Acceleration.X == 0 and Constant.COLOR.WHITE:AddAxis(0.5) or Constant.COLOR.PINK, ("%0.2f"):format(self.Player.Acceleration.X) .. ", ", self.Player.Acceleration.Y == 0 and (Constant.COLOR.WHITE:AddAxis(0.5) or true) or Constant.COLOR.PURPLE + 0.5, ("%0.2f"):format(self.Player.Acceleration.Y), Constant.COLOR.WHITE, " }\n"  ..
                                         "Floor:               ", self.Player.Floor and Constant.COLOR.GREEN or Constant.COLOR.RED + 0.5, tostring(self.Player.Floor or "NONE"), Constant.COLOR.WHITE, 

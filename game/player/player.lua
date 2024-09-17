@@ -508,7 +508,7 @@ function Player:Jump()
 
         -- give some height if the dy is up
         if self.FloorDelta.Y > 0.5 then
-            self.Velocity.Y = self.Velocity.Y - self.FloorDelta.Y
+            self.Velocity.Y = self.Velocity.Y - self.FloorDelta.Y  / (self._usingPerformanceMode and 2 or 1)
         end
     end
     if self.FramesSinceRoll == 0 then
