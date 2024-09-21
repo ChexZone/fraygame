@@ -219,15 +219,14 @@ if mode ~= "web" then
 
                 if love.update then
                     love.update(1/frameLimit)
-                    Chexcore.Update(dt)
                 end
+                Chexcore.Update(1/frameLimit)
 
                 love.graphics.origin()
                 love.graphics.clear(love.graphics.getBackgroundColor())
 
                 if love.draw then 
                     love.draw() 
-                    
                 end
                 Chexcore.Draw()
 
@@ -237,7 +236,7 @@ if mode ~= "web" then
 
             
             local timeToWait = _G.TRUE_FPS and 1/_G.TRUE_FPS or 1/frameLimit
-            local frameOverTime = dt - timeToWait --math.max(dt - timeToWait, 0)
+            -- local frameOverTime = dt - timeToWait --math.max(dt - timeToWait, 0)
             
             local end_time = love.timer.getTime()
             if love.timer then love.timer.sleep(timeToWait - (end_time - start_time)) end

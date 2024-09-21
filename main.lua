@@ -34,16 +34,7 @@ function love.load()
     local test = {}
 
 
-    test[3] = 3
-    test[2] = 2
-    print(#test) --> 3
-    -- test[1] = nil
-    -- print(#test) --> 3
-    -- test[3] = nil
-    -- print(#test) --> 2
-
-
     
-    print(player:ToString(true))
+    -- print(player:ToString(true))
     -- You can unmount (or deactivate) a scene by using Chexcore.UnmountScene(scene)
 end

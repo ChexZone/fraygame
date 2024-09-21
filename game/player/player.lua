@@ -71,6 +71,7 @@ local Player = {
     PounceForwardDeceleration = 0.25,   -- how much the player accelerates while in a pounce
     PounceIdleDeceleration = 0.16,   -- how mucgh the player decelerates while idle in a pounce
     PounceBackwardDeceleration = 0.25, -- how much the player decelerates while moving backwards in a pounce
+    PounceAnimCancelled = false,        -- during a pounce, whether to transition the player animation back to normal jump
     ConsecutivePouncesSpeedMult = 1.75, -- how much the player's speed is multiplied by during a new pounce (basically, how easily the player can speed up doing chained pounces)
     MoveDir = 0,                        -- 1 for left, -1 for right, 0 for neutral
 
@@ -490,6 +491,7 @@ function Player:Jump()
         self.Velocity.Y = sign(self.Velocity.Y) * self.PounceHeight
         self.TimeSincePounce = 0
         self.FramesSinceRoll = -1
+        self.PounceAnimCancelled = false
     end
 
     self.FramesSinceJump = 0
@@ -650,9 +652,35 @@ function Player:UpdateAnimation()
         self.DrawScale.Y = 1
     end
     
+    
+    -- check what anim state to put pounce in
+    if self.TimeSincePounce > -1 and not self.PounceAnimCancelled then
+        
+        if math.abs(self.Velocity.X) < self.PouncePower/2 then
+            self.PounceAnimCancelled = true
+            self.Texture.Clock = 0
+            self.Texture.IsPlaying = true
+        end
+    end
+
+
+    if self.Texture.Clock ~= self.Texture.Clock then
+        self.Texture.Clock = self.Texture.Duration
+    end
+
     if not self.Floor and self.TimeSincePounce > -1 and self.FramesSinceDoubleJump == -1 then
         -- just pounced
-        self.Texture:AddProperties{LeftBound = 45, RightBound = 48, Duration = 0.6, PlaybackScaling = 1, Loop = false}
+
+        if self.PounceAnimCancelled then
+            self.Texture:AddProperties{LeftBound = 49, RightBound = 52, Duration = 0.3, PlaybackScaling = 1, Loop = false}
+            self.Texture.PlaybackScaling = math.clamp(1/ (math.abs(self.Velocity.X) / 2) / 2.5, 0.2, 1.4)
+            if  self.MoveDir == -sign(self.Velocity.X) then
+                self.Texture.PlaybackScaling = 1
+            end
+        else
+            self.Texture:AddProperties{LeftBound = 45, RightBound = 48, Duration = 0.6, PlaybackScaling = 1, Loop = false}
+        end
+        
     elseif self.CrouchEndBuffer > 0 then
         -- is in the end of a crouch
         self.CrouchEndBuffer = self.CrouchEndBuffer - 1
@@ -695,6 +723,7 @@ function Player:UpdateAnimation()
             -- run anim
             self:SetBodyOrientation(self.MoveDir)
             if math.abs(self.Velocity.X) <= 1.5 then
+                
                 self.Texture:AddProperties{LeftBound = 5, RightBound = 10, Duration = 0.72, PlaybackScaling = 3 - math.abs(self.Velocity.X)*1.25, IsPlaying = true, Loop = true}
             else
                 self.Texture:AddProperties{LeftBound = 5, RightBound = 10, Duration = 0.72, PlaybackScaling = 1 + math.abs(self.Velocity.X)*0.25, IsPlaying = true, Loop = true}

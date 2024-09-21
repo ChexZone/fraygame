@@ -82,7 +82,11 @@ end
 
 local isA = Object.IsA
 function Prop:GetLayer()
-    return self:GetAncestor(Object.IsA, "Layer")
+    return self:GetAncestor(isA, "Layer")
+end
+
+function Prop:GetScene()
+    return self:GetAncestor(isA, "Scene")
 end
 
 -- quickly detect if the mouse is currently hovering over this prop
