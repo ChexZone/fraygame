@@ -430,14 +430,14 @@ function Object:Emancipate()
 end
 
 function Object:SwapChildOrder(c1, c2)
-    if type(c1) == "number" then
-        -- Object:SwapChildOrder(index1, index2)
-        self._childHash[self._children[c1]], self._childHash[self._children[c2]] = 
-            self._childHash[self._children[c2]], self._childHash[self._children[c1]]
-        self._children[c1], self._children[c2] = self._children[c2], self._children[c1]
-    else
-        -- Object:SwapChildOrder(child1, child2)
-    end
+    c1 = type(c1) == "number" and c1 or c1:GetChildID()
+    c2 = type(c2) == "number" and c2 or c2:GetChildID()
+
+    -- Object:SwapChildOrder(index1, index2)
+    self._childHash[self._children[c1]], self._childHash[self._children[c2]] = 
+        self._childHash[self._children[c2]], self._childHash[self._children[c1]]
+    self._children[c1], self._children[c2] = self._children[c2], self._children[c1]
+
 end
 
 function Object:AddProperties(properties)

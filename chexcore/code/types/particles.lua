@@ -495,6 +495,14 @@ local funcs = {
     end
 }
 
+local autofills = {
+    "_sizes", "Size", "ParticleSize",
+    "_sizeVelocities", "SizeVelocity", "ParticleSizeVelocity",
+    "_rotations", "Rotation", "ParticleRotation",
+    "_rotVelocities", "RotVelocity", "ParticleRotVelocity",
+    "_colors", "Color", "ParticleColor"
+}
+
 function Particles:Emit(properties)
     local newSlot
     if #self._vacantSlots == 0 then
@@ -509,26 +517,33 @@ function Particles:Emit(properties)
 
     properties = properties or {}
 
-    if self._sizes and not properties.Size then
-        properties.Size = self.ParticleSize
-    end
 
-    if self._sizeVelocities and not properties.SizeVelocity then
-        properties.SizeVelocity = self.ParticleSizeVelocity
-    end
 
-    if self._rotations and not properties.Rotation then
-        properties.Rotation = self.ParticleRotation
-    end
+    -- if self._sizes and not properties.Size then
+    --     properties.Size = self.ParticleSize
+    -- end
 
-    if self._rotVelocities and not properties.RotVelocity then
-        properties.RotVelocity = self.ParticleRotVelocity
-    end
+    -- if self._sizeVelocities and not properties.SizeVelocity then
+    --     properties.SizeVelocity = self.ParticleSizeVelocity
+    -- end
 
-    if self._colors and not properties.Color then
-        properties.Color = self.ParticleColor
-    end
+    -- if self._rotations and not properties.Rotation then
+    --     properties.Rotation = self.ParticleRotation
+    -- end
 
+    -- if self._rotVelocities and not properties.RotVelocity then
+    --     properties.RotVelocity = self.ParticleRotVelocity
+    -- end
+
+    -- if self._colors and not properties.Color then
+    --     properties.Color = self.ParticleColor
+    -- end
+
+    for i = 1, #autofills, 3 do
+        if self[autofills[i]] and not properties[autofills[i+1]] then
+            properties[autofills[i+1]] = self[autofills[i+2]]
+        end
+    end
     
 
     for prop, val in pairs(properties) do

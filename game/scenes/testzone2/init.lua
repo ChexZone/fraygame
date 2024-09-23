@@ -1,4 +1,4 @@
-local scene = Scene.new{
+local scene = GameScene.new{
     FrameLimit = 60,
 
     Update = function (self, dt)

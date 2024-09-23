@@ -22,7 +22,7 @@ local Player = {
     JumpGravity = 0.14,                 -- how many pixels the player falls per frame while in the upward arc of a jump
     AfterDoubleJumpGravity = 0.2,
     TrailLength = 1,                    -- (range 0-1) how long the trail should be
-    TrailColor = V{190/255, 140/255, 100/255, 0.4} + 0.3 ,       -- color of trail following player
+    TrailColor = V{190/255, 140/255, 100/255, 0.7} + 0.3 ,       -- color of trail following player
     CrouchTime = 0,                     -- how many frames the player has been crouching for (0 if not crouching)
     TimeSinceCrouching = 0,             -- how many frames since the player last ended a crouch
     CrouchEndBuffer = 0,                -- for animations, pretty much
@@ -33,6 +33,7 @@ local Player = {
     ImmediatelyAfterJumpGravity = 1,       -- the gravity of the player in the upward jump arc after the player releases jump and they've been in the air more than ImmediateJumpWindow frames
     AfterJumpGravity = 0.5,            -- the gravity of the player in the upward jump arc after jump has been released
     AfterPounceCancelGravity = 1,     -- the gravity of the player in the upward pounce arc after jump has been released 
+    PounceParticlePower = 0,          -- basically to scale particles for PounceDust
     ImmediatelyAfterPounceCancelGravity = 1.25,-- the gravity of the player in the upward pounce arc after jump has been released immediately after being pressed
     TerminalVelocity = 3.5,             -- how many units per frame the player can fall
     HangTime = 3,                       -- how many frames of hang time are afforded in the jump arc
@@ -70,6 +71,7 @@ local Player = {
     AirIdleDeceleration = 0.2,          -- how much the player decelerates while idle in the air
     PounceForwardDeceleration = 0.25,   -- how much the player accelerates while in a pounce
     PounceIdleDeceleration = 0.16,   -- how mucgh the player decelerates while idle in a pounce
+    PreviousFloorHeight = 0,      -- the last recorded height of the floor
     PounceBackwardDeceleration = 0.25, -- how much the player decelerates while moving backwards in a pounce
     PounceAnimCancelled = false,        -- during a pounce, whether to transition the player animation back to normal jump
     ConsecutivePouncesSpeedMult = 1.75, -- how much the player's speed is multiplied by during a new pounce (basically, how easily the player can speed up doing chained pounces)
@@ -173,6 +175,106 @@ function Player.new()
     newPlayer.Size = Player.Size:Clone()
     newPlayer.Canvas = Canvas.new(Player.CanvasSize())
     newPlayer.TailPoints = {}
+
+    Particles.new{
+        Name = "RollKickoffDust",
+        AnchorPoint = V{0.5, 0.5},
+        ParticleAnchorPoint = V{0.5, 1},
+        Texture = Texture.new("chexcore/assets/images/square.png"),
+        RelativePosition = false,
+        Size = V{4, 4},
+        ParticleSize = V{16, 16},
+        ParticleTexture = Animation.new("chexcore/assets/images/test/player/dust_kickoff.png", 1, 4):Properties{
+            Duration = 0.35
+        },
+        
+        ParticleLifeTime = 0.35,
+        Color = V{0,0,0,0},
+        ParticleColor = newPlayer.TrailColor,
+        Update = function (self, dt)
+            self.Position = self:GetParent().Position
+            -- print(self:ToString(true))
+            -- if math.random(1, 100) == 1 then
+            --     self:Emit{
+            --         Position = self.Position
+            --     }
+            -- end
+
+            -- print(self:GetParent():GetChildren())
+    end}:Nest(newPlayer)
+
+    Particles.new{
+        Name = "PounceDust",
+        AnchorPoint = V{0.5, 0.5},
+        ParticleAnchorPoint = V{0.5, 0.5},
+        Texture = Texture.new("chexcore/assets/images/empty.png"),
+        RelativePosition = false,
+        Size = V{4, 4},
+        ParticleSize = V{16, 16},
+        LoopAnim = false,
+        ParticleTexture = Animation.new("chexcore/assets/images/test/player/dust_circle.png", 1, 3):Properties{Duration = 1},
+        ParticleLifeTime = 1,
+        Color = V{0,0,0,1},
+        ParticleColor = newPlayer.TrailColor,
+        Update = function (self, dt)
+            self.Position = self:GetParent().Position
+            -- print(self:ToString(true))
+            -- if math.random(1, 100) == 1 then
+            --     self:Emit{
+            --         Position = self.Position
+            --     }
+            -- end
+
+            -- print(self:GetParent():GetChildren())
+    end}:Nest(newPlayer)
+    
+    Particles.new{
+        Name = "ForwardLandDust",
+        AnchorPoint = V{0.5, 0.5},
+        ParticleAnchorPoint = V{0.5, 1},
+        Texture = Texture.new("chexcore/assets/images/empty.png"),
+        RelativePosition = false,
+        Size = V{8,8},
+        ParticleSize = V{8, 8},
+        LoopAnim = false,
+        ParticleTexture = Animation.new("chexcore/assets/images/test/player/dust_forward_land.png", 1, 4):Properties{Duration = 0.5},
+        ParticleLifeTime = 0.5,
+        Color = V{0,0,0,0},
+        ParticleColor = newPlayer.TrailColor,
+        Update = function (self, dt)
+    end}:Nest(newPlayer)
+    
+    Particles.new{
+        Name = "DoubleJumpDust",
+        AnchorPoint = V{0.5, 0.5},
+        ParticleAnchorPoint = V{0.5, 0.5},
+        Texture = Texture.new("chexcore/assets/images/empty.png"),
+        RelativePosition = false,
+        Size = V{8,8},
+        ParticleSize = V{16, 16},
+        LoopAnim = false,
+        ParticleTexture = Animation.new("chexcore/assets/images/test/player/dust_double_jump.png", 1, 4):Properties{Duration = 0.25},
+        ParticleLifeTime = 0.25,
+        Color = V{0,0,0,0},
+        ParticleColor = newPlayer.TrailColor,
+    }:Nest(newPlayer)
+
+    Particles.new{
+        Name = "JumpDust",
+        AnchorPoint = V{0.5, 0.5},
+        ParticleAnchorPoint = V{0.5, 1},
+        Texture = Texture.new("chexcore/assets/images/empty.png"),
+        RelativePosition = false,
+        Size = V{8,8},
+        ParticleSize = V{8, 8},
+        LoopAnim = false,
+        ParticleTexture = Animation.new("chexcore/assets/images/test/player/dust_jump.png", 1, 4):Properties{Duration = 0.3},
+        ParticleLifeTime = 0.3,
+        Color = V{0,0,0,0},
+        ParticleColor = newPlayer.TrailColor,
+    }:Nest(newPlayer)
+
+    
     
     newPlayer.InputListener = Input.new{
         a = "move_left",
@@ -216,15 +318,20 @@ function Player:DisconnectFromFloor()
 end
 
 function Player:ConnectToFloor(floor)
+    
     if not self.Floor then
+        -- just landed
         self.VelocityBeforeHittingGround = self.Velocity.Y
         self.FramesSinceGrounded = 0
+
+
     end
     self.Floor = floor
     self.FloorPos = floor.Position:Clone()
     self.FloorLeftEdge = floor:GetEdge("left")
     self.FloorRightEdge = floor:GetEdge("right")
     
+
     self.Position.Y = math.floor(self.Position.Y)
     self.DistanceAlongFloor = (self.Position.X - self.FloorLeftEdge) + (self.FloorRightEdge - self.FloorLeftEdge)
     -- self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Loop = true}
@@ -246,12 +353,15 @@ function Player:AlignHitboxes()
 end
 
 function Player:FollowFloor()
+    
+
     if self.Floor then
         if self.FloorPos and self.FloorPos ~= self.Floor.Position then
             if not self.Floor:IsA("Tilemap") then
                 self.FloorDelta = self.FloorPos - self.Floor.Position
 
                 self.Position = (self.Position - self.FloorDelta)
+                
                 self:SetEdge("bottom", self.Floor:GetEdge("top"))
             else
                 self.FloorDelta = self.FloorPos - self.Floor.Position
@@ -261,7 +371,11 @@ function Player:FollowFloor()
         end
 
         self.FloorPos = self.Floor.Position:Clone()
+
+        self.PreviousFloorHeight = self:GetEdge("bottom")
     end
+
+    
 end
 
 ------- collison function
@@ -273,6 +387,7 @@ function Player:Unclip()
 
     -- make sure hitboxes are aligned first!!!
     self:AlignHitboxes()
+    local justLanded = false
     local pushY = 0
     for solid, hDist, vDist, tileID in self.YHitbox:CollisionPass(self._parent, true) do
         local face = Prop.GetHitFace(hDist,vDist)
@@ -282,11 +397,17 @@ function Player:Unclip()
             -- self.Velocity.Y = 0
             pushY = math.abs(pushY) > math.abs(vDist) and pushY or vDist
             if face == "bottom" then
+                if not self.Floor then
+                    -- just landed
+                    justLanded = true
+                end
                 self:ConnectToFloor(solid)
             end
             self:AlignHitboxes()
         end
     end
+
+
 
     -- try to "undo" if the player clipped too hard
     if math.abs(pushY) > self.Size.Y/2 then
@@ -295,7 +416,15 @@ function Player:Unclip()
         self.Position.Y = self.Position.Y + pushY - sign(pushY) * 0.01
     end
     
-   
+    if justLanded and math.abs(self.Velocity.X) > 1 then
+        local vel = V{40, 0} * math.clamp(math.abs(self.Velocity.X), 0.75, 5) * sign(self.DrawScale.X)
+        self:GetChild("ForwardLandDust"):Emit{
+            Position = self.Position,
+            Velocity = vel,
+            Acceleration = vel*-2,
+            Size = V{8 * sign(self.DrawScale.X), 8} * math.clamp(math.abs(self.Velocity.X), 4, 8)/4
+        }
+    end
 
 
     local pushX = 0
@@ -391,14 +520,30 @@ function Player:ProcessInput()
         self.LastRollPower = movementPower
 
         
-        
+        local vel = V{80, 0} * math.clamp(math.abs(movementPower/2), 2, 5) * sign(self.DrawScale.X)
+        self:GetChild("ForwardLandDust"):Emit{
+            Position = self.Position,
+            Velocity = vel,
+            Acceleration = vel*-2,
+            Size = V{8 * sign(self.DrawScale.X) * (movementPower == self.ShimmyPower and 1 or -1), 8} * math.clamp(math.abs(movementPower/2), 4, 8)/4 
+        }  
 
         if self.CrouchTime > 0 then
             self.Velocity.X = sign(self.DrawScale.X) * math.max(movementPower, math.abs(self.Velocity.X) * self.ConsecutivePouncesSpeedMult)
         else
+            local kickoffdust = self:GetChild("RollKickoffDust")
+            kickoffdust:Emit{
+                Position = V{self.Position.X, self.PreviousFloorHeight}, 
+                Size = V{kickoffdust.ParticleSize.X * sign(self.DrawScale.X), kickoffdust.ParticleSize.Y}, 
+                Velocity = math.abs(self.Velocity.X) < 1 and V{0, 0} or V{-sign(self.DrawScale.X) * 35, 0}
+            }
             self.Velocity.X = sign(self.DrawScale.X) * movementPower
+            
+            
         end
         
+
+
         self:ShrinkHitbox()
 
         self.FramesSinceRoll = 0
@@ -479,12 +624,15 @@ function Player:ProcessInput()
             self.Velocity.X = 0
         end
     end
+
+    
+   
 end
 
 function Player:Jump()
     self.JumpBuffer = 0
     self.Velocity.Y = -self.JumpPower
-    
+
     -- pounce  handling
     if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
         self.Velocity.X = sign(self.Velocity.X) * math.max(self.PouncePower, math.abs(self.Velocity.X))
@@ -492,6 +640,19 @@ function Player:Jump()
         self.TimeSincePounce = 0
         self.FramesSinceRoll = -1
         self.PounceAnimCancelled = false
+        self.PounceParticlePower = self.PounceParticlePower + 2.5
+
+        local kickoffdust = self:GetChild("RollKickoffDust")
+        kickoffdust:Emit{
+            Position = V{self.Position.X, self.PreviousFloorHeight}, 
+            Size = V{kickoffdust.ParticleSize.X * sign(self.DrawScale.X), kickoffdust.ParticleSize.Y}, 
+            Velocity = math.abs(self.Velocity.X) < 1 and V{0, 0} or V{-sign(self.DrawScale.X) * 35, 0}
+        }
+
+    else
+
+        -- regular jump
+        self:GetChild("JumpDust"):Emit{Position = self.Position, }
     end
 
     self.FramesSinceJump = 0
@@ -522,18 +683,20 @@ end
 function Player:DoubleJump()
     -- first move the player down to make sure they're even allowed to double jump
     self.JumpBuffer = 0
-    local p = self.Position:Clone()
-    local f = self.Floor
-    self.Position.Y = self.Position.Y + self.DoubleJumpRequiredHeightFromGround
+    -- local p = self.Position:Clone()
+    -- local f = self.Floor
+    -- self.Position.Y = self.Position.Y + self.DoubleJumpRequiredHeightFromGround
     
-    self:Unclip()
-    if p + V{0, self.DoubleJumpRequiredHeightFromGround} ~= self.Position then
-        self.Position = p
-        self.Floor = f
-        return
-    end
-    self.Floor = f
-    self.Position = p
+    -- self:Unclip()
+    -- if p + V{0, self.DoubleJumpRequiredHeightFromGround} ~= self.Position then
+    --     self.Position = p
+    --     self.Floor = f
+    --     return
+    -- end
+    -- self.Floor = f
+    -- self.Position = p
+
+    self:GetChild("DoubleJumpDust"):Emit{Position = self:GetPoint(0.5,0.5), Rotation = math.random(0,3)*math.rad(90)}
 
     self.FramesSinceDoubleJump = 0
     self.Texture.Clock = 0
@@ -651,8 +814,34 @@ function Player:UpdateAnimation()
         self.DrawScale.X = sign(self.DrawScale.X)
         self.DrawScale.Y = 1
     end
-    
-    
+
+    if true then
+        local frequency = math.clamp(math.floor(7 - self.PounceParticlePower*4), 1, 10)
+
+        local speed = self.Velocity:Magnitude()
+
+        if speed < 1 then
+            frequency = 1000000
+        end
+        if self.PounceParticlePower > 0 and (self.FramesSinceInit % frequency == 0) then
+            local chainFactor = math.clamp(self.PounceParticlePower/4, 0.5, 1.1)
+            local speedFactor = math.clamp(speed/6, 0.3, 1.3)
+            self:GetChild("PounceDust"):Emit{
+                Position = self:GetPoint(0.5,0.9),
+                Size = V{20, 12} * (self.TimeSincePounce % (2*frequency) == 0 and 0.8 or 1) * 1 * chainFactor * speedFactor,
+                SizeVelocity = V{5,-17} * chainFactor * speedFactor,
+                SizeAcceleration = V{-60, 0} * chainFactor * speedFactor * 0.8,
+                Rotation = -self.Velocity:ToAngle() -math.rad(90),
+                Velocity = self.Velocity * 5,
+                LifeTime = 0.8,
+            }
+
+        end
+    end 
+
+
+
+    -- print(self:GetScene()._children)
     -- check what anim state to put pounce in
     if self.TimeSincePounce > -1 and not self.PounceAnimCancelled then
         
@@ -779,7 +968,9 @@ function Player:UpdateFrameValues()
         end
     end
 
-    
+    if self.PounceParticlePower > 0 then
+        self.PounceParticlePower = self.PounceParticlePower - 0.15
+    end
 
     if self.CoyoteBuffer > 0 then
         self.CoyoteBuffer = self.CoyoteBuffer - 1
@@ -1008,7 +1199,25 @@ function Player:UpdatePhysics()
     -- adhere to MaxSpeed
     
     -- update position before velocity, so that there is at least 1 frame of whatever Velocity is set by prev frame
-    self.Position = self.Position + self.Velocity
+    local MAX_Y_DIST = 3
+    local MAX_X_DIST = 3
+    local subdivisions = 1
+
+    if math.abs(self.Velocity.X) > MAX_X_DIST then
+        subdivisions = math.floor(1+math.abs(self.Velocity.X)/MAX_X_DIST)
+    end
+
+    if math.abs(self.Velocity.Y) > MAX_Y_DIST then
+        subdivisions = math.max(subdivisions, math.floor(1+math.abs(self.Velocity.Y)/MAX_Y_DIST))
+    end
+
+    local interval = subdivisions == 1 and self.Velocity or self.Velocity / subdivisions
+
+    for i = 1, subdivisions do
+        self.Position = self.Position + interval
+        self:Unclip()
+    end
+
     self.VelocityLastFrame = self.Velocity -- other guys use this later
     self.Velocity = self.Velocity + self.Acceleration
     
@@ -1040,6 +1249,9 @@ function Player:Update(engine_dt)
     
     local dt = 1/60 -- player value changes should always assume 60hz updates
 
+    
+
+
     -- self.Color = V{math.random(0,1),math.random(0,1),math.random(0,1)}
     ------------------- PHYSICS PROCESSING ----------------------------------
     -- if we're on a moving floor let's move with it
@@ -1051,12 +1263,13 @@ function Player:Update(engine_dt)
     -- update position based on velocity, velocity based on acceleration, etc
     self:UpdatePhysics()
 
+    -- we do this manually inside UpdatePhysics now
+    -- -- make sure collision is all good
+    -- self:Unclip()
+
     -- update tail (based on physics)
     self:UpdateTail()
-
-    -- make sure collision is all good
-    self:Unclip()
-
+    
     -- confirm the floor remains the floor
     self:ValidateFloor()
 
@@ -1119,6 +1332,12 @@ function Player:DrawTrail()
 end
 
 function Player:Draw(tx, ty)
+
+    if self:HasChildren() then
+        self:DrawChildren(tx, ty)
+    end
+
+
     -- make sure hitboxes are re-aligned with player after position updates
     self:AlignHitboxes()
 
@@ -1218,12 +1437,15 @@ function Player:Draw(tx, ty)
         self.AnchorPoint[2]
     )
 
-    if self:HasChildren() then
-        self:DrawChildren(tx, ty)
-    end
+
 
     self.Shader:Deactivate()
     
+    if self.XHitbox.Visible then
+        self.XHitbox:Draw(tx, ty)
+        self.YHitbox:Draw(tx, ty)
+    end
+
     love.graphics.setColor(1,0,0,1)
 
 end

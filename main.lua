@@ -13,25 +13,14 @@ function love.load()
     Chexcore:AddType(require"game.player.gameScene")
     local scene = require"game.scenes.testzone.init"
     local player = Player.new():Nest(scene:GetLayer("Gameplay"))
-    
+    -- scene:GetLayer("Gameplay"):SwapChildOrder(player, 1)
 
-
+    print(tostring(scene:GetLayer("Gameplay"):GetChildren(), true))
 
     -- local scene = require"chexcore.scenes.example.doodle" -- path to the .lua file of the scene
 
     -- A scene will only be processed by Chexcore while it is "mounted"
     Chexcore.MountScene(scene)
-
-
-    local particleData = {
-        
-        positions = {},
-        sizes = {},
-        rotations = {},
-
-    }
-
-    local test = {}
 
 
     

@@ -672,6 +672,42 @@ function math.clamp(n, min, max)
 end
 local clamp, abs = math.clamp, math.abs
 
+
+-- return a list of numbers (start, stop, step [, cmp])
+-- step can be a number or a function
+-- cmp can be specified as a custom comparison function
+local cmp1 = function(i, stop) return i <= stop end
+local cmp2 = function(i, stop) return i >= stop end
+function math.series(start, stop, step, cmp)
+    step = step or 1
+    if step == 0 then error"infinite series fucked u up" end
+    local out = {start}
+    cmp = cmp or (((type(step) == "function" or step > 0) and start < stop) and cmp1) or cmp2
+    if type(step) == "function" then
+        while cmp(out[#out], stop) do
+            out[#out+1] = step(out[#out])
+        end
+    else
+        while cmp(out[#out], stop) do
+            out[#out+1] = out[#out] + step
+        end
+    end
+
+    out[#out] = nil -- kill final result (oopsie)
+    return out
+end
+
+-- print"math.series(1,10)"
+-- print("     "..tostring(math.series(1,10)))
+-- print("------------------------")
+-- print"math.series(1,10, 3)"
+-- print("     "..tostring(math.series(1,10, 3)))
+-- print("------------------------")
+-- print"math.series(10, -10, -5)"
+-- print("     "..tostring(math.series(10, -10, -5)))
+-- print("------------------------")
+-- print("math.series(1,10, function(i) return i * 1.1 end, function(i, stop) return i < stop * 2 end)")
+-- print("     "..tostring(math.series(1,10, function(i) return i * 1.1 end, function(i, stop) return i < stop * 2 end)))
 local function lerp2(a,b,t,s)
     local n = a + (b - a) * clamp(t,0,1)
     if abs(n-b) < s then

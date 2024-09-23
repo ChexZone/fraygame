@@ -2,7 +2,7 @@ local scene = GameScene.new{
     FrameLimit = 60,
     Update = function (self, dt)
         GameScene.Update(self, dt)
-        self.Camera.Position = (self:GetDescendant("Player").Position - V{0, self:GetDescendant("Player").Size.Y/2})
+        self.Camera.Position = self.Camera.Position:Lerp((self:GetDescendant("Player").Position - V{0, self:GetDescendant("Player").Size.Y/2}), 0.2*dt)
         self.Camera.Zoom = 1 --+ (math.sin(Chexcore._clock)+1)/2
     end
 }
@@ -266,10 +266,10 @@ local particles = mainLayer:Adopt(Particles.new{
     -- ParticleRotation = 1,
     AnchorPoint = V{0.5,0.5},
     ParticleAnchorPoint = V{0.5, 0.5},
-    Visible = false,
     RelativePosition = true,
     -- ParticleAcceleration = V{0,20},
     LoopAnim = true,
+    Visible = false,
     ParticleSizeVelocity = V{50,50},
     -- ParticleSizeAcceleration = V{-50, -50},
     ParticleRotVelocity = -2,

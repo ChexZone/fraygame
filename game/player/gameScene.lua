@@ -199,8 +199,9 @@ function GameScene:Update(dt)
     -- make sure gui layer is on top
     
     local guiID = self.GuiLayer:GetChildID()
-    if guiID ~= #self._children then
-        self:SwapChildOrder(guiID, #self._children)
+    while guiID ~= #self._children do
+        self:SwapChildOrder(guiID, guiID+1)
+        guiID = self.GuiLayer:GetChildID()
     end
 
     return Scene.Update(self, dt)
