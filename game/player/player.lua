@@ -828,7 +828,7 @@ function Player:UpdateAnimation()
             local speedFactor = math.clamp(speed/6, 0.3, 1.3)
             self:GetChild("PounceDust"):Emit{
                 Position = self:GetPoint(0.5,0.9),
-                Size = V{20, 12} * (self.TimeSincePounce % (2*frequency) == 0 and 0.8 or 1) * 1 * chainFactor * speedFactor,
+                Size = V{30, 12} * (self.TimeSincePounce % (2*frequency) == 0 and 0.8 or 1) * 1 * chainFactor * speedFactor,
                 SizeVelocity = V{5,-17} * chainFactor * speedFactor,
                 SizeAcceleration = V{-60, 0} * chainFactor * speedFactor * 0.8,
                 Rotation = -self.Velocity:ToAngle() -math.rad(90),
