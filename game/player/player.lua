@@ -23,6 +23,7 @@ local Player = {
     AfterDoubleJumpGravity = 0.2,
     TrailLength = 1,                    -- (range 0-1) how long the trail should be
     TrailColor = V{190/255, 140/255, 100/255, 0.7} + 0.3 ,       -- color of trail following player
+    IsCrouchedHitbox = false,           -- whether the player's hitbox is in "crouched" state or not
     CrouchTime = 0,                     -- how many frames the player has been crouching for (0 if not crouching)
     TimeSinceCrouching = 0,             -- how many frames since the player last ended a crouch
     CrouchEndBuffer = 0,                -- for animations, pretty much
@@ -43,7 +44,7 @@ local Player = {
     HalfHangTimeActivationTime = 10,    -- activation energy for half hang time (medium-height jumps)
     DropHangTime = 3,                   -- how many frames of hang time are offered from falling off the side of a platform
     HangStatus = 0,                     -- tracker for the status of hang time
-    JumpPower = 3.5,                      -- the base initial upward momentum of a jump
+    JumpPower = 3.7,                      -- the base initial upward momentum of a jump
     DoubleJumpFrameLength = 12,         -- how many frames a double jump takes
     DoubleJumpPower = 3,                -- the base initial upward momentum of a double jump
     DoubleJumpRequiredHeightFromGround = 5, -- number of pixels off the ground the player must be to be eligible to double jump
@@ -93,7 +94,7 @@ local Player = {
     CoyoteBuffer = 0,                   -- how many coyote frames are remaining
     JumpFrames = 4,                     -- how many frames after a jump input can still result in a jump
     JumpBuffer = 0,                     -- how many jump frames are currently remaining
-    DJMomentumCancelOpportunity = 8,    -- how many frames after a double jump the player can release either direction and cancel momentum
+    DJMomentumCancelOpportunity = 6,    -- how many frames after a double jump the player can release either direction and cancel momentum
     ActionFrames = 5,                   -- how many frames after an action input can still result in action
     ActionBuffer = 0,                   -- how many action frames are currently remaining
 
@@ -151,7 +152,7 @@ local yHitboxBASE = Prop.new{
     Texture = Texture.new("chexcore/assets/images/square.png"),
     Size = V{8,Y_HITBOX_HEIGHT},
     Visible = false,
-    Color = V{1,0,0,0.2},
+    Color = V{1,0,0,0.7},
     Solid = true,
     AnchorPoint = V{0.5,1}
 }
@@ -161,7 +162,7 @@ local xHitboxBASE = Prop.new{
     Texture = Texture.new("chexcore/assets/images/square.png"),
     Size = V{8,X_HITBOX_HEIGHT},
     Visible = false,
-    Color = V{0,0,1,0.2},
+    Color = V{0,0,1,0.7},
     Solid = true,
     AnchorPoint = V{0.5,1}
 }
@@ -281,6 +282,7 @@ function Player.new()
         d = "move_right",
         space = "jump",
         lshift = "action",
+        e = "action",
         s = "crouch",
 
         h = "HITBOXTOGGLE",
@@ -388,6 +390,7 @@ function Player:Unclip()
     -- make sure hitboxes are aligned first!!!
     self:AlignHitboxes()
     local justLanded = false
+    local hitCeiling = false
     local pushY = 0
     for solid, hDist, vDist, tileID in self.YHitbox:CollisionPass(self._parent, true) do
         local face = Prop.GetHitFace(hDist,vDist)
@@ -402,6 +405,8 @@ function Player:Unclip()
                     justLanded = true
                 end
                 self:ConnectToFloor(solid)
+            elseif face == "top" then
+                hitCeiling = true
             end
             self:AlignHitboxes()
         end
@@ -431,7 +436,7 @@ function Player:Unclip()
     for solid, hDist, vDist, tileID in self.XHitbox:CollisionPass(self._parent, true) do
         local face = Prop.GetHitFace(hDist,vDist)
         if solid ~= self.XHitbox and (face == "left" or face == "right") then
-            self.Velocity.X = 0
+            -- if pushY == 0 then self.Velocity.X = 0 end
             pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
             self:AlignHitboxes()
         end
@@ -441,15 +446,29 @@ function Player:Unclip()
     -- again, try to "undo" any extreme clipping
     if math.abs(pushX) > self.Size.X/2 then
         self.Position.X = self.Position.X - self.VelocityLastFrame.X
+        print("are qwe hitting this???")
     else
         self.Position.X = self.Position.X + pushX
     end
+
+    if pushX == 0 and hitCeiling then
+        if self.TimeSincePounce > -1 and self.MoveDir ~= 0 then
+            -- if pouncing and hitting a ceiling, knock the player back down to the floor (makes pounce chaining easier in corridors)
+            self.Velocity.Y = math.max(0, -self.Velocity.Y)
+            
+        else
+            self.Velocity.Y = math.max(0, self.Velocity.Y)
+        end
+        
+    end
+
+    return pushX, pushY
 end
 
 function Player:ValidateFloor()
     if self.Floor then
         -- check if we've collided with the current floor or not
-        self.YHitbox.Position.X = self.Position.X
+        self:AlignHitboxes()
         self.YHitbox.Position.Y = self.Position.Y + 1
         
         self.Velocity.Y = 0
@@ -474,6 +493,10 @@ function Player:ValidateFloor()
             self.CoyoteBuffer = self.CoyoteFrames
         end
     end
+
+    self:AlignHitboxes()
+
+    
 end
 ---------------------------------------------------------------------------------
 
@@ -598,6 +621,10 @@ function Player:ProcessInput()
         -- self.DrawScale.X = self.MoveDir == 0 and self.DrawScale.X or self.MoveDir
         self:Decelerate(amt)
 
+        -- connect to floor while crouching
+        if self.Floor and self.FloorDelta and self.FloorDelta ~= EMPTYVEC and self.Velocity.X == 0 then
+            self:AlignWithFloor()
+        end
     elseif self.MoveDir ~= 0 then
         local accelSpeed = self.Floor and self.AccelerationSpeed or 
                             (self.TimeSincePounce > -1 and self.PounceAccelerationSpeed or self.AirAccelerationSpeed)
@@ -725,13 +752,33 @@ function Player:EndCrouch()
 end
 
 function Player:ShrinkHitbox()
+    if self.IsCrouchedHitbox then return end
+
     self.XHitbox.Size.Y = X_HITBOX_HEIGHT_CROUCH
     self.YHitbox.Size.Y = Y_HITBOX_HEIGHT_CROUCH
+
+    self.IsCrouchedHitbox = true
 end
 
 function Player:GrowHitbox()
+    
+    if not self.IsCrouchedHitbox then return end
+
+    if not self.Floor then
+        self.XHitbox.Size.Y = math.lerp(X_HITBOX_HEIGHT, X_HITBOX_HEIGHT_CROUCH, 0.5)
+        self.YHitbox.Size.Y = math.lerp(Y_HITBOX_HEIGHT, Y_HITBOX_HEIGHT_CROUCH, 0.5)
+        
+        self:AlignHitboxes()
+
+        self:Unclip()
+    end
+
     self.XHitbox.Size.Y = X_HITBOX_HEIGHT
     self.YHitbox.Size.Y = Y_HITBOX_HEIGHT
+    
+    self:Unclip()
+    
+    self.IsCrouchedHitbox = false
 end
 
 function Player:SetBodyOrientation(dir)
@@ -955,6 +1002,9 @@ function Player:UpdateFrameValues()
 
     if self.FramesSinceRoll > -1 then
         self.FramesSinceRoll = self.FramesSinceRoll + 1
+        if not self.Floor then
+            self:GrowHitbox()
+        end
         if self.FramesSinceRoll > self.RollLength then
             self.FramesSinceRoll = -1
             
@@ -966,6 +1016,8 @@ function Player:UpdateFrameValues()
 
             -- self.Texture.IsPlaying = true
         end
+
+        
     end
 
     if self.PounceParticlePower > 0 then
@@ -1010,8 +1062,9 @@ function Player:UpdateFrameValues()
 
     if self.CrouchTime > 0 and self.InputListener:IsDown("crouch") and self.Floor then
         self.CrouchTime = self.CrouchTime + 1
-    elseif self.CrouchTime > 0 then
+    elseif self.CrouchTime > 0 and (self.TimeSincePounce == -1 or self.PounceAnimCancelled) then
         self:EndCrouch()
+        
     end
 
     if self.TimeSinceCrouching > -1 then
@@ -1025,6 +1078,13 @@ function Player:UpdateFrameValues()
         self.FramesSinceIdle = -1
         self.FramesSinceMoving = self.FramesSinceMoving + 1
     end
+
+
+    -- safeguard to make sure hitbox isn't small for no reason
+    if self.Floor and self.FramesSinceRoll == -1 and self.CrouchTime == 0 and self.IsCrouchedHitbox then
+        self:GrowHitbox()
+    end
+
 
     self.FramesSinceInit = self.FramesSinceInit + 1
 end
@@ -1199,8 +1259,8 @@ function Player:UpdatePhysics()
     -- adhere to MaxSpeed
     
     -- update position before velocity, so that there is at least 1 frame of whatever Velocity is set by prev frame
-    local MAX_Y_DIST = 3
-    local MAX_X_DIST = 3
+    local MAX_Y_DIST = 1
+    local MAX_X_DIST = 1
     local subdivisions = 1
 
     if math.abs(self.Velocity.X) > MAX_X_DIST then
@@ -1213,10 +1273,38 @@ function Player:UpdatePhysics()
 
     local interval = subdivisions == 1 and self.Velocity or self.Velocity / subdivisions
 
+    local posBeforeMove = self.Position:Clone()
+
+    local pushedX = false
+    local pushedY = false
+    local px, py
     for i = 1, subdivisions do
         self.Position = self.Position + interval
+        px, py = self:Unclip()
+
+        if px ~= 0 then pushedX = true end
+        if py ~= 0 then pushedY = true end
+    end
+
+    local posAfterMove = self.Position
+
+    
+    if math.abs(posBeforeMove[1] - posAfterMove[1]) < 1 and pushedX then
+        self.Velocity.X = 0
+        -- print("DASGHSDFGHSDFGHSDHFGSDHG")
+    end
+    -- print("----------------------------", pushedX, math.abs(xBeforeMove - xAfterMove))
+
+    -- special edge case for "falling" just off the corner of an object
+    -- this happens when the player doesn't move far enough down for the x hitbox to touch the collider and move the player to the side
+    -- the solution I think is just to force the movement and pray it doesn't create any edge case collision bugs
+    if pushedY and self.Velocity.X == 0 and self.Acceleration.X == 0 and not self.Floor and math.abs(posAfterMove.Y - posBeforeMove.Y) < 1 then
+        print("HANGING OFF LEDGE!!!")
+        self.Position.Y = self.Position.Y + self.Velocity.Y
         self:Unclip()
     end
+
+    -- print(posBeforeMove - posAfterMove)
 
     self.VelocityLastFrame = self.Velocity -- other guys use this later
     self.Velocity = self.Velocity + self.Acceleration

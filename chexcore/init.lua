@@ -1,6 +1,7 @@
 _G.Chexcore = {
     -- internal properties
     _clock = 0,             -- keeps track of total game run time
+    _cpuTime = 0,           -- how long (seconds) the last frame took to process
     _preciseClock = 0,      -- return value of love.timer.getTime()
     _lastFrameTime = 0,     -- how long the previous frame actually took
     _graphicsStats = {},        -- the output of love.graphics.getStats()
@@ -239,7 +240,10 @@ if mode ~= "web" then
             -- local frameOverTime = dt - timeToWait --math.max(dt - timeToWait, 0)
             
             local end_time = love.timer.getTime()
+
             if love.timer then love.timer.sleep(timeToWait - (end_time - start_time)) end
+
+            Chexcore._cpuTime = (end_time - start_time)
         end
     end
 end

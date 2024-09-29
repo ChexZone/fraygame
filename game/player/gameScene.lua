@@ -9,7 +9,7 @@ local GameScene = {
     _normalFPS = 60,            -- normal mode target FPS
     _performanceFPS = 30,       -- performance mode target FPS
 
-    DeathHeight = 300, -- if the player's height is greater than this, respawn it
+    DeathHeight = 600, -- if the player's height is greater than this, respawn it
     InRespawn = false,  -- whether the player is in a respawn sequence or not
 
     ShowStats = false,  -- show stats of the player
@@ -54,7 +54,7 @@ function GameScene.new(properties)
 
     newGameScene.statsGui = newGameScene.GuiLayer:Adopt(Gui.new{
         Name = "StatsGui",
-        Size = V{350, 360},
+        Size = V{350, 390},
         Position = V{0, 0},
         Texture = Texture.new("chexcore/assets/images/square.png"),
         Color = V{0, 0, 0, 0.8},
@@ -156,7 +156,7 @@ function GameScene:Update(dt)
                                         Constant.COLOR.WHITE, "\nFramesSinceRoll: ", self.Player.FramesSinceRoll == -1 and Constant.COLOR.ORANGE or Constant.COLOR.ORANGE + 0.5, self.Player.FramesSinceRoll,
                                         Constant.COLOR.WHITE, "\nLastRollPower: ", V{1, 1 - (self.Player.LastRollPower - 0.5) / self.Player.RollPower, 1 - self.Player.LastRollPower / self.Player.RollPower}, self.Player.LastRollPower,
                                         Constant.COLOR.WHITE, "\nPerformance Mode:                 ", self.PerformanceMode and Constant.COLOR.GREEN or Constant.COLOR.RED, self.PerformanceMode and "ON" or "OFF",
-                                        Constant.COLOR.WHITE, "\nFrameTime: ", Constant.COLOR.GREEN:Lerp(Constant.COLOR.RED, 1-curFpsRatio), ("%.2fms"):format(Chexcore._lastFrameTime*1000), V{1 ,self.lastFpsRatio, self.lastFpsRatio}, ("\n            (%05.1f%% target FPS)"):format(self.lastFpsRatio*100),
+                                        Constant.COLOR.WHITE, "\nFrameTime: ", Constant.COLOR.GREEN:Lerp(Constant.COLOR.RED, 1-curFpsRatio), ("%.2fms"):format(Chexcore._lastFrameTime*1000), V{1,1,1,0.5}, (" [%.2fms]"):format(Chexcore._cpuTime*1000), V{1 ,self.lastFpsRatio, self.lastFpsRatio}, ("\n            (%05.1f%% target FPS)"):format(self.lastFpsRatio*100),
                                         Constant.COLOR.WHITE, "\nLOVE Drawcalls:                     ", V{0.5, 0.5, 1}, Chexcore._graphicsStats.drawcalls,
                                     
                                         

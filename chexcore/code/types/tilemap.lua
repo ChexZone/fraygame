@@ -7,7 +7,7 @@ local Tilemap = {
     TileSize = 8,
     Solid = true,
 
-    Scale = .5,
+    Scale = 1,
 
     -- internal properties
     _numChunks = V{1, 1},
