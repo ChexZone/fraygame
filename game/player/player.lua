@@ -6,6 +6,9 @@ local Player = {
     Acceleration = V{0,0},
     Color = V{1,1,1,1},
     TailColor = V{196,223,238}/255,
+    -- DiveExpiredColor = V{0.8,0.8,0.9,1},    -- color to multiply player by when the dive is expired
+    DiveExpiredColor = Constant.COLOR.PURPLE:Lerp(Constant.COLOR.WHITE, 0.7),
+    DiveExpiredGoalColor = V{0.75, 0.8, 0.9, 1},
     Visible = true,
     Solid = false,
     Rotation = 0,
@@ -800,7 +803,7 @@ function Player:Dive()
 
     self.ActionBuffer = 0
     local faceDirection = self.MoveDir ~= 0 and self.MoveDir or sign(self.DrawScale.X)
-    local measuredVelocityY = math.abs(self.Velocity.Y) > 2.7 and self.Velocity.Y/1.3 or 0
+    local measuredVelocityY = (self.FramesSinceDoubleJump == -1 and  math.abs(self.Velocity.Y) > 2.35) and self.Velocity.Y/1.3 or 0
     self.DrawScale.X = faceDirection
     self.Velocity.X = faceDirection * self.DivePower
     self.Velocity.Y = math.min(self.DiveUpwardVelocity, measuredVelocityY + self.DiveUpwardVelocity) --math.min(-3.5, self.Velocity.Y - 3.5)
@@ -1688,6 +1691,10 @@ function Player:Draw(tx, ty)
     end
 
     self.Canvas:Activate()
+
+        self.DiveExpiredGoalColor = self.DiveExpiredGoalColor:Lerp((self.DiveUsed and self.FramesSinceDive == -1) and self.DiveExpiredColor or Constant.COLOR.WHITE, 0.225)
+
+
         love.graphics.clear()
         local sx = self.Size[1] * (self.DrawScale[1]-1)
         local sy = self.Size[2] * (self.DrawScale[2]-1)
@@ -1706,7 +1713,7 @@ function Player:Draw(tx, ty)
                 ofs_y = -3
             end
 
-            love.graphics.setColor(self.Color * self.TailColor)
+            love.graphics.setColor(self.Color * self.TailColor * self.DiveExpiredGoalColor)
             local points = {}
             local p1 = self.TailPoints[1]
             local cx = self.Canvas:GetWidth()/2
@@ -1730,7 +1737,7 @@ function Player:Draw(tx, ty)
         end
         -- end
 
-        love.graphics.setColor(self.Color)
+        love.graphics.setColor(self.Color * self.DiveExpiredGoalColor)
         self.Texture:DrawToScreen(
             self.Canvas:GetWidth()/2,
             self.Canvas:GetHeight()/2,
@@ -1776,9 +1783,6 @@ function Player:Draw(tx, ty)
         self.XHitbox:Draw(tx, ty)
         self.YHitbox:Draw(tx, ty)
     end
-
-    love.graphics.setColor(1,0,0,1)
-
 end
 
 function Player:Respawn(pos)
