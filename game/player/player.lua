@@ -44,7 +44,12 @@ local Player = {
     HalfHangTimeActivationTime = 10,    -- activation energy for half hang time (medium-height jumps)
     DropHangTime = 3,                   -- how many frames of hang time are offered from falling off the side of a platform
     HangStatus = 0,                     -- tracker for the status of hang time
+    RollTimeAfterLunge = 10,            -- how many frames after a lunge (downward dive) to also listen for roll inputs
+    LungeBuffer = 0,                    -- measures above variable
     JumpPower = 3.7,                      -- the base initial upward momentum of a jump
+    
+    DiveUsed = false,                   -- whether the player has used up their dive in the air
+
     DoubleJumpFrameLength = 12,         -- how many frames a double jump takes
     DoubleJumpPower = 3,                -- the base initial upward momentum of a double jump
     DoubleJumpRequiredHeightFromGround = 5, -- number of pixels off the ground the player must be to be eligible to double jump
@@ -56,26 +61,43 @@ local Player = {
     CrouchShimmyDelay = 0,              -- how many frames after crouching will pressing the action button still do a roll?
     LastRollPower = 0,                  -- records the last RollPower used for the previous roll\
     ShimmyPower = 3,                   -- how much RollPower the player gets while crouching
-    RollPower = 4.5,                    -- the player's X velocity on the first frame of a roll
+    RollPower = 5,                    -- the player's X velocity on the first frame of a roll
     PouncePower = 5.5,                  -- the X velocity out of a sideways pounce
+    DiveWasLunge = false,               -- whether the last dive was a lunge or not (resets with dive state)
+    DivePower = 5.5,                    -- the X velocity out of an aerial dive
+    DiveUpwardVelocity = -0.5,         -- the Y velocity out of an aerial dive
+    WeakDiveUpwardVelocity = -0.5,         -- the Y velocity out of an aerial dive that's been weakened by a double jump
+    WeakDiveHangTime = 5,               -- how many frames the y velocity of the player will stay the same after a weak divided
+    DiveHangTime = 6,                   -- how many frames the y velocity of the palyer will stay the same after a normal dive
+    DiveHangStatus = 0,             -- status of above variable
+    LungeDownwardVelocity = 2,         -- the Y velocity out of a crouched aerial dive
+    DiveGravity = 0.2,                  -- how much gravity the player has while diving
+    DiveLandRollThreshold = 2.5,          -- how fast the player must be moving (X) when landing after a dive to automatically roll 
     PounceHeight = 2.2,                 -- the upward Y velocity out of a sideways pounce 
     RollLength = 14,                    -- how long the player must wait after a roll before rolling again (how many frames the roll animation lasts) 
     ShimmyLength = 5,                   -- how long the player must wait after a shimmy before shimmying again
     AccelerationSpeed = 0.12,            -- how much the player accelerates per frame to the goal speed
     AirAccelerationSpeed = 0.08,        -- how much the player accelerates per frame in the air
     PounceAccelerationSpeed = 0.155,      -- how much the player accelerates per frame during a pounce
+    DiveAccelerationSpeed = 0.025,
+    FramesAfterDiveCanCancel = 5,       -- how many frames after diving the player is allowed to cancel the dive
+    FramesAfterLungeCanCancel = 30,    -- how many frames after lunging the player is allowed to cancel the lunge
     ForwardDeceleration = 0.2,          -- how much the player speed decreases while moving forward
     BackwardDeceleration = 0.7,         -- how fast the player speed decreases while "braking" on the ground
     IdleDeceleration = 0.2,             -- how fast the player halts to a stop while idle on the ground
     AirBackwardDeceleration = 0.25,     -- how much the player decelerates while in the air, against the movement direction
     AirForwardDeceleration = 0.2,      -- how much the player decelerates while in the air, moving in the same direction
     AirIdleDeceleration = 0.2,          -- how much the player decelerates while idle in the air
+    DiveBackwardDeceleration = 0.1,     -- how much the player decelerates while in a dive, against the movement direction
+    DiveForwardDeceleration = 0.1,      -- how much the player decelerates while in a dive, moving in the same direction
+    DiveIdleDeceleration = 0.1,          -- how much the player decelerates while idle in a dive    
     PounceForwardDeceleration = 0.25,   -- how much the player accelerates while in a pounce
     PounceIdleDeceleration = 0.16,   -- how mucgh the player decelerates while idle in a pounce
     PreviousFloorHeight = 0,      -- the last recorded height of the floor
     PounceBackwardDeceleration = 0.25, -- how much the player decelerates while moving backwards in a pounce
     PounceAnimCancelled = false,        -- during a pounce, whether to transition the player animation back to normal jump
     ConsecutivePouncesSpeedMult = 1.75, -- how much the player's speed is multiplied by during a new pounce (basically, how easily the player can speed up doing chained pounces)
+    ConsecutiveLungesSpeedMult = 1.75,  -- how much the player's speed is multiplied by during a new pounce coming out of a downward lunge
     MoveDir = 0,                        -- 1 for left, -1 for right, 0 for neutral
 
     FramesSinceFlippedDirection = 0,   -- reset to 0 every time sign(DrawScale.X) changes
@@ -120,6 +142,8 @@ local Player = {
     FramesSinceRoll = -1,               -- will be -1 if the player is not in a roll state
     FramesSinceMoving = -1,             -- will be -1 if the player is currently idle
     FramesSinceIdle = -1,               -- will be -1 if the player is currently moving
+    FramesSinceDive = -1,               -- will be -1 if the player isn't diving
+    DiveBlock = 10,                     -- amount of frames the player is ineligible for diving due to something
 
     -- other stuff
     Canvas = nil,                       -- rendering the player is hard
@@ -261,6 +285,21 @@ function Player.new()
     }:Nest(newPlayer)
 
     Particles.new{
+        Name = "DiveDust",
+        AnchorPoint = V{0.5, 0.5},
+        ParticleAnchorPoint = V{0.5, 0.5},
+        Texture = Texture.new("chexcore/assets/images/empty.png"),
+        RelativePosition = false,
+        Size = V{8,8},
+        ParticleSize = V{16, 16},
+        LoopAnim = false,
+        ParticleTexture = Animation.new("chexcore/assets/images/test/player/dust_dive.png", 1, 4):Properties{Duration = 0.3},
+        ParticleLifeTime = 0.35,
+        Color = V{0,0,0,0},
+        ParticleColor = newPlayer.TrailColor,
+    }:Nest(newPlayer)
+
+    Particles.new{
         Name = "JumpDust",
         AnchorPoint = V{0.5, 0.5},
         ParticleAnchorPoint = V{0.5, 1},
@@ -381,7 +420,7 @@ function Player:FollowFloor()
 end
 
 ------- collison function
-function Player:Unclip()
+function Player:Unclip(forTesting)
     
     if self.Floor then
         self.Position.Y = self.Position.Y + 1
@@ -413,15 +452,23 @@ function Player:Unclip()
     end
 
 
+    -- roll out of a fast dive
+    if justLanded and self.FramesSinceDive > -1 and math.abs(self.Velocity.X) > self.DiveLandRollThreshold and self.MoveDir == sign(self.Velocity.X) then
+        self.PreviousFloorHeight = self.Position.Y
+        self:Roll()
+        self.FramesSinceDive = -1
+    end
 
-    -- try to "undo" if the player clipped too hard
-    if math.abs(pushY) > self.Size.Y/2 then
-        self.Position.Y = self.Position.Y - self.VelocityLastFrame.Y
-    else
-        self.Position.Y = self.Position.Y + pushY - sign(pushY) * 0.01
+    if not forTesting then
+        -- try to "undo" if the player clipped too hard
+        if math.abs(pushY) > self.Size.Y/2 then
+            self.Position.Y = self.Position.Y - self.VelocityLastFrame.Y
+        else
+            self.Position.Y = self.Position.Y + pushY - sign(pushY) * 0.01
+        end
     end
     
-    if justLanded and math.abs(self.Velocity.X) > 1 then
+    if justLanded and math.abs(self.Velocity.X) > 1 and not forTesting then
         local vel = V{40, 0} * math.clamp(math.abs(self.Velocity.X), 0.75, 5) * sign(self.DrawScale.X)
         self:GetChild("ForwardLandDust"):Emit{
             Position = self.Position,
@@ -443,19 +490,21 @@ function Player:Unclip()
         
     end
 
-    -- again, try to "undo" any extreme clipping
-    if math.abs(pushX) > self.Size.X/2 then
-        self.Position.X = self.Position.X - self.VelocityLastFrame.X
-        print("are qwe hitting this???")
-    else
-        self.Position.X = self.Position.X + pushX
+    if not forTesting then
+        -- again, try to "undo" any extreme clipping
+        if math.abs(pushX) > self.Size.X/2 then
+            self.Position.X = self.Position.X - self.VelocityLastFrame.X
+            print("are qwe hitting this???")
+        else
+            self.Position.X = self.Position.X + pushX
+        end
     end
 
     if pushX == 0 and hitCeiling then
-        if self.TimeSincePounce > -1 and self.MoveDir ~= 0 then
+        if self.TimeSincePounce > -1 and self.TimeSincePounce < 30 and self.MoveDir ~= 0 then
             -- if pouncing and hitting a ceiling, knock the player back down to the floor (makes pounce chaining easier in corridors)
             self.Velocity.Y = math.max(0, -self.Velocity.Y)
-            
+            self.DiveBlock = self.DiveBlock + 10
         else
             self.Velocity.Y = math.max(0, self.Velocity.Y)
         end
@@ -527,7 +576,6 @@ function Player:ProcessInput()
         self:StartCrouch()
     end
     
-    -- print("SPEED:",self.Velocity.X)
 
     -- action input
     if self.JustPressed["action"] then
@@ -535,53 +583,14 @@ function Player:ProcessInput()
         self.ActionBuffer = self.ActionFrames
     end
 
-    -- print(self.FramesSinceJump, self.RollWindowPastJump)
-    local blockJump
-    if self.ActionBuffer > 0 and (self.Floor or self.CoyoteBuffer > 0 or (self.FramesSinceJump > -1 and self.FramesSinceJump < self.RollWindowPastJump)) and ((self.CrouchTime > self.CrouchShimmyDelay and (self.FramesSinceRoll == -1 or self.FramesSinceRoll >= self.ShimmyLength)) or self.FramesSinceRoll == -1) then
+    local blockJump 
+
+    if not self.DiveUsed and  self.ActionBuffer > 0 and (not self.Floor and self.CoyoteBuffer == 0) and self.FramesSinceDive == -1 and (self.FramesSinceJump == -1 or self.FramesSinceJump > 4) and self.FramesSinceRoll == -1 and (self.TimeSincePounce == -1 or self.PounceAnimCancelled or self.FramesSinceDoubleJump > -1 or self.InputListener:IsDown("crouch")) then
+        -- dive
+        self:Dive()
+    elseif (self.ActionBuffer > 0 or self.LungeBuffer > 0) and (self.Floor or self.CoyoteBuffer > 0 or (self.FramesSinceJump > -1 and self.FramesSinceJump < self.RollWindowPastJump)) and ((self.CrouchTime > self.CrouchShimmyDelay and (self.FramesSinceRoll == -1 or self.FramesSinceRoll >= self.ShimmyLength)) or self.FramesSinceRoll == -1) then
         -- roll
-        local movementPower = (self.CrouchTime > self.CrouchShimmyDelay or self.TimeSinceCrouching < 10) and self.ShimmyPower or self.RollPower
-        self.LastRollPower = movementPower
-
-        
-        local vel = V{80, 0} * math.clamp(math.abs(movementPower/2), 2, 5) * sign(self.DrawScale.X)
-        self:GetChild("ForwardLandDust"):Emit{
-            Position = self.Position,
-            Velocity = vel,
-            Acceleration = vel*-2,
-            Size = V{8 * sign(self.DrawScale.X) * (movementPower == self.ShimmyPower and 1 or -1), 8} * math.clamp(math.abs(movementPower/2), 4, 8)/4 
-        }  
-
-        if self.CrouchTime > 0 then
-            self.Velocity.X = sign(self.DrawScale.X) * math.max(movementPower, math.abs(self.Velocity.X) * self.ConsecutivePouncesSpeedMult)
-        else
-            local kickoffdust = self:GetChild("RollKickoffDust")
-            kickoffdust:Emit{
-                Position = V{self.Position.X, self.PreviousFloorHeight}, 
-                Size = V{kickoffdust.ParticleSize.X * sign(self.DrawScale.X), kickoffdust.ParticleSize.Y}, 
-                Velocity = math.abs(self.Velocity.X) < 1 and V{0, 0} or V{-sign(self.DrawScale.X) * 35, 0}
-            }
-            self.Velocity.X = sign(self.DrawScale.X) * movementPower
-            
-            
-        end
-        
-
-
-        self:ShrinkHitbox()
-
-        self.FramesSinceRoll = 0
-        
-        if self.InputListener:IsDown("jump") and self.FramesSinceJump <= self.RollWindowPastJump and self.TimeSinceCrouching < 5 then
-            -- rolled a few frames late after a jump - initiate a pounce instead
-            blockJump = true
-            
-            self:Jump()
-        end
-
-        
-        self.ActionBuffer = 0
-        self.Texture.Clock = 0
-        self.Texture.IsPlaying = true
+        blockJump = self:Roll()
     end
 
 
@@ -590,13 +599,11 @@ function Player:ProcessInput()
             -- let the jump input linger for a few frames in case player inputs early
             self.JumpBuffer = self.JumpFrames
         end
-    
         if self.JumpBuffer > 0 and not blockJump then
             if (self.Floor or self.CoyoteBuffer > 0) then
                 self:Jump()
                 
             elseif self.FramesSinceDoubleJump == -1 and (self.TimeSincePounce == -1 or self.TimeSincePounce > self.TimeAfterPounceCanDoubleJump)  then
-                
                 self:DoubleJump()
             end
         end
@@ -627,6 +634,7 @@ function Player:ProcessInput()
         end
     elseif self.MoveDir ~= 0 then
         local accelSpeed = self.Floor and self.AccelerationSpeed or 
+                            (self.FramesSinceDive > -1 and self.DiveAccelerationSpeed) or
                             (self.TimeSincePounce > -1 and self.PounceAccelerationSpeed or self.AirAccelerationSpeed)
         self.Acceleration.X = self.MoveDir*accelSpeed
 
@@ -653,7 +661,6 @@ function Player:ProcessInput()
     end
 
     
-   
 end
 
 function Player:Jump()
@@ -708,29 +715,186 @@ function Player:Jump()
 end
 
 function Player:DoubleJump()
+
+    self:GrowHitbox()
+
+    local pos = self.Position:Clone()
+    local oldFloor = self.Floor
+    local subdivisions = 3
+    local howFarDownToCheck = 8
+
+    
+    if self.Velocity.Y > -1 then
+        for i = 1, subdivisions do
+            self.Position.Y = self.Position.Y + (howFarDownToCheck/subdivisions)
+            -- self.Position.X = self.Position.X + (self.Velocity.X/subdivisions)
+            local _, pushY = self:Unclip(true)
+
+            if pushY ~= 0 then
+                self.Position = pos
+                if oldFloor ~= self.Floor then
+                    self:DisconnectFromFloor()
+                end
+                return
+            end
+        end
+    end
+
+    self.Position = pos
+    if oldFloor ~= self.Floor then
+        self:DisconnectFromFloor()
+    end
+
+    if self.DiveWasLunge then
+        if self.FramesSinceDive > -1 and self.FramesSinceDive < self.FramesAfterLungeCanCancel then
+            -- don't let them dive cancel right after lunging
+            return
+        end
+    else
+        if self.FramesSinceDive > -1 and self.FramesSinceDive < self.FramesAfterDiveCanCancel then
+            -- don't let them dive cancel right after diving
+            -- self.JumpBuffer = 0
+            return
+        end
+    end
+
+    
+
+
     -- first move the player down to make sure they're even allowed to double jump
     self.JumpBuffer = 0
-    -- local p = self.Position:Clone()
-    -- local f = self.Floor
-    -- self.Position.Y = self.Position.Y + self.DoubleJumpRequiredHeightFromGround
-    
-    -- self:Unclip()
-    -- if p + V{0, self.DoubleJumpRequiredHeightFromGround} ~= self.Position then
-    --     self.Position = p
-    --     self.Floor = f
-    --     return
-    -- end
-    -- self.Floor = f
-    -- self.Position = p
 
     self:GetChild("DoubleJumpDust"):Emit{Position = self:GetPoint(0.5,0.5), Rotation = math.random(0,3)*math.rad(90)}
-
-    self.FramesSinceDoubleJump = 0
+    
+    
+    
     self.Texture.Clock = 0
     self.Velocity.Y = -self.DoubleJumpPower
     self.DoubleJumpStoredSpeed = math.abs(self.Velocity.X)
-    self.Velocity.X = self.DoubleJumpStoredSpeed * self.MoveDir
+    
+    if self.FramesSinceDive > -1 then
+        -- this is a dive cancel; player can't carry momentum from dives
+        self.Velocity.X = 0
+    else
+        self.Velocity.X = self.DoubleJumpStoredSpeed * self.MoveDir
+    end
+
+    
     self:SetBodyOrientation(self.MoveDir)
+
+    self.FramesSinceDive = -1
+    self.FramesSinceDoubleJump = 0
+end
+
+
+function Player:Dive()
+    -- if true then return false end
+    
+
+
+    
+
+    print("DIVE")
+    
+    self:ShrinkHitbox()
+
+    self.ActionBuffer = 0
+    local faceDirection = self.MoveDir ~= 0 and self.MoveDir or sign(self.DrawScale.X)
+    local measuredVelocityY = math.abs(self.Velocity.Y) > 2.7 and self.Velocity.Y/1.3 or 0
+    self.DrawScale.X = faceDirection
+    self.Velocity.X = faceDirection * self.DivePower
+    self.Velocity.Y = math.min(self.DiveUpwardVelocity, measuredVelocityY + self.DiveUpwardVelocity) --math.min(-3.5, self.Velocity.Y - 3.5)
+    -- self.WeakDiveHangStatus = 3
+    if self.FramesSinceDoubleJump > -1 then
+        self.Velocity.Y = math.min(self.WeakDiveUpwardVelocity, measuredVelocityY + self.WeakDiveUpwardVelocity)
+        self.DiveHangStatus = self.WeakDiveHangTime
+    else
+        self.DiveHangStatus = self.DiveHangTime
+    end
+
+    if self.InputListener:IsDown("crouch") then
+        self.Velocity.Y = self.LungeDownwardVelocity
+        self.LungeBuffer = self.RollTimeAfterLunge
+        -- self.Velocity.X = math.max(self.DivePower, ) * faceDirection
+        self.DiveWasLunge = true
+    else
+        self.PounceParticlePower = self.PounceParticlePower + 2.25
+        self.DiveWasLunge = false
+    end
+
+    self:GetChild("DiveDust"):Emit{Position = self:GetPoint(0.5,0.65), Rotation = math.random(0,3)*math.rad(90)}
+
+
+    
+    self.FramesSinceDive = 0
+    self.FramesSinceDoubleJump = -1
+    self.DiveUsed = true
+end
+
+function Player:Roll()
+    self.ActionBuffer = 0
+    self.LungeBuffer = 0
+    local holdingCrouch = self.InputListener:IsDown("crouch")
+    local justLunged = self.FramesSinceDive <= 10
+    local movementPower = ((self.CrouchTime > self.CrouchShimmyDelay or self.TimeSinceCrouching < 10) and holdingCrouch) and self.ShimmyPower or self.RollPower
+
+    -- special case for if player just recently lunged to the ground
+    if justLunged and holdingCrouch then
+        movementPower = self.ShimmyPower
+    end
+
+
+    self.LastRollPower = movementPower
+
+
+    
+    local vel = V{80, 0} * math.clamp(math.abs(movementPower/2), 2, 5) * sign(self.DrawScale.X)
+    self:GetChild("ForwardLandDust"):Emit{
+        Position = self.Position,
+        Velocity = vel,
+        Acceleration = vel*-2,
+        Size = V{8 * sign(self.DrawScale.X) * (movementPower == self.ShimmyPower and 1 or -1), 8} * math.clamp(math.abs(movementPower/2), 4, 8)/4 
+    }  
+
+    if self.CrouchTime > 0 then
+        -- was crouching normally
+        self.Velocity.X = sign(self.DrawScale.X) * math.max(movementPower, math.abs(self.Velocity.X) * self.ConsecutivePouncesSpeedMult)
+    elseif (holdingCrouch and justLunged) then
+        -- is crouching and just lunged into the ground
+        self.Velocity.X = sign(self.DrawScale.X) * math.max(movementPower, math.abs(self.Velocity.X) * self.ConsecutiveLungesSpeedMult-2)
+    else
+        local kickoffdust = self:GetChild("RollKickoffDust")
+        kickoffdust:Emit{
+            Position = V{self.Position.X, self.PreviousFloorHeight}, 
+            Size = V{kickoffdust.ParticleSize.X * sign(self.DrawScale.X), kickoffdust.ParticleSize.Y}, 
+            Velocity = math.abs(self.Velocity.X) < 1 and V{0, 0} or V{-sign(self.DrawScale.X) * 35, 0}
+        }
+        self.Velocity.X = sign(self.DrawScale.X) * movementPower
+        
+        
+    end
+    
+
+
+    self:ShrinkHitbox()
+
+    self.FramesSinceRoll = 0
+    
+    local blockJump
+
+    if self.InputListener:IsDown("jump") and self.FramesSinceJump <= self.RollWindowPastJump and self.TimeSinceCrouching < 5 then
+        -- rolled a few frames late after a jump - initiate a pounce instead
+        blockJump = true
+        
+        self:Jump()
+    end
+
+    
+    self.ActionBuffer = 0
+    self.Texture.Clock = 0
+    self.Texture.IsPlaying = true
+
+    return blockJump
 end
 
 local bounds = {
@@ -803,6 +967,8 @@ local xscale_crouch = {1.3, 1.2, 1.2, 1.1, 1.1, 1.1, 1}
 local yscale_crouch = {0.7, 0.8, 0.8, 0.9, 0.9, 0.9, 1}
 local xscale_pounce = {1, 1, 1.3, 1.3, 1.3, 1.2, 1.2, 1.2, 1.2, 1.1, 1.1, 1.1}
 local yscale_pounce = {1, 1, 0.8, 0.8, 0.8, 0.8, 0.8, 0.9, 0.9}
+local xscale_dive = {1, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.2, 1.1, 1.1, 1.1, 1.1, 1.1, 1}
+local yscale_dive = {1, 0.6, 0.6, 0.7, 0.7, 0.7, 0.7, 0.7, 0.9, 0.9, 0.9, 0.9, 1}
 local xscale_crouch_flip = {1.3, 1.2, 1.2, 1.1, 1.1, 1.1, 1}
 local yscale_crouch_flip = {0.7, 0.8, 0.8, 0.9, 0.9, 0.9, 1}
 
@@ -820,6 +986,9 @@ function Player:UpdateAnimation()
     
     -- squash and stretch
     if false then
+    elseif self.FramesSinceDive > -1 then
+        self.DrawScale.Y = yscale_dive[self.FramesSinceDive+1] or 1
+        self.DrawScale.X = sign(self.DrawScale.X) * (xscale_dive[self.FramesSinceDive+1] or 1)
     elseif self.CrouchTime > 0 and self.FramesSinceFlippedDirection > 0 and self.FramesSinceFlippedDirection <= #xscale_crouch_flip then
         -- crouching, turned around
         self.DrawScale.Y = yscale_crouch_flip[self.FramesSinceFlippedDirection]
@@ -873,9 +1042,11 @@ function Player:UpdateAnimation()
         if self.PounceParticlePower > 0 and (self.FramesSinceInit % frequency == 0) then
             local chainFactor = math.clamp(self.PounceParticlePower/4, 0.5, 1.1)
             local speedFactor = math.clamp(speed/6, 0.3, 1.3)
+            local yOfs = self.FramesSinceDive > -1 and -6 or 0
+            local xOfs = -self.Velocity.X
             self:GetChild("PounceDust"):Emit{
-                Position = self:GetPoint(0.5,0.9),
-                Size = V{30, 12} * (self.TimeSincePounce % (2*frequency) == 0 and 0.8 or 1) * 1 * chainFactor * speedFactor,
+                Position = self:GetPoint(0.5,0.9) + V{xOfs, yOfs},
+                Size = V{25, 12} * (self.TimeSincePounce % (2*frequency) == 0 and 0.8 or 1) * 1 * chainFactor * speedFactor,
                 SizeVelocity = V{5,-17} * chainFactor * speedFactor,
                 SizeAcceleration = V{-60, 0} * chainFactor * speedFactor * 0.8,
                 Rotation = -self.Velocity:ToAngle() -math.rad(90),
@@ -904,7 +1075,21 @@ function Player:UpdateAnimation()
         self.Texture.Clock = self.Texture.Duration
     end
 
-    if not self.Floor and self.TimeSincePounce > -1 and self.FramesSinceDoubleJump == -1 then
+
+    if not self.Floor and self.FramesSinceDive > -1 then
+        -- just dove
+        local ratio = self.Velocity.Y / math.abs(self.Velocity.X)
+        self.Texture:AddProperties{LeftBound = 17, RightBound = 20, PlaybackScaling = 1, Loop = false, IsPlaying = false}
+        if ratio <= math.clamp(ratio, -1.5, -0.3) then
+            self.Texture:SetFrame(self.Texture.LeftBound)
+        elseif ratio == math.clamp(ratio, -0.3, 0) then
+            self.Texture:SetFrame(self.Texture.LeftBound + 1)
+        elseif ratio == math.clamp(ratio, 0, 0.75) then
+            self.Texture:SetFrame(self.Texture.LeftBound + 2)
+        elseif ratio >= math.clamp(ratio, 0.5, 1.5) then
+            self.Texture:SetFrame(self.Texture.LeftBound + 3)
+        end
+    elseif not self.Floor and self.TimeSincePounce > -1 and self.FramesSinceDoubleJump == -1 then
         -- just pounced
 
         if self.PounceAnimCancelled then
@@ -937,8 +1122,11 @@ function Player:UpdateAnimation()
            
     elseif self.FramesSinceRoll > -1 and self.FramesSinceRoll ~= self.RollLength then
         -- player is in a roll (regardless of air state)
+        
         if self.Floor then
+            
             if self.CrouchTime > self.CrouchShimmyDelay then
+                
                 self.Texture:AddProperties{LeftBound = 29, RightBound = 33, Duration = 0.25, PlaybackScaling = 1, Loop = false}
                 if self.FramesSinceRoll == 0 then
                     self.Texture:SetFrame(29)
@@ -947,8 +1135,9 @@ function Player:UpdateAnimation()
                 self.Texture:AddProperties{LeftBound = 25, RightBound = 27, Duration = 1/60*self.RollLength, PlaybackScaling = 1, Loop = false}
             end
         else
+            
             -- this animation is 1px up to make the black outline work
-            self.Texture:AddProperties{LeftBound = 37, RightBound = 39, Duration = 1/60*self.RollLength, PlaybackScaling = 1, Loop = false}
+            self.Texture:AddProperties{LeftBound = 37, RightBound = 39, Duration = 1/60*self.RollLength, PlaybackScaling = 1, Loop = false, IsPlaying = true}
         end
     elseif self.Floor then
         -- player is grounded
@@ -1020,6 +1209,27 @@ function Player:UpdateFrameValues()
         
     end
 
+
+    if self.FramesSinceDive > -1 then
+        self.FramesSinceDive = self.FramesSinceDive + 1
+        
+        if self.Floor then
+            self.FramesSinceDive = -1
+            self.DiveWasLunge = false
+        end
+    elseif self.Floor and self.DiveUsed then
+        -- reset dive stamina
+        self.DiveUsed = false
+    end
+
+    if self.DiveBlock > 0 then
+        self.DiveBlock = self.DiveBlock - 1
+    end
+
+    if self.DiveHangStatus > 0 then
+        self.DiveHangStatus = self.DiveHangStatus - 1
+    end
+
     if self.PounceParticlePower > 0 then
         self.PounceParticlePower = self.PounceParticlePower - 0.15
     end
@@ -1029,6 +1239,10 @@ function Player:UpdateFrameValues()
     elseif self.FloorDelta then
         -- reset floor delta at the end of coyote time
         self.FloorDelta = nil
+    end
+
+    if self.LungeBuffer > 0 then
+        self.LungeBuffer = self.LungeBuffer - 1
     end
 
     if self.JumpBuffer > 0 then
@@ -1107,7 +1321,16 @@ function Player:UpdatePhysics()
     self.LastPosition = self.Position:Clone()
     
     -- gravity is dependent on the jump state of the character
-    if self.HangStatus > 0 and self.Velocity.Y >= 0 then
+    if self.FramesSinceDive > -1 then
+        -- the player has low dive gravity
+        if self.DiveHangStatus > 0 then
+            -- getting initial airtime in the weak dive state
+            self.Velocity.Y = self.Velocity.Y + 0
+        else
+            self.Velocity.Y = self.Velocity.Y + self.DiveGravity
+        end
+        
+    elseif self.HangStatus > 0 and self.Velocity.Y >= 0 then
         -- the player is owed hang time
 
         self.Velocity.Y = 0
@@ -1216,7 +1439,20 @@ function Player:UpdatePhysics()
             end
         else
             -- player is in the air
-            if self.TimeSincePounce > -1 then
+            
+            if self.FramesSinceDive > -1 then
+                -- dive velocity
+                if self.MoveDir == 0 then
+                    -- player is idle
+                    self:Decelerate(self.DiveIdleDeceleration)
+                elseif sign(self.Velocity.X) == self.MoveDir then
+                    -- player is moving "with" the direction of their momentum; don't slow down as much
+                    self:Decelerate(self.DiveForwardDeceleration)
+                else
+                    -- player is against the direction of momentum; normal deceleration
+                    self:Decelerate(self.DiveBackwardDeceleration)
+                end
+            elseif self.TimeSincePounce > -1 then
                 -- pounce velocity
                 if self.MoveDir == 0 then
                     -- player is idle
@@ -1364,6 +1600,8 @@ function Player:Update(engine_dt)
     -- set the proper animation state
     self:UpdateAnimation()
 
+    
+
     -- update frame values like FramesSinceJump and FramesSinceGrounded
     self:UpdateFrameValues()
 
@@ -1433,7 +1671,8 @@ function Player:Draw(tx, ty)
     local speed = self.Velocity:Magnitude()
 
     local shouldDrawTrail = (self.TimeSincePounce > -1 and self.FramesSinceDoubleJump == -1) or
-                            speed > 5
+                            speed > 5 or
+                            self.FramesSinceDive > -1
                             
 
     if shouldDrawTrail then
@@ -1460,6 +1699,10 @@ function Player:Draw(tx, ty)
             -- draw the tail
             local ofs_x, ofs_y = 0, 0
             if self.TimeSincePounce > -1 then
+                ofs_y = -3
+            end
+
+            if self.FramesSinceDive > -1 then
                 ofs_y = -3
             end
 

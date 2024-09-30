@@ -15,7 +15,7 @@ function love.load()
     local player = Player.new():Nest(scene:GetLayer("Gameplay"))
     -- scene:GetLayer("Gameplay"):SwapChildOrder(player, 1)
 
-    print(tostring(scene:GetLayer("Gameplay"):GetChildren(), true))
+    print(tostring(player, true))
 
     -- local scene = require"chexcore.scenes.example.doodle" -- path to the .lua file of the scene
 
