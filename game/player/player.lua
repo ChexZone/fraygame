@@ -24,6 +24,7 @@ local Player = {
     Gravity = 0.15,                     -- how many pixels the player falls per frame
     JumpGravity = 0.14,                 -- how many pixels the player falls per frame while in the upward arc of a jump
     AfterDoubleJumpGravity = 0.2,
+    ParryGravity = 0.125,
     TrailLength = 1,                    -- (range 0-1) how long the trail should be
     TrailColor = V{190/255, 140/255, 100/255, 0.7} + 0.3 ,       -- color of trail following player
     IsCrouchedHitbox = false,           -- whether the player's hitbox is in "crouched" state or not
@@ -51,8 +52,10 @@ local Player = {
     LungeBuffer = 0,                    -- measures above variable
     JumpPower = 3.7,                      -- the base initial upward momentum of a jump
     
-    DiveUsed = false,                   -- whether the player has used up their dive in the air
+    DiveExpired = false,                   -- whether the player has used up their dive in the air
 
+    ParryPower = 2.5,                   -- the initial upward momentum of a parry
+    LastParryFace = "none",             -- which wall side was last parried off of
     DoubleJumpFrameLength = 12,         -- how many frames a double jump takes
     DoubleJumpPower = 3,                -- the base initial upward momentum of a double jump
     DoubleJumpRequiredHeightFromGround = 5, -- number of pixels off the ground the player must be to be eligible to double jump
@@ -66,15 +69,18 @@ local Player = {
     ShimmyPower = 3,                   -- how much RollPower the player gets while crouching
     RollPower = 5,                    -- the player's X velocity on the first frame of a roll
     PouncePower = 5.5,                  -- the X velocity out of a sideways pounce
+    DiveCancelSpeedThreshold = 0,       -- how fast the player must be moving (X) to be eligible to dive cancel
     DiveWasLunge = false,               -- whether the last dive was a lunge or not (resets with dive state)
-    DivePower = 5.5,                    -- the X velocity out of an aerial dive
+    DivePower = 5.25,                    -- the X velocity out of an aerial dive
     DiveUpwardVelocity = -0.5,         -- the Y velocity out of an aerial dive
     WeakDiveUpwardVelocity = -0.5,         -- the Y velocity out of an aerial dive that's been weakened by a double jump
     WeakDiveHangTime = 5,               -- how many frames the y velocity of the player will stay the same after a weak divided
+    ParryDiveUpwardVelocity = -0.5,     -- the Y velocity out of a parry dive (an upward dive immediately after a parry, usually over an edge)
     DiveHangTime = 6,                   -- how many frames the y velocity of the palyer will stay the same after a normal dive
     DiveHangStatus = 0,             -- status of above variable
     LungeDownwardVelocity = 2,         -- the Y velocity out of a crouched aerial dive
     DiveGravity = 0.2,                  -- how much gravity the player has while diving
+    ParryDiveGravity = 0.2,             -- how much gravity the player has 
     DiveLandRollThreshold = 2.5,          -- how fast the player must be moving (X) when landing after a dive to automatically roll 
     PounceHeight = 2.2,                 -- the upward Y velocity out of a sideways pounce 
     RollLength = 14,                    -- how long the player must wait after a roll before rolling again (how many frames the roll animation lasts) 
@@ -83,6 +89,9 @@ local Player = {
     AirAccelerationSpeed = 0.08,        -- how much the player accelerates per frame in the air
     PounceAccelerationSpeed = 0.155,      -- how much the player accelerates per frame during a pounce
     DiveAccelerationSpeed = 0.025,
+    ParryDiveAccelerationSpeed = 0.025,
+    LastDiveWasParryDive = false,        -- was the last dive a parry dive?
+    FramesAfterParryCanParryDive = 12,   -- how many frames after a parry will a player's dives become eligible for 
     FramesAfterDiveCanCancel = 5,       -- how many frames after diving the player is allowed to cancel the dive
     FramesAfterLungeCanCancel = 30,    -- how many frames after lunging the player is allowed to cancel the lunge
     ForwardDeceleration = 0.2,          -- how much the player speed decreases while moving forward
@@ -94,6 +103,9 @@ local Player = {
     DiveBackwardDeceleration = 0.1,     -- how much the player decelerates while in a dive, against the movement direction
     DiveForwardDeceleration = 0.1,      -- how much the player decelerates while in a dive, moving in the same direction
     DiveIdleDeceleration = 0.1,          -- how much the player decelerates while idle in a dive    
+    ParryDiveBackwardDeceleration = 0.125,     -- how much the player decelerates while in a dive, against the movement direction
+    ParryDiveForwardDeceleration = 0.125,      -- how much the player decelerates while in a dive, moving in the same direction
+    ParryDiveIdleDeceleration = 0.125,          -- how much the player decelerates while idle in a dive    
     PounceForwardDeceleration = 0.25,   -- how much the player accelerates while in a pounce
     PounceIdleDeceleration = 0.16,   -- how mucgh the player decelerates while idle in a pounce
     PreviousFloorHeight = 0,      -- the last recorded height of the floor
@@ -130,6 +142,8 @@ local Player = {
     YHitbox = nil,                      -- the player's hitbox for ceilings/floors
 
     Floor = nil,                        -- the current Prop acting as the "floor"
+    Wall = nil,                         -- the current Prop acting as the "wall" the player is against
+    WallDirection = "none",             -- direction the player is leaning into the wall
     FloorPos = nil,                     -- the last recorded floor position (for deltas)
     FloorDelta = nil,                   -- the movement of the floor over the past frame (calculated near the start of the update cycle)
     FloorLeftEdge = nil,                -- last recorded left edge of the floor (not tilemaps)
@@ -141,7 +155,9 @@ local Player = {
     JustPressed = {},                   -- all inputs from the previous frame
     FramesSinceJump = -1,               -- will be -1 if the player is on the ground, or they fell off something without jumping
     FramesSinceDoubleJump = -1,         -- will be -1 if the player is grounded, or in the air and hasn't double jumped
+    FramesSinceParry = -1,              -- will be -1 if the player.. isn't parrying
     FramesSinceGrounded = -1,           -- will be -1 if the player is in the air
+    FramesSinceAgainstWall = -1,        -- will be -1 if the player is in the air
     FramesSinceRoll = -1,               -- will be -1 if the player is not in a roll state
     FramesSinceMoving = -1,             -- will be -1 if the player is currently idle
     FramesSinceIdle = -1,               -- will be -1 if the player is currently moving
@@ -361,6 +377,11 @@ function Player:DisconnectFromFloor()
     -- self.FloorDelta = nil
 end
 
+function Player:DisconnectFromWall()
+    self.Wall = nil
+    self.WallDirection = "none"
+end
+
 function Player:ConnectToFloor(floor)
     
     if not self.Floor then
@@ -378,6 +399,18 @@ function Player:ConnectToFloor(floor)
 
     self.Position.Y = math.floor(self.Position.Y)
     self.DistanceAlongFloor = (self.Position.X - self.FloorLeftEdge) + (self.FloorRightEdge - self.FloorLeftEdge)
+    -- self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Loop = true}
+end
+
+function Player:ConnectToWall(wall, direction)
+    
+    if not self.Wall then
+        -- just touched wall
+        self.FramesSinceAgainstWall = 0
+    end
+    self.Wall = wall
+    self.WallDirection = direction
+
     -- self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Loop = true}
 end
 
@@ -489,6 +522,8 @@ function Player:Unclip(forTesting)
             -- if pushY == 0 then self.Velocity.X = 0 end
             pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
             self:AlignHitboxes()
+
+            self:ConnectToWall(solid, face)
         end
         
     end
@@ -503,15 +538,20 @@ function Player:Unclip(forTesting)
         end
     end
 
+    local inParry = (self.FramesSinceParry > -1 and self.FramesSinceParry < 10) and self.FramesSinceDoubleJump == -1 and self.FramesSinceDive == -1
     if pushX == 0 and hitCeiling then
-        if self.TimeSincePounce > -1 and self.TimeSincePounce < 30 and self.MoveDir ~= 0 then
-            -- if pouncing and hitting a ceiling, knock the player back down to the floor (makes pounce chaining easier in corridors)
-            self.Velocity.Y = math.max(0, -self.Velocity.Y)
-            self.DiveBlock = self.DiveBlock + 10
-        else
-            self.Velocity.Y = math.max(0, self.Velocity.Y)
-        end
         
+        if inParry then
+            -- skip
+        else
+            if self.TimeSincePounce > -1 and self.TimeSincePounce < 30 and self.MoveDir ~= 0 then
+                -- if pouncing and hitting a ceiling, knock the player back down to the floor (makes pounce chaining easier in corridors)
+                self.Velocity.Y = math.max(0, -self.Velocity.Y)
+                self.DiveBlock = self.DiveBlock + 10
+            else
+                self.Velocity.Y = math.max(0, self.Velocity.Y)
+            end
+        end
     end
 
     return pushX, pushY
@@ -547,8 +587,20 @@ function Player:ValidateFloor()
     end
 
     self:AlignHitboxes()
+end
 
-    
+function Player:ValidateWall()
+    if self.Wall then
+        -- check if we've collided with the current floor or not
+        self:AlignHitboxes()
+        local dir = (self.WallDirection == "left" and -1 or 1)
+        self.XHitbox.Position.X = self.XHitbox.Position.X + dir
+        local hit = self.Wall:CollisionInfo(self.XHitbox)
+        if not hit then
+            self:DisconnectFromWall()
+        end
+    end
+    self:AlignHitboxes()
 end
 ---------------------------------------------------------------------------------
 
@@ -588,7 +640,7 @@ function Player:ProcessInput()
 
     local blockJump 
 
-    if not self.DiveUsed and  self.ActionBuffer > 0 and (not self.Floor and self.CoyoteBuffer == 0) and self.FramesSinceDive == -1 and (self.FramesSinceJump == -1 or self.FramesSinceJump > 4) and self.FramesSinceRoll == -1 and (self.TimeSincePounce == -1 or self.PounceAnimCancelled or self.FramesSinceDoubleJump > -1 or self.InputListener:IsDown("crouch")) then
+    if not self.DiveExpired and  self.ActionBuffer > 0 and (not self.Floor and self.CoyoteBuffer == 0) and self.FramesSinceDive == -1 and (self.FramesSinceJump == -1 or self.FramesSinceJump > 4) and self.FramesSinceRoll == -1 and (self.TimeSincePounce == -1 or self.PounceAnimCancelled or self.FramesSinceDoubleJump > -1 or self.InputListener:IsDown("crouch")) then
         -- dive
         self:Dive()
     elseif (self.ActionBuffer > 0 or self.LungeBuffer > 0) and (self.Floor or self.CoyoteBuffer > 0 or (self.FramesSinceJump > -1 and self.FramesSinceJump < self.RollWindowPastJump)) and ((self.CrouchTime > self.CrouchShimmyDelay and (self.FramesSinceRoll == -1 or self.FramesSinceRoll >= self.ShimmyLength)) or self.FramesSinceRoll == -1) then
@@ -606,7 +658,7 @@ function Player:ProcessInput()
             if (self.Floor or self.CoyoteBuffer > 0) then
                 self:Jump()
                 
-            elseif self.FramesSinceDoubleJump == -1 and (self.TimeSincePounce == -1 or self.TimeSincePounce > self.TimeAfterPounceCanDoubleJump)  then
+            elseif self.FramesSinceDoubleJump == -1 and (self.TimeSincePounce == -1 or self.TimeSincePounce > self.TimeAfterPounceCanDoubleJump) and (self.FramesSinceDive == -1 or math.abs(self.Velocity.X) >= self.DiveCancelSpeedThreshold)  then
                 self:DoubleJump()
             end
         end
@@ -637,7 +689,7 @@ function Player:ProcessInput()
         end
     elseif self.MoveDir ~= 0 then
         local accelSpeed = self.Floor and self.AccelerationSpeed or 
-                            (self.FramesSinceDive > -1 and self.DiveAccelerationSpeed) or
+                            (self.FramesSinceDive > -1 and (self.LastDiveWasParryDive and self.ParryDiveAccelerationSpeed or self.DiveAccelerationSpeed)) or
                             (self.TimeSincePounce > -1 and self.PounceAccelerationSpeed or self.AirAccelerationSpeed)
         self.Acceleration.X = self.MoveDir*accelSpeed
 
@@ -718,7 +770,6 @@ function Player:Jump()
 end
 
 function Player:DoubleJump()
-
     self:GrowHitbox()
 
     local pos = self.Position:Clone()
@@ -789,21 +840,60 @@ function Player:DoubleJump()
     self.FramesSinceDoubleJump = 0
 end
 
+function Player:Parry()
+    self:GrowHitbox()
+
+
+    if self.LastParryFace == self.WallDirection then
+        -- can't parry off the same wall twice!
+        self.FramesSinceDive = -1
+        self.FramesSinceDoubleJump = math.max(-1, self.FramesSinceDoubleJump)
+        return
+    end
+
+    self:GetChild("DoubleJumpDust"):Emit{Position = self:GetPoint(0.5,0.5), Rotation = math.random(0,3)*math.rad(90)}
+    
+    -- local parrySpeed = ((self.WallDirection == "right" and self.MoveDir == 1) or (self.WallDirection == "left" and self.MoveDir == -1)) and 1 -- player is moving towards wall
+    --     or self.MoveDir == 0 and 2.5    -- player is neutral
+    --     or 3.25     -- player is holding against dive direction
+    local parrySpeed = 3.25
+
+
+    self.Texture.Clock = 0
+    self.Velocity.Y = -self.ParryPower
+    self.Velocity.X = parrySpeed * (self.WallDirection == "right" and -1 or 1)
+
+    self:SetBodyOrientation(self.MoveDir)
+
+    self.FramesSinceDive = -1
+    self.FramesSinceDoubleJump = -1
+    self.DiveExpired = false
+    
+    self.LastParryFace = self.WallDirection
+    self.FramesSinceParry = 0
+end
 
 function Player:Dive()
-    -- if true then return false end
-    
-
-
-    
-
-    print("DIVE")
     
     self:ShrinkHitbox()
-
+    
     self.ActionBuffer = 0
     local faceDirection = self.MoveDir ~= 0 and self.MoveDir or sign(self.DrawScale.X)
-    local measuredVelocityY = (self.FramesSinceDoubleJump == -1 and  math.abs(self.Velocity.Y) > 2.35) and self.Velocity.Y/1.3 or 0
+    local measuredVelocityY = 0
+    local isParryDive = false
+
+    if (self.FramesSinceDoubleJump == -1 and  math.abs(self.Velocity.Y) > 2.35) then
+        measuredVelocityY = self.Velocity.Y/1.3
+    end
+
+    if self.FramesSinceParry > -1 and self.FramesSinceParry < self.FramesAfterParryCanParryDive and self.FramesSinceDoubleJump == -1 then
+        measuredVelocityY = -2.5
+        self.LastDiveWasParryDive = true
+        isParryDive = true
+    else
+        self.LastDiveWasParryDive = false
+    end
+    
     self.DrawScale.X = faceDirection
     self.Velocity.X = faceDirection * self.DivePower
     self.Velocity.Y = math.min(self.DiveUpwardVelocity, measuredVelocityY + self.DiveUpwardVelocity) --math.min(-3.5, self.Velocity.Y - 3.5)
@@ -815,6 +905,12 @@ function Player:Dive()
         self.DiveHangStatus = self.DiveHangTime
     end
 
+    if isParryDive then
+        self.DiveHangStatus = 0
+        self.Velocity.Y = math.min(self.ParryDiveUpwardVelocity, measuredVelocityY + self.ParryDiveUpwardVelocity)
+        self.Position.Y = self.Position.Y - 2 -- a  couple more pixels of height, just in case
+    end
+
     if self.InputListener:IsDown("crouch") then
         self.Velocity.Y = self.LungeDownwardVelocity
         self.LungeBuffer = self.RollTimeAfterLunge
@@ -823,6 +919,7 @@ function Player:Dive()
     else
         self.PounceParticlePower = self.PounceParticlePower + 2.25
         self.DiveWasLunge = false
+        self.Position.Y = self.Position.Y - 3
     end
 
     self:GetChild("DiveDust"):Emit{Position = self:GetPoint(0.5,0.65), Rotation = math.random(0,3)*math.rad(90)}
@@ -831,7 +928,7 @@ function Player:Dive()
     
     self.FramesSinceDive = 0
     self.FramesSinceDoubleJump = -1
-    self.DiveUsed = true
+    self.DiveExpired = true
 end
 
 function Player:Roll()
@@ -1182,6 +1279,8 @@ function Player:UpdateFrameValues()
         if self.FramesSinceGrounded > -1 then
             self.FramesSinceGrounded = self.FramesSinceGrounded + 1
         end
+        self.LastParryFace = "none"
+        self.FramesSinceParry = -1
     else -- no floor
         self.FramesSinceGrounded = -1
         if self.FramesSinceJump > -1 then
@@ -1190,6 +1289,15 @@ function Player:UpdateFrameValues()
         if self.FramesSinceDoubleJump > -1 then
             self.FramesSinceDoubleJump = self.FramesSinceDoubleJump + 1
         end
+        if self.FramesSinceParry > -1 then
+            self.FramesSinceParry = self.FramesSinceParry + 1
+        end
+    end
+
+    if self.Wall then
+        self.FramesSinceAgainstWall = self.FramesSinceAgainstWall + 1
+    else
+        self.FramesSinceAgainstWall = -1
     end
 
     if self.FramesSinceRoll > -1 then
@@ -1220,9 +1328,9 @@ function Player:UpdateFrameValues()
             self.FramesSinceDive = -1
             self.DiveWasLunge = false
         end
-    elseif self.Floor and self.DiveUsed then
+    elseif self.Floor and self.DiveExpired then
         -- reset dive stamina
-        self.DiveUsed = false
+        self.DiveExpired = false
     end
 
     if self.DiveBlock > 0 then
@@ -1319,18 +1427,25 @@ function Player:UpdatePhysics()
         end
     elseif self.IdleStreak > 0 then -- reset IdleStreak
         self.IdleStreak = 0
-    end
+    end 
 
     self.LastPosition = self.Position:Clone()
     
     -- gravity is dependent on the jump state of the character
-    if self.FramesSinceDive > -1 then
+    if self.FramesSinceParry > -1 and self.FramesSinceDoubleJump == -1 and self.FramesSinceDive == -1 then
+        self.Velocity.Y = self.Velocity.Y + self.ParryGravity
+    elseif self.FramesSinceDive > -1 then
         -- the player has low dive gravity
         if self.DiveHangStatus > 0 then
+            print(self.DiveHangStatus)
             -- getting initial airtime in the weak dive state
             self.Velocity.Y = self.Velocity.Y + 0
         else
-            self.Velocity.Y = self.Velocity.Y + self.DiveGravity
+            if self.LastDiveWasParryDive then
+                self.Velocity.Y = self.Velocity.Y + self.ParryDiveGravity
+            else
+                self.Velocity.Y = self.Velocity.Y + self.DiveGravity
+            end
         end
         
     elseif self.HangStatus > 0 and self.Velocity.Y >= 0 then
@@ -1422,7 +1537,10 @@ function Player:UpdatePhysics()
     elseif not self.Floor then
         self.Velocity.Y = self.Velocity.Y + self.Gravity
     end
-        
+      
+    
+
+
     local decelGoal = math.abs(self.MoveDir) > 0 and self.RunSpeed or 0
     local speedOver = math.abs(self.Velocity.X) - decelGoal
     if speedOver > 0 then
@@ -1445,16 +1563,32 @@ function Player:UpdatePhysics()
             
             if self.FramesSinceDive > -1 then
                 -- dive velocity
-                if self.MoveDir == 0 then
-                    -- player is idle
-                    self:Decelerate(self.DiveIdleDeceleration)
-                elseif sign(self.Velocity.X) == self.MoveDir then
-                    -- player is moving "with" the direction of their momentum; don't slow down as much
-                    self:Decelerate(self.DiveForwardDeceleration)
+                if self.LastDiveWasParryDive then
+                    -- parry dive
+                    if self.MoveDir == 0 then
+                        -- player is idle
+                        self:Decelerate(self.ParryDiveIdleDeceleration)
+                    elseif sign(self.Velocity.X) == self.MoveDir then
+                        -- player is moving "with" the direction of their momentum; don't slow down as much
+                        self:Decelerate(self.ParryDiveIdleDeceleration)
+                    else
+                        -- player is against the direction of momentum; normal deceleration
+                        self:Decelerate(self.ParryDiveIdleDeceleration)
+                    end
                 else
-                    -- player is against the direction of momentum; normal deceleration
-                    self:Decelerate(self.DiveBackwardDeceleration)
+                    -- regular dive
+                    if self.MoveDir == 0 then
+                        -- player is idle
+                        self:Decelerate(self.DiveIdleDeceleration)
+                    elseif sign(self.Velocity.X) == self.MoveDir then
+                        -- player is moving "with" the direction of their momentum; don't slow down as much
+                        self:Decelerate(self.DiveForwardDeceleration)
+                    else
+                        -- player is against the direction of momentum; normal deceleration
+                        self:Decelerate(self.DiveBackwardDeceleration)
+                    end
                 end
+                
             elseif self.TimeSincePounce > -1 then
                 -- pounce velocity
                 if self.MoveDir == 0 then
@@ -1486,6 +1620,15 @@ function Player:UpdatePhysics()
         if math.abs(self.Velocity.X) < decelGoal then
             -- speed was fully "capped" and should be set as such
             self.Velocity.X = decelGoal * sign(self.Velocity.X)
+        end
+    end
+
+
+
+    if self.FramesSinceDive > -1 then
+        -- check for parrying
+        if self.Wall then
+            self:Parry()
         end
     end
 
@@ -1599,11 +1742,16 @@ function Player:Update(engine_dt)
     
     -- confirm the floor remains the floor
     self:ValidateFloor()
+    -- , and the wall
+    self:ValidateWall()
+
 
     -- set the proper animation state
     self:UpdateAnimation()
 
     
+    
+
 
     -- update frame values like FramesSinceJump and FramesSinceGrounded
     self:UpdateFrameValues()
@@ -1692,7 +1840,7 @@ function Player:Draw(tx, ty)
 
     self.Canvas:Activate()
 
-        self.DiveExpiredGoalColor = self.DiveExpiredGoalColor:Lerp((self.DiveUsed and self.FramesSinceDive == -1) and self.DiveExpiredColor or Constant.COLOR.WHITE, 0.225)
+        self.DiveExpiredGoalColor = self.DiveExpiredGoalColor:Lerp((self.DiveExpired and self.FramesSinceDoubleJump > -1) and self.DiveExpiredColor or Constant.COLOR.WHITE, 0.1)
 
 
         love.graphics.clear()
