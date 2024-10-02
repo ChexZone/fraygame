@@ -4,7 +4,7 @@ local scene = GameScene.new{
         GameScene.Update(self, dt)
         self.Player = self:GetDescendant("Player")
         self.Camera.Position = self.Camera.Position:Lerp((self.Player:GetPoint(0.5,0.5)), 1000*dt)
-        self.Camera.Zoom = 1 --+ (math.sin(Chexcore._clock)+1)/2
+        self.Camera.Zoom = 2 --+ (math.sin(Chexcore._clock)+1)/2
     end
 }
 
@@ -384,7 +384,7 @@ local tm4 = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/player/anot
 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}})):Properties{
     Position = V{-750, -100},
-    Scale = 1,
+    Scale = 2,
     GoalColor = V{1,0,0},
     -- Update = function (self, dt)
     --     local cols = {
