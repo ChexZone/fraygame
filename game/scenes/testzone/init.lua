@@ -4,7 +4,7 @@ local scene = GameScene.new{
         GameScene.Update(self, dt)
         self.Player = self:GetDescendant("Player")
         self.Camera.Position = self.Camera.Position:Lerp((self.Player:GetPoint(0.5,0.5)), 1000*dt)
-        self.Camera.Zoom = 2 --+ (math.sin(Chexcore._clock)+1)/2
+        self.Camera.Zoom = 1 --+ (math.sin(Chexcore._clock)+1)/2
     end
 }
 
@@ -26,7 +26,7 @@ Draw = function (self)
 end}
 
 local buildingsTex = Texture.new("game/scenes/testzone2/CityBG.png")
-scene:AddLayer(Layer.new("Buildings", 320, 180)):AddProperties{ ZoomInfluence = 0, TranslationInfluence = 0.75,
+scene:AddLayer(Layer.new("Buildings", 320, 180)):AddProperties{ ZoomInfluence = 0, TranslationInfluence = 0.9,
 Draw = function (self)
     -- if true then return end
     self.Canvases[1]:Activate()
@@ -129,6 +129,7 @@ wheel:Adopt(Prop.new{
     Position = V{ 340, 220 } / 2,   -- V stands for Vector
     Size = V{ 20, 8 } * 2,
     AnchorPoint = V{ 0.5, 0.5 },
+    LockPlayerVelocity = true,
     Rotation = 0,
     Texture = Texture.new("chexcore/assets/images/test/semisolid.png"),
     Update = function (self, dt)
@@ -137,6 +138,8 @@ wheel:Adopt(Prop.new{
 })
 wheel:Adopt(Prop.new{
     Name = "Semi2",
+    LockPlayerVelocity = true,
+
     Solid = true, Visible = true,
     Position = V{ 340, 220 } / 2,   -- V stands for Vector
     Size = V{ 20, 8 } * 2,
@@ -149,6 +152,8 @@ wheel:Adopt(Prop.new{
 })
 wheel:Adopt(Prop.new{
     Name = "Semi3",
+    LockPlayerVelocity = true,
+
     Solid = true, Visible = true,
     Position = V{ 340, 220 } / 2,   -- V stands for Vector
     Size = V{ 20, 8 } * 2,
@@ -161,6 +166,8 @@ wheel:Adopt(Prop.new{
 })
 wheel:Adopt(Prop.new{
     Name = "Semi4",
+    LockPlayerVelocity = true,
+
     Solid = true, Visible = true,
     Position = V{ 340, 220 } / 2,   -- V stands for Vector
     Size = V{ 20, 8 } * 2,
@@ -316,6 +323,7 @@ local tilemap2 = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/tilema
 }})):AddProperties{
     Position = V{500,0},
     AnchorPoint = V{0,0},
+    LockPlayerVelocity = true,
     Scale = 1,
     Active = true,
     Update = function (self, dt)
@@ -384,28 +392,45 @@ local tm4 = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/player/anot
 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}})):Properties{
     Position = V{-750, -100},
-    Scale = 2,
+    Scale = 1,
+    LockPlayerVelocity = true,
     GoalColor = V{1,0,0},
-    -- Update = function (self, dt)
-    --     local cols = {
-    --         V{1,1,1,1},
-    --         V{0,1,1,1},
-    --         V{1,1,0,1},
-    --         V{1,0,0,1},
-    --         V{0,1,0,0.5},
-    --         V{1,0,1,0.5},
-    --         V{0,0,1,0.8},
-    --         V{0,0,0,1},
-    --         V{0.5,1,1,1},
-    --         V{1,1,1,0.2}
-    --     }
-
-    --     if math.random(1,math.floor(10000*dt)) < 10 then
-    --         self.GoalColor = cols[math.random(#cols)]
-    --     end
+    Update = function (self, dt)
+        self.Position = V{-750, -100} + V{math.sin(Chexcore._clock/2)*200, math.cos(Chexcore._clock/2)*200}
 
 
-    --     self.Color = self.Color:Lerp(self.GoalColor, 2*dt)
-    -- end
+    end
 }
+
+local tiled_export = require"game.scenes.testzone.tilemap".layers[1].data
+local tm5 = mainLayer:Adopt(Tilemap.new("chexcore/assets/images/test/player/another_tilemap.png", 16, 80, 80, {tiled_export})):Properties{
+    Position = V{0, 0},
+    Scale = 1,
+    GoalColor = V{1,0,0},
+    AnchorPoint = V{0, 1},
+    LockPlayerVelocity = true,
+    Update = function (self, dt)
+        local cols = {
+            V{1,1,1,1},
+            V{0,1,1,1},
+            V{1,1,0,1},
+            V{1,0,0,1},
+            V{0,1,0,0.5},
+            V{1,0,1,0.5},
+            V{0,0,1,0.8},
+            V{0,0,0,1},
+            V{0.5,1,1,1},
+            V{1,1,1,0.2}
+        }
+
+        if math.random(1,math.floor(10000*dt)) < 10 then
+            self.GoalColor = cols[math.random(#cols)]
+        end
+
+
+        self.Color = self.Color:Lerp(self.GoalColor, 2*dt)
+        self.Position = V{math.sin(Chexcore._clock)*50, 0}
+    end
+}
+
 return scene
