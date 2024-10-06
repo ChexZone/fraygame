@@ -53,10 +53,12 @@ function Layer:Draw(tx, ty)
     
     -- love.graphics.setColor(1,1,1,1)
     -- love.graphics.rectangle("fill", 0, 0, 1920,1080)
-
     if self.Static then
         tx, ty = 0, 0
-    else
+    elseif type(self.TranslationInfluence) == "table" then
+        tx = tx * self.TranslationInfluence[1] - self.Canvases[1]:GetWidth()/2
+        ty = ty * self.TranslationInfluence[2] - self.Canvases[1]:GetHeight()/2
+    else 
         tx = tx * self.TranslationInfluence - self.Canvases[1]:GetWidth()/2
         ty = ty * self.TranslationInfluence - self.Canvases[1]:GetHeight()/2
     end

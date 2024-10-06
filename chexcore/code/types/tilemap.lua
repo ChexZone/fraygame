@@ -5,6 +5,10 @@ local Tilemap = {
     Tiles = {},
     Layers = {{{}}},
     TileSize = 8,
+    LayerParallax = {}, 
+    LayerOffset = {},
+    LayerColors = {},
+    CollisionLayers = {},
     Solid = true,
 
     Scale = 1,
@@ -14,8 +18,19 @@ local Tilemap = {
     _drawChunks = {},
     _chunkSize = 32,
     _super = "Prop",      -- Supertype
+    _cache = setmetatable({}, {__mode = "k"}), -- cache has weak keys
     _global = true
 }
+
+Tilemap._globalUpdate = function (dt)
+    for tilemap, _ in pairs(Tilemap._cache) do
+        if tilemap:HasChildren() then
+            for child in tilemap:EachChild("_followingTilemap", true) do
+                child.Position = tilemap.Position + (tilemap._dimensions * tilemap.TileSize) * child._tilemapOriginPoint
+            end
+        end
+    end
+end
 
 --[[
     ex. usage
@@ -28,10 +43,15 @@ function Tilemap.new(atlasPath, tileSize, width, height, layers)
     
     newTilemap.Atlas = Texture.new(atlasPath)
     newTilemap.Tiles = {}
+    newTilemap.LayerParallax = {}
+    newTilemap.LayerOffset = {}
+    newTilemap.CollisionLayers = {}
     newTilemap.TileSize = tileSize
 
     newTilemap.Size[1] = width; newTilemap.Size[2] = height
 
+    newTilemap._dimensions = V{width, height}
+    
     if not layers then
         -- generate tiles
         newTilemap.Layers = {{}}
@@ -43,6 +63,10 @@ function Tilemap.new(atlasPath, tileSize, width, height, layers)
         end
     else
         newTilemap.Layers = layers
+    end
+
+    for i, _ in pairs(newTilemap.Layers) do
+        newTilemap.CollisionLayers[i] = true
     end
 
     local rows, cols = newTilemap.Atlas:GetHeight()/tileSize, newTilemap.Atlas:GetWidth()/tileSize
@@ -57,17 +81,11 @@ function Tilemap.new(atlasPath, tileSize, width, height, layers)
     -- set up canvases for segmented drawing
     newTilemap._drawChunks = {}
     newTilemap._numChunks = V{math.ceil(width/newTilemap._chunkSize), math.ceil(height/newTilemap._chunkSize)}
-    for col = 1, newTilemap._numChunks.X do
-        for row = 1, newTilemap._numChunks.Y do
-            newTilemap._drawChunks[#newTilemap._drawChunks+1] = Canvas.new(
-                                                                    newTilemap._chunkSize * tileSize,
-                                                                    newTilemap._chunkSize * tileSize
-                                                                )
-        end
-    end
 
-    newTilemap:DrawChunks()
+    newTilemap:GenerateChunks()
 
+    
+    Tilemap._cache[newTilemap] = true
     return newTilemap
 end
 
@@ -75,34 +93,54 @@ function Tilemap:GetMap(n)
     return n and self.Layers[n] or self.Layers[1]
 end
 
-function Tilemap:DrawChunks()
+function Tilemap:DrawChunks(layer)
     for row = 1, self._numChunks[2] do
         for col = 1, self._numChunks[1] do
-            self:DrawChunk(col, row)
+            if layer then self:DrawChunk(layer, col, row) else self:DrawChunk(col, row) end
         end
     end
 end
 
-function Tilemap:DrawChunk(x, y)
-    local currentChunk = self._drawChunks[x + (y-1)*self._numChunks[1]]
-    currentChunk:Activate()
-    love.graphics.clear()
-    love.graphics.setColor(1,1,1,1)
-    -- render this chunk's allotted tiles
-    local yOfs = (y-1) * self._chunkSize + 1
-    local xOfs = (x-1) * self._chunkSize + 1
+function Tilemap:DrawChunk(layer, x, y)
+    x, y, layer = y and x or layer, y or x, y and layer or nil
+    for layerID = layer or 1, layer or #self.Layers do
+        local currentChunk = self._drawChunks[layerID][x + (y-1)*self._numChunks[1]]
+        currentChunk:Activate()
+        love.graphics.clear()
+        love.graphics.setColor(1,1,1,1)
+        -- render this chunk's allotted tiles
+        local yOfs = (y-1) * self._chunkSize + 1
+        local xOfs = (x-1) * self._chunkSize + 1
 
-    for y = yOfs, math.min(yOfs + self._chunkSize - 1, self.Size[2]) do
-        for x = xOfs, math.min(xOfs + self._chunkSize - 1, self.Size[1]) do
-            local tile = self:GetTile(x, y)
-            --print(x,y, tile)
-            if tile and tile > 0 then
-                cdrawquad(self.Atlas._drawable, self.Tiles[tile], self.TileSize, self.TileSize, (x-xOfs)*self.TileSize, (y-yOfs)*self.TileSize, 0, self.TileSize, self.TileSize)
+        
+        for ty = yOfs, math.min(yOfs + self._chunkSize - 1, self.Size[2]) do
+            for tx = xOfs, math.min(xOfs + self._chunkSize - 1, self.Size[1]) do
+                local tile = self:GetTile(layerID, tx, ty)
+                --print(x,y, tile)
+                if tile and tile > 0 then
+                    cdrawquad(self.Atlas._drawable, self.Tiles[tile], self.TileSize, self.TileSize, (tx-xOfs)*self.TileSize, (ty-yOfs)*self.TileSize, 0, self.TileSize, self.TileSize)
+                end
+            end
+        end
+
+        currentChunk:Deactivate()
+    end
+end
+
+function Tilemap:GenerateChunks()
+    for layerID = 1, #self.Layers do
+        self._drawChunks[layerID] = {}
+        for col = 1, self._numChunks.X do
+            for row = 1, self._numChunks.Y do
+                self._drawChunks[layerID][#self._drawChunks[layerID]+1] = Canvas.new(
+                    self._chunkSize * self.TileSize,
+                    self._chunkSize * self.TileSize
+                                                                    )
             end
         end
     end
 
-    currentChunk:Deactivate()
+    self:DrawChunks()
 end
 
 function Tilemap:GetTile(layer, x, y)
@@ -127,7 +165,11 @@ end
 
 local floor = math.floor
 function Tilemap:Draw(tx, ty)
-    love.graphics.setColor(self.Color)
+    if self.DrawOverChildren and self:HasChildren() then
+        
+        self:DrawChildren(tx, ty)
+    end
+
     local sx = self._chunkSize * self.TileSize * self.Scale
     local sy = self._chunkSize * self.TileSize * self.Scale
 
@@ -135,18 +177,35 @@ function Tilemap:Draw(tx, ty)
                    self.Size[2]*self.TileSize*self.AnchorPoint[2]*self.Scale
 
     
+    local camTilemapDist = self:GetLayer():GetParent().Camera.Position - self:GetPoint(0,0)
+    for layerID = 1, #self.Layers do
+        love.graphics.setColor(self.Color * (self.LayerColors[layerID] or Constant.COLOR.WHITE))
+        local parallaxX = self.LayerParallax[layerID] and self.LayerParallax[layerID][1] or 1
+        local parallaxY = self.LayerParallax[layerID] and self.LayerParallax[layerID][2] or 1
 
-    for row = 1, self._numChunks[2] do
-        for col = 1, self._numChunks[1] do
-            --print(row, col)
-            local currentChunk = self._drawChunks[col + (row-1)*self._numChunks[1]]
-            currentChunk:DrawToScreen(
-                floor(self.Position[1] - tx + sx*(col-1) - ax),
-                floor(self.Position[2] - ty + sy*(row-1) - ay),
-                self.Rotation,-- + Chexcore._clock,
-                sx, sy
-            )
+        local offsetX = self.LayerOffset[layerID] and self.LayerOffset[layerID][1] or 0
+        local offsetY = self.LayerOffset[layerID] and self.LayerOffset[layerID][2] or 0
+
+
+        -- print(self, layerID)
+        for row = 1, self._numChunks[2] do
+            for col = 1, self._numChunks[1] do
+                --print(row, col)
+                local currentChunk = self._drawChunks[layerID][col + (row-1)*self._numChunks[1]]
+                local px = self.Position[1] - tx + sx*(col-1) - ax + offsetX
+                local py = self.Position[2] - ty + sy*(row-1) - ay + offsetY
+                currentChunk:DrawToScreen(
+                    floor(px)+ (camTilemapDist.X) * (1 - parallaxX),
+                    floor(py)+ (camTilemapDist.Y) * (1 - parallaxY),
+                    self.Rotation,-- + Chexcore._clock,
+                    sx, sy
+                )
+            end
         end
+    end
+
+    if not self.DrawOverChildren and self:HasChildren() then
+        self:DrawChildren(tx, ty)
     end
 end
 
@@ -224,54 +283,126 @@ function Tilemap:CollisionInfo(other, preference)
     if not success then
         return false
     else
-        local sWidth = sRightEdge - sLeftEdge
-        local sHeight = sBottomEdge - sTopEdge
-        local diffX = oLeftEdge - sLeftEdge
-        local diffY = oTopEdge - sTopEdge
-        local progX, progY = diffX/sWidth, diffY/sHeight
-        
-        local xStart = math.max(math.ceil(progX * self.Size[1]),1)
-        local yStart = math.max(math.ceil(progY * self.Size[2]),1)
-        
-        diffX = oRightEdge - sLeftEdge
-        diffY = oBottomEdge - sTopEdge
-        progX, progY = math.min(diffX/sWidth, 1), math.min(diffY/sHeight, 1)
-
-        local xEnd = math.ceil(progX * self.Size[1]) 
-        local yEnd = math.ceil(progY * self.Size[2])
-
-        local realTileX = tilemapSize[1]/self.Size[1]
-        local realTileY = tilemapSize[2]/self.Size[2]
-        
-        local boxLeft, boxRight, boxTop, boxBottom, tileID
-
-        local storeHit, storeHDist, storeVDist
-
         local hitInfo = {}
+        local camTilemapDist = self:GetLayer():GetParent().Camera.Position - self:GetPoint(0,0)
+        for layerID, _ in ipairs(self.Layers) do   if self.CollisionLayers[layerID] then
+            local parallaxX = self.LayerParallax[layerID] and self.LayerParallax[layerID][1] or 1
+            local parallaxY = self.LayerParallax[layerID] and self.LayerParallax[layerID][2] or 1
+    
+            local offsetX = self.LayerOffset[layerID] and self.LayerOffset[layerID][1] or 0
+            local offsetY = self.LayerOffset[layerID] and self.LayerOffset[layerID][2] or 0
+            local realLeftEdge = sLeftEdge + (camTilemapDist.X) * (1 - parallaxX) + offsetX
+            local realTopEdge = sTopEdge + (camTilemapDist.Y) * (1 - parallaxY) + offsetY
 
-        for x = xStart, xEnd do
-            for y = yStart, yEnd do
+            local sWidth = sRightEdge - sLeftEdge
+            local sHeight = sBottomEdge - sTopEdge
+            local diffX = oLeftEdge - realLeftEdge
+            local diffY = oTopEdge - realTopEdge
+            local progX, progY = diffX/sWidth, diffY/sHeight
+            
+            local xStart = math.max(math.ceil(progX * self.Size[1]),1)
+            local yStart = math.max(math.ceil(progY * self.Size[2]),1)
+            
+            diffX = oRightEdge - realLeftEdge
+            diffY = oBottomEdge - realTopEdge
+            progX, progY = math.min(diffX/sWidth, 1), math.min(diffY/sHeight, 1)
+
+            local xEnd = math.ceil(progX * self.Size[1]) 
+            local yEnd = math.ceil(progY * self.Size[2])
+
+            local realTileX = tilemapSize[1]/self.Size[1]
+            local realTileY = tilemapSize[2]/self.Size[2]
+            
+            local boxLeft, boxRight, boxTop, boxBottom, tileID
+
+            local storeHit, storeHDist, storeVDist
+
                 
-                tileID = self:GetTile(x, y)
-                if tileID and tileID > 0 then
-                    boxLeft = sLeftEdge + realTileX * (x-1)
-                    boxRight = sLeftEdge + realTileX * (x)
-                    boxTop = sTopEdge + realTileY * (y-1)
-                    boxBottom = sTopEdge + realTileY * (y)
+                for x = xStart, xEnd do 
+                    for y = yStart, yEnd do
+                        
+                        tileID = self:GetTile(layerID, x, y)
+                        if tileID and tileID > 0 then
+                            boxLeft = realLeftEdge + realTileX * (x-1)
+                            boxRight = realLeftEdge + realTileX * (x)
+                            boxTop = realTopEdge + realTileY * (y-1)
+                            boxBottom = realTopEdge + realTileY * (y)
 
-                    local hit, hDist, vDist = boxCollide(boxLeft,boxRight,boxTop,boxBottom,oLeftEdge,oRightEdge,oTopEdge,oBottomEdge)
+                            local hit, hDist, vDist = boxCollide(boxLeft,boxRight,boxTop,boxBottom,oLeftEdge,oRightEdge,oTopEdge,oBottomEdge)
 
 
-                    if hit then
-                        hitInfo[#hitInfo+1] = {hDist, vDist, tileID}
+                            if hit then
+                                hitInfo[#hitInfo+1] = {hDist, vDist, tileID}
+                            end
+                        end
                     end
                 end
-            end
-        end
+            end;  end
         if #hitInfo > 0 then
             return hitInfo
         end
     end
 end
 
+
+function Tilemap.import(tiledPath, atlasPath, properties)
+    
+    tiledPath = tiledPath or "game.scenes.testzone.tilemap"
+    local tiled_export = require(tiledPath) --.layers[1].data
+
+    local rows = tiled_export.height
+    local cols = tiled_export.width
+
+    local tileSize = tiled_export.tilewidth
+    
+    
+    local newTilemap = Tilemap.new(atlasPath, tileSize, cols, rows)
+
+    if properties then newTilemap:Properties(properties) end
+
+    local n = 0
+    for i, layer in ipairs(tiled_export.layers) do
+        if layer.type == "tilelayer" then
+            n = n + 1
+            newTilemap.LayerParallax[n] = V{layer.parallaxx or 1, layer.parallaxy or 1}
+            newTilemap.LayerOffset[n] = V{layer.offsetx or 0, layer.offsety or 0}
+
+            if layer.properties then
+                newTilemap.CollisionLayers[n] = not layer.properties.background_layer
+            end
+
+            if layer.tintcolor then
+                newTilemap.LayerColors[n] = (V{layer.tintcolor[1], layer.tintcolor[2], layer.tintcolor[3]}/255):AddAxis(layer.opacity)
+            else
+                newTilemap.LayerColors[n] = V{1, 1, 1, layer.opacity}
+            end
+
+            newTilemap.Layers[n] = layer.data
+
+        elseif layer.objects then
+            for _, objData in ipairs(layer.objects) do
+                local class = objData.type
+                if Chexcore._types[class] then
+                    local newObj = newTilemap:Adopt(Chexcore._types[class].new():Properties{
+                        Position = V{objData.x, objData.y},
+                        Size = V{objData.width, objData.height}
+                    })
+
+                    newObj.Position.X = newObj.Position.X + newObj.Size.X * newObj.AnchorPoint.X
+                    newObj.Position.Y = newObj.Position.Y - newObj.Size.Y * newObj.AnchorPoint.Y
+
+                    if objData.properties and objData.properties.Track then
+                        newObj._followingTilemap = true
+                        newObj._tilemapOriginPoint = V{newObj.Position.X/(newTilemap.TileSize*newTilemap._dimensions[1]), newObj.Position.Y/(newTilemap.TileSize*newTilemap._dimensions[2])}
+                    end
+                end
+            end
+        end
+    end
+    newTilemap:GenerateChunks()
+
+    
+
+    return newTilemap
+end
 return Tilemap

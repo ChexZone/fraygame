@@ -21,7 +21,7 @@ local Player = {
 
     MaxSpeed = V{8, 6},                 -- the absolute velocity caps (+/-) of the player
     RunSpeed = 1.5,                     -- how fast the player runs by default
-    DiveSpeed = 2,                      -- minimum speed during a dive
+    DiveSpeed = 3,                      -- minimum speed during a dive
     Gravity = 0.15,                     -- how many pixels the player falls per frame
     JumpGravity = 0.14,                 -- how many pixels the player falls per frame while in the upward arc of a jump
     AfterDoubleJumpGravity = 0.2,
@@ -58,7 +58,7 @@ local Player = {
     
     DiveExpired = false,                   -- whether the player has used up their dive in the air
 
-    ParryPower = 2.5,                   -- the initial upward momentum of a parry
+    ParryPower = 2.65,                   -- the initial upward momentum of a parry
     WallBumpHeight = 0.5,               -- tiny wall height bump
     LastParryFace = "none",             -- which wall side was last parried off of
     DoubleJumpFrameLength = 12,         -- how many frames a double jump takes
@@ -90,6 +90,7 @@ local Player = {
     ParryDiveGravity = 0.2,             -- how much gravity the player has 
     DiveLandRollThreshold = 1.8,          -- how fast the player must be moving (X) when landing after a dive to automatically roll 
     PounceHeight = 2.2,                 -- the upward Y velocity out of a sideways pounce 
+    RolledOutOfDive = false,            -- set to true when rolling out of a dive
     RollLength = 14,                    -- how long the player must wait after a roll before rolling again (how many frames the roll animation lasts) 
     ShimmyLength = 5,                   -- how long the player must wait after a shimmy before shimmying again
     AccelerationSpeed = 0.12,            -- how much the player accelerates per frame to the goal speed
@@ -113,7 +114,7 @@ local Player = {
     ParryDiveBackwardDeceleration = 0.125,     -- how much the player decelerates while in a dive, against the movement direction
     ParryDiveForwardDeceleration = 0.125,      -- how much the player decelerates while in a dive, moving in the same direction
     ParryDiveIdleDeceleration = 0.125,          -- how much the player decelerates while idle in a dive    
-    PounceForwardDeceleration = 0.25,   -- how much the player accelerates while in a pounce
+    PounceForwardDeceleration = 0.22,   -- how much the player accelerates while in a pounce
     PounceIdleDeceleration = 0.16,   -- how mucgh the player decelerates while idle in a pounce
     PreviousFloorHeight = 0,      -- the last recorded height of the floor
     PounceBackwardDeceleration = 0.25, -- how much the player decelerates while moving backwards in a pounce
@@ -244,7 +245,7 @@ function Player.new()
         Color = V{0,0,0,0},
         ParticleColor = newPlayer.TrailColor,
         Update = function (self, dt)
-            self.Position = self:GetParent().Position
+            self.Position = self:GetParent().Positions
             -- print(self:ToString(true))
             -- if math.random(1, 100) == 1 then
             --     self:Emit{
@@ -502,7 +503,8 @@ function Player:Unclip(forTesting)
     if justLanded and self.FramesSinceDive > -1 and math.abs(self.Velocity.X) > self.DiveLandRollThreshold and self.MoveDir == sign(self.Velocity.X) then
         self.PreviousFloorHeight = self.Position.Y
         self:Roll()
-        self.FramesSinceDive = -1
+        self.RolledOutOfDive = true
+        mesSinceDive = -1
     end
 
     if not forTesting then
@@ -874,7 +876,6 @@ function Player:Parry()
     -- - your parry direction is the opposite wall (ex. "left" to "right") OR
     -- - the current X position of the wall you're parrying off is different from the last X position OR
     -- - the wall is a different Prop
-    
     local allowedToParry = self.LastParryFace ~= self.WallBumpDirection
                         or math.abs(self.Position.X - self.LastParryPos.X + (self.LastParryWallPos.X - self.Wall.Position.X)) > 5
                         or self.Wall ~= self.LastParryWall
@@ -892,7 +893,7 @@ function Player:Parry()
     -- local parrySpeed = ((self.WallDirection == "right" and self.MoveDir == 1) or (self.WallDirection == "left" and self.MoveDir == -1)) and 1 -- player is moving towards wall
     --     or self.MoveDir == 0 and 2.5    -- player is neutral
     --     or 3.25     -- player is holding against dive direction
-    local parrySpeed = 3.25
+    local parrySpeed = 3.125
     local wallDir = (self.WallBumpDirection == "right" and -1 or 1)
 
     self.Texture.Clock = 0
@@ -981,7 +982,7 @@ function Player:Dive()
     if isParryDive then
         self.DiveHangStatus = 0
         self.Velocity.Y = math.min(self.ParryDiveUpwardVelocity, measuredVelocityY + self.ParryDiveUpwardVelocity)
-        self.Position.Y = self.Position.Y - 2 -- a  couple more pixels of height, just in case
+        self.Position.Y = self.Position.Y - 1 -- a  couple more pixels of height, just in case
     end
 
     if self.InputListener:IsDown("crouch") then
@@ -1256,9 +1257,7 @@ function Player:UpdateAnimation()
 
     if self.ParryStatus > 0 then
         self.Texture:AddProperties{LeftBound = 21, RightBound = 24, Duration = 0.2, PlaybackScaling = 1, Loop = false}
-        print(self.Texture.Clock, self.Texture.Duration, self.Texture.IsPlaying)
         if not self.Texture.IsPlaying then
-            print("rrrgh")
             self.ShouldRestartJumpAnim = true
             self.ParryStatus = 0
         end
@@ -1369,6 +1368,7 @@ function Player:UpdateFrameValues()
         self.AerialMovementLockedToFloorPos = false
         self.FramesSinceDoubleJump = -1
         self.FramesSinceJump = -1
+        self.DiveExpired = false
         if self.FramesSinceGrounded > -1 then
             self.FramesSinceGrounded = self.FramesSinceGrounded + 1
         end
@@ -1400,7 +1400,7 @@ function Player:UpdateFrameValues()
         end
         if self.FramesSinceRoll > self.RollLength then
             self.FramesSinceRoll = -1
-            
+            self.RolledOutOfDive = false
             
             if self.CrouchTime == 0 then
                 if self.TimeSincePounce == -1 then self.Texture.Clock = 0 end
@@ -1424,9 +1424,6 @@ function Player:UpdateFrameValues()
             self.FramesSinceDive = -1
             self.DiveWasLunge = false
         end
-    elseif self.Floor and self.DiveExpired then
-        -- reset dive stamina
-        self.DiveExpired = false
     end
 
     if self.DiveBlock > 0 then
@@ -1634,6 +1631,12 @@ function Player:UpdatePhysics()
     end
       
     
+    if self.RolledOutOfDive and self.Floor and self.MoveDir == -sign(self.Velocity.X) then
+        -- players are allowed to cancel rolls that come from dives by inputting the other direction
+        self.FramesSinceRoll = self.RollLength + 1
+        self.Velocity.X = 0
+    end
+
 
 
     local horizSpeed = self.FramesSinceDive > -1 and self.DiveSpeed or self.RunSpeed
@@ -1960,7 +1963,7 @@ function Player:Draw(tx, ty)
         local sx = self.Size[1] * (self.DrawScale[1]-1)
         local sy = self.Size[2] * (self.DrawScale[2]-1)
 
-        local shouldDrawTail = (self.CrouchTime == 0) and
+        local shouldDrawTail = (self.CrouchTime == 0 or not self.Floor) and
                                (self.ParryStatus == 0)
 
         -- if not (self.Floor and self.Velocity.X == 0) then
