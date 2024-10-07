@@ -16,7 +16,7 @@ local Tilemap = {
     -- internal properties
     _numChunks = V{1, 1},
     _drawChunks = {},
-    _chunkSize = 32,
+    _chunkSize = 64, -- measured in tiles, not pixels
     _super = "Prop",      -- Supertype
     _cache = setmetatable({}, {__mode = "k"}), -- cache has weak keys
     _global = true
@@ -24,11 +24,17 @@ local Tilemap = {
 
 Tilemap._globalUpdate = function (dt)
     for tilemap, _ in pairs(Tilemap._cache) do
-        if tilemap:HasChildren() then
-            for child in tilemap:EachChild("_followingTilemap", true) do
-                child.Position = tilemap.Position + (tilemap._dimensions * tilemap.TileSize) * child._tilemapOriginPoint
+        if tilemap.Position ~= tilemap._trackingOldPos then
+            if tilemap:HasChildren() then
+                for child in tilemap:EachChild("TrackTilemap", true) do
+                    if not child._tilemapOriginPoint then
+                        child._tilemapOriginPoint = V{child.Position.X/(tilemap.TileSize*tilemap._dimensions[1]), child.Position.Y/(tilemap.TileSize*tilemap._dimensions[2])}
+                    end
+                    child.Position = tilemap.Position + (tilemap._dimensions * tilemap.TileSize) * child._tilemapOriginPoint
+                end
             end
         end
+        tilemap._trackingOldPos = tilemap.Position:Clone()
     end
 end
 
@@ -46,6 +52,7 @@ function Tilemap.new(atlasPath, tileSize, width, height, layers)
     newTilemap.LayerParallax = {}
     newTilemap.LayerOffset = {}
     newTilemap.CollisionLayers = {}
+    newTilemap.ForegroundLayers = {}
     newTilemap.TileSize = tileSize
 
     newTilemap.Size[1] = width; newTilemap.Size[2] = height
@@ -164,6 +171,70 @@ function Tilemap:SetTile(layer, x, y, val)
 end
 
 local floor = math.floor
+
+local function drawLayer(self, layerID, camTilemapDist, sx, sy, ax, ay, tx, ty)
+
+    local layer = self:GetLayer()
+    local camera = layer:GetParent().Camera
+    local cameraPos = camera.Position
+    local cameraSize = layer.Canvases[1]:GetSize() / camera.Zoom * layer.TranslationInfluence
+
+    love.graphics.setColor(self.Color * (self.LayerColors[layerID] or Constant.COLOR.WHITE))
+    local parallaxX = self.LayerParallax[layerID] and self.LayerParallax[layerID][1] or 1
+    local parallaxY = self.LayerParallax[layerID] and self.LayerParallax[layerID][2] or 1
+
+    local offsetX = self.LayerOffset[layerID] and self.LayerOffset[layerID][1] or 0
+    local offsetY = self.LayerOffset[layerID] and self.LayerOffset[layerID][2] or 0
+
+
+    -- print(self, layerID)
+    local leftChunkBound = 1
+    local rightChunkBound = self._numChunks[1]
+    local topChunkBound = 1
+    local bottomChunkBound = self._numChunks[2]
+
+    for row = 1, self._numChunks[2] do
+        -- py is the ON-SCREEN y position of the top-right corner of the chunk
+        local py = floor(self.Position[2] - ty + sy*(row-1) - ay + offsetY) + (camTilemapDist.Y) * (1 - parallaxY)
+
+        local pyCamDist = camera.Position.Y - py
+        
+        local skipRow = false
+        if py - cameraSize.Y/2 > cameraSize.Y/2 then -- this row is too low to be onscreen!!
+            break -- we can just do this lol
+        end
+        if (py+sy) - cameraSize.Y/2 < -cameraSize.Y/2 then -- this row is too low to be onscreen!!
+            skipRow = true
+        end
+
+        if not skipRow then
+            for col = 1, self._numChunks[1] do
+                -- px is the ON-SCREEN x position of the top-right corner of the chunk
+                local px = floor(self.Position[1] - tx + sx*(col-1) - ax + offsetX) + (camTilemapDist.X) * (1 - parallaxX)
+                
+                local skipCol = false
+                if px - cameraSize.X/2 > cameraSize.X/2 then -- this col is too low to be onscreen!!
+                    break -- we can just do this lol
+                end
+                if (px+sx) - cameraSize.X/2 < -cameraSize.X/2 then -- this row is too low to be onscreen!!
+                    skipCol = true
+                end
+                
+                if not skipCol then
+                    --print(row, col)
+                    local currentChunk = self._drawChunks[layerID][col + (row-1)*self._numChunks[1]]
+                    currentChunk:DrawToScreen(
+                        px,
+                        py,
+                        self.Rotation,-- + Chexcore._clock,
+                        sx, sy
+                    )
+                end
+            end
+        end
+    end 
+end
+
 function Tilemap:Draw(tx, ty)
     if self.DrawOverChildren and self:HasChildren() then
         
@@ -179,28 +250,10 @@ function Tilemap:Draw(tx, ty)
     
     local camTilemapDist = self:GetLayer():GetParent().Camera.Position - self:GetPoint(0,0)
     for layerID = 1, #self.Layers do
-        love.graphics.setColor(self.Color * (self.LayerColors[layerID] or Constant.COLOR.WHITE))
-        local parallaxX = self.LayerParallax[layerID] and self.LayerParallax[layerID][1] or 1
-        local parallaxY = self.LayerParallax[layerID] and self.LayerParallax[layerID][2] or 1
-
-        local offsetX = self.LayerOffset[layerID] and self.LayerOffset[layerID][1] or 0
-        local offsetY = self.LayerOffset[layerID] and self.LayerOffset[layerID][2] or 0
-
-
-        -- print(self, layerID)
-        for row = 1, self._numChunks[2] do
-            for col = 1, self._numChunks[1] do
-                --print(row, col)
-                local currentChunk = self._drawChunks[layerID][col + (row-1)*self._numChunks[1]]
-                local px = self.Position[1] - tx + sx*(col-1) - ax + offsetX
-                local py = self.Position[2] - ty + sy*(row-1) - ay + offsetY
-                currentChunk:DrawToScreen(
-                    floor(px)+ (camTilemapDist.X) * (1 - parallaxX),
-                    floor(py)+ (camTilemapDist.Y) * (1 - parallaxY),
-                    self.Rotation,-- + Chexcore._clock,
-                    sx, sy
-                )
-            end
+        if self.ForegroundLayers[layerID] then
+            self:GetLayer():DelayDrawCall(drawLayer, self, layerID, camTilemapDist, sx, sy, ax, ay, tx, ty)
+        else
+            drawLayer(self, layerID, camTilemapDist, sx, sy, ax, ay, tx, ty)
         end
     end
 
@@ -346,7 +399,6 @@ end
 
 
 function Tilemap.import(tiledPath, atlasPath, properties)
-    
     tiledPath = tiledPath or "game.scenes.testzone.tilemap"
     local tiled_export = require(tiledPath) --.layers[1].data
 
@@ -360,15 +412,18 @@ function Tilemap.import(tiledPath, atlasPath, properties)
 
     if properties then newTilemap:Properties(properties) end
 
+    local objectsIndex = {} -- stores each created object by its id
+    local connectionQueue = {} -- formatted {namespace, propertyName, objID}
     local n = 0
-    for i, layer in ipairs(tiled_export.layers) do
+    for tiledLayerID, layer in ipairs(tiled_export.layers) do
         if layer.type == "tilelayer" then
             n = n + 1
             newTilemap.LayerParallax[n] = V{layer.parallaxx or 1, layer.parallaxy or 1}
             newTilemap.LayerOffset[n] = V{layer.offsetx or 0, layer.offsety or 0}
 
             if layer.properties then
-                newTilemap.CollisionLayers[n] = not layer.properties.background_layer
+                newTilemap.CollisionLayers[n] = not layer.properties.IgnoreCollision
+                newTilemap.ForegroundLayers[n] = layer.properties.Foreground
             end
 
             if layer.tintcolor then
@@ -382,26 +437,80 @@ function Tilemap.import(tiledPath, atlasPath, properties)
         elseif layer.objects then
             for _, objData in ipairs(layer.objects) do
                 local class = objData.type
-                if Chexcore._types[class] then
+                if not Chexcore._types[class] then
+                    print("COULDN'T IMPORT TILEMAP OBJECT: No class '"..class.."'")
+                else
                     local newObj = newTilemap:Adopt(Chexcore._types[class].new():Properties{
                         Position = V{objData.x, objData.y},
-                        Size = V{objData.width, objData.height}
+                        Size = V{objData.width, objData.height},
+                        Name = objData.name
                     })
-
+                    
+                    -- correct for Tiled having (0, 1) AnchorPoint
                     newObj.Position.X = newObj.Position.X + newObj.Size.X * newObj.AnchorPoint.X
                     newObj.Position.Y = newObj.Position.Y - newObj.Size.Y * newObj.AnchorPoint.Y
 
-                    if objData.properties and objData.properties.Track then
-                        newObj._followingTilemap = true
+                    objectsIndex[objData.id] = newObj
+
+                    if objData.properties then
+                        local namespace = newObj
+                        for k, v in pairs(objData.properties) do
+
+                            if k:find("__") then
+                                -- creating a new object
+                                local out = k:split("__")
+                                local type, fields = out[1], out[2]:split("%.")
+
+                                local cSpace = namespace
+                                for i = 1, #fields-1 do
+                                    cSpace[fields[i]] = cSpace[fields[i]] or {}
+                                    cSpace = cSpace[fields[i]]
+                                end
+                                local typeMT = _G[type] or Chexcore._types[type]
+                                cSpace[fields[#fields]] = setmetatable(cSpace[fields[#fields]] or {}, typeMT)
+
+                                for k2, v2 in pairs(cSpace[fields[#fields]]) do
+                                    cSpace[fields[#fields]][k2] = nil
+                                    cSpace[fields[#fields]][k2] = v2
+                                end
+                            else
+                                -- filling a property
+                                local fields = k:split("%.")
+                                local cSpace = namespace
+                                for i = 1, #fields-1 do
+                                    cSpace[fields[i]] = cSpace[fields[i]] or {}
+                                    cSpace = cSpace[fields[i]]
+                                end
+                                
+                                if type(v) == "table" then
+                                    -- we'll set the references at the end
+                                    connectionQueue[#connectionQueue+1] = cSpace
+                                    connectionQueue[#connectionQueue+1] = fields[#fields]
+                                    connectionQueue[#connectionQueue+1] = v.id
+                                else
+                                    cSpace[fields[#fields]] = v
+                                end
+                                
+                                -- print(cSpace)
+                            end
+                            -- newObj[k] = v
+                        end
                         newObj._tilemapOriginPoint = V{newObj.Position.X/(newTilemap.TileSize*newTilemap._dimensions[1]), newObj.Position.Y/(newTilemap.TileSize*newTilemap._dimensions[2])}
                     end
                 end
             end
         end
     end
+
+    -- make those object references
+    for i = 1, #connectionQueue, 3 do
+        connectionQueue[i][connectionQueue[i+1]] = objectsIndex[connectionQueue[i+2]]
+        print(connectionQueue[i],connectionQueue[i+1],objectsIndex[connectionQueue[i+2]])
+    end
+
     newTilemap:GenerateChunks()
 
-    
+    print(newTilemap:GetChildren()[2]:ToString(true))
 
     return newTilemap
 end

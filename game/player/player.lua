@@ -441,8 +441,6 @@ function Player:AlignHitboxes()
 end
 
 function Player:FollowFloor()
-    
-
     if self.Floor then
         if self.FloorPos and self.FloorPos ~= self.Floor.Position then
             if not self.Floor:IsA("Tilemap") then
