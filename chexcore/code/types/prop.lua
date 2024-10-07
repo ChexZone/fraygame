@@ -303,8 +303,11 @@ function Prop:CollisionPass(container, deep, preference)
             end
         end
 
+        
         repeat
-            hit, hDir, vDir, ex = container[i]:CollisionInfo(self, preference)
+            if container[i].CollisionInfo then
+                hit, hDir, vDir, ex = container[i]:CollisionInfo(self, preference)
+            end
             i = i + 1
             
         until not container[i] or hit

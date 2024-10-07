@@ -24,7 +24,7 @@ end
 
 function CameraZone:OnTouchLeave(other)
     self:GetLayer():GetParent().Camera.Focus = other
-    self:GetLayer():GetParent().Camera.DampeningFactor = 30
+    self:GetLayer():GetParent().Camera.DampeningFactor = 60
 end
 
 return CameraZone

@@ -435,13 +435,14 @@ function Tilemap.import(tiledPath, atlasPath, properties)
             newTilemap.Layers[n] = layer.data
 
         elseif layer.objects then
+            local objLayerGroup = newTilemap:Adopt(Group.new{Solid = true})
             for _, objData in ipairs(layer.objects) do
                 local class = objData.type ~= "" and objData.type or "Prop"
                 
                 if not Chexcore._types[class] then
                     print("COULDN'T IMPORT TILEMAP OBJECT: No class '"..class.."'")
                 else
-                    local newObj = newTilemap:Adopt(Chexcore._types[class].new():Properties{
+                    local newObj = objLayerGroup:Adopt(Chexcore._types[class].new():Properties{
                         Position = V{objData.x, objData.y} * newTilemap.Scale,
                         Size = V{objData.width, objData.height} * newTilemap.Scale,
                         Name = objData.name
@@ -512,6 +513,8 @@ function Tilemap.import(tiledPath, atlasPath, properties)
         connectionQueue[i][connectionQueue[i+1]] = objectsIndex[connectionQueue[i+2]]
         print(connectionQueue[i],connectionQueue[i+1],objectsIndex[connectionQueue[i+2]])
     end
+
+    print(newTilemap)
 
     newTilemap:GenerateChunks()
 
