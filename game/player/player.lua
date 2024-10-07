@@ -24,6 +24,7 @@ local Player = {
     DiveSpeed = 3,                      -- minimum speed during a dive
     Gravity = 0.15,                     -- how many pixels the player falls per frame
     JumpGravity = 0.14,                 -- how many pixels the player falls per frame while in the upward arc of a jump
+    TouchEvents = {},                   -- used to ensure one touch event per object per frame
     AfterDoubleJumpGravity = 0.2,
     ParryGravity = 0.125,
     TrailLength = 1,                    -- (range 0-1) how long the trail should be
@@ -228,6 +229,7 @@ function Player.new()
     newPlayer.Size = Player.Size:Clone()
     newPlayer.Canvas = Canvas.new(Player.CanvasSize())
     newPlayer.TailPoints = {}
+    newPlayer.TouchEvents = {} 
 
     Particles.new{
         Name = "RollKickoffDust",
@@ -480,7 +482,7 @@ function Player:Unclip(forTesting)
         local face = Prop.GetHitFace(hDist,vDist)
         -- we check the "sign" of the direction to make sure the player is "moving into" the object before clipping back
         local faceSign = face == "bottom" and 1 or face == "top" and -1 or 0
-        if solid ~= self.YHitbox and (faceSign == sign(self.Velocity.Y +0.01) or face == "none") then
+        if solid ~= self.YHitbox and (faceSign == sign(self.Velocity.Y +0.01) or face == "none") and not solid.Passthrough then
             -- self.Velocity.Y = 0
             pushY = math.abs(pushY) > math.abs(vDist) and pushY or vDist
             if face == "bottom" then
@@ -493,6 +495,12 @@ function Player:Unclip(forTesting)
                 hitCeiling = true
             end
             self:AlignHitboxes()
+        end
+
+        if not self.TouchEvents[solid] and not solid:IsA("Tilemap") then
+            self.TouchEvents[solid] = true
+            if solid.OnTouchEnter then solid:OnTouchEnter(self) end
+            if solid.OnTouchStay then solid:OnTouchStay(self) end
         end
     end
 
@@ -528,7 +536,7 @@ function Player:Unclip(forTesting)
     local pushX = 0
     for solid, hDist, vDist, tileID in self.XHitbox:CollisionPass(self._parent, true) do
         local face = Prop.GetHitFace(hDist,vDist)
-        if solid ~= self.XHitbox and (face == "left" or face == "right") then
+        if solid ~= self.XHitbox and (face == "left" or face == "right") and not solid.Passthrough then
             -- if pushY == 0 then self.Velocity.X = 0 end
             pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
             self:AlignHitboxes()
@@ -1737,6 +1745,18 @@ function Player:UpdatePhysics()
     end
 
     
+    -- make sure touched objects are still being touched
+    for solid in pairs(self.TouchEvents) do
+        local hit, hDist, vDist = solid:CollisionInfo(self.YHitbox)
+        if hit then
+            if solid.OnTouchStay then solid:OnTouchStay(self, hDist, vDist) end
+        else
+            if solid.OnTouchLeave then solid:OnTouchLeave(self) end
+            self.TouchEvents[solid] = false
+        end
+    end
+    
+
 
     -- account for gravity
     local terminalVelocity = self.FramesSinceDive > -1 and self.TerminalDiveVelocity or self.TerminalVelocity
@@ -1789,6 +1809,9 @@ function Player:UpdatePhysics()
     if math.abs(posBeforeMove[1] - posAfterMove[1]) < 1 and pushedX then
         self.Velocity.X = 0
     end
+
+
+
     -- print("----------------------------", pushedX, math.abs(xBeforeMove - xAfterMove))
 
     -- special edge case for "falling" just off the corner of an object

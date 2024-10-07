@@ -16,7 +16,7 @@ local Tilemap = {
     -- internal properties
     _numChunks = V{1, 1},
     _drawChunks = {},
-    _chunkSize = 64, -- measured in tiles, not pixels
+    _chunkSize = 32, -- measured in tiles, not pixels
     _super = "Prop",      -- Supertype
     _cache = setmetatable({}, {__mode = "k"}), -- cache has weak keys
     _global = true
@@ -177,7 +177,7 @@ local function drawLayer(self, layerID, camTilemapDist, sx, sy, ax, ay, tx, ty)
     local layer = self:GetLayer()
     local camera = layer:GetParent().Camera
     local cameraPos = camera.Position
-    local cameraSize = layer.Canvases[1]:GetSize() / camera.Zoom * layer.TranslationInfluence
+    local cameraSize = (layer.Canvases[1]:GetSize() * layer.TranslationInfluence) * camera.Zoom
 
     love.graphics.setColor(self.Color * (self.LayerColors[layerID] or Constant.COLOR.WHITE))
     local parallaxX = self.LayerParallax[layerID] and self.LayerParallax[layerID][1] or 1
@@ -436,19 +436,24 @@ function Tilemap.import(tiledPath, atlasPath, properties)
 
         elseif layer.objects then
             for _, objData in ipairs(layer.objects) do
-                local class = objData.type
+                local class = objData.type ~= "" and objData.type or "Prop"
+                
                 if not Chexcore._types[class] then
                     print("COULDN'T IMPORT TILEMAP OBJECT: No class '"..class.."'")
                 else
                     local newObj = newTilemap:Adopt(Chexcore._types[class].new():Properties{
-                        Position = V{objData.x, objData.y},
-                        Size = V{objData.width, objData.height},
+                        Position = V{objData.x, objData.y} * newTilemap.Scale,
+                        Size = V{objData.width, objData.height} * newTilemap.Scale,
                         Name = objData.name
                     })
+
+                    if objData.shape == "point" then
+                        newObj.Size = V{0,0}
+                    end
                     
                     -- correct for Tiled having (0, 1) AnchorPoint
                     newObj.Position.X = newObj.Position.X + newObj.Size.X * newObj.AnchorPoint.X
-                    newObj.Position.Y = newObj.Position.Y - newObj.Size.Y * newObj.AnchorPoint.Y
+                    newObj.Position.Y = newObj.Position.Y + newObj.Size.Y * newObj.AnchorPoint.Y
 
                     objectsIndex[objData.id] = newObj
 
@@ -511,6 +516,9 @@ function Tilemap.import(tiledPath, atlasPath, properties)
     newTilemap:GenerateChunks()
 
     print(newTilemap:GetChildren()[2]:ToString(true))
+
+    tiled_export = nil
+    collectgarbage("collect")
 
     return newTilemap
 end

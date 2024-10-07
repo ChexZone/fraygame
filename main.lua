@@ -11,8 +11,10 @@ function love.load()
     
     Chexcore:AddType(require"game.player.player")
     Chexcore:AddType(require"game.player.gameScene")
+    Chexcore:AddType(require"game.player.gameCamera")
     local scene = require"game.scenes.demo.init"
     local player = Player.new():Nest(scene:GetLayer("Gameplay"))
+    scene.Camera.Focus = player
     -- scene:GetLayer("Gameplay"):SwapChildOrder(player, 1)
 
     -- print(tostring(player, true))
