@@ -6,6 +6,10 @@ local Font = {
     _realFont = nil,        -- love2d internal font
     _fontSize = 64,         -- internal font size
 
+    _paths = {
+        Chexfont = "chexcore/assets/fonts/chexfont_bold.ttf"
+    },
+
     _cache = setmetatable({}, {__mode = "v"}), -- cache has weak values
     _super = "Object",      -- Supertype
     _global = true

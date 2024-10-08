@@ -442,6 +442,7 @@ function Tilemap.import(tiledPath, atlasPath, properties)
                 if not Chexcore._types[class] then
                     print("COULDN'T IMPORT TILEMAP OBJECT: No class '"..class.."'")
                 else
+                    if objData.shape == "text" then class = "Text" end
                     local newObj = objLayerGroup:Adopt(Chexcore._types[class].new():Properties{
                         Position = V{objData.x, objData.y} * newTilemap.Scale,
                         Size = V{objData.width, objData.height} * newTilemap.Scale,
@@ -454,7 +455,13 @@ function Tilemap.import(tiledPath, atlasPath, properties)
                     
                     -- correct for Tiled having (0, 1) AnchorPoint
                     newObj.Position.X = newObj.Position.X + newObj.Size.X * newObj.AnchorPoint.X
-                    newObj.Position.Y = newObj.Position.Y + newObj.Size.Y * newObj.AnchorPoint.Y
+                    
+                    if objData.gid then
+                        
+                        newObj.Position.Y = newObj.Position.Y - newObj.Size.Y * newObj.AnchorPoint.Y
+                    else
+                        newObj.Position.Y = newObj.Position.Y + newObj.Size.Y * newObj.AnchorPoint.Y
+                    end
 
                     objectsIndex[objData.id] = newObj
 
@@ -487,7 +494,7 @@ function Tilemap.import(tiledPath, atlasPath, properties)
                                     cSpace[fields[i]] = cSpace[fields[i]] or {}
                                     cSpace = cSpace[fields[i]]
                                 end
-                                
+
                                 if type(v) == "table" then
                                     -- we'll set the references at the end
                                     connectionQueue[#connectionQueue+1] = cSpace
@@ -503,6 +510,17 @@ function Tilemap.import(tiledPath, atlasPath, properties)
                         end
                         newObj._tilemapOriginPoint = V{newObj.Position.X/(newTilemap.TileSize*newTilemap._dimensions[1]), newObj.Position.Y/(newTilemap.TileSize*newTilemap._dimensions[2])}
                     end
+
+                    if objData.shape == "text" then
+                        newObj.FontSize = objData.pixelsize or 16
+                        newObj.Text = objData.text
+                        newObj.TextColor = objData.color and V(objData.color)/255
+                        newObj.Font = (objData.properties and objData.properties.Font and Font.new(objData.properties.Font, objData.pixelsize or 16)) or Font._paths[objData.fontfamily] and Font.new(Font._paths[objData.fontfamily], objData.pixelsize or 16) or nil
+                        newObj.WordWrap = objData.wrap or false
+                        newObj.AlignMode = objData.halign or nil
+
+
+                    end
                 end
             end
         end
@@ -514,11 +532,10 @@ function Tilemap.import(tiledPath, atlasPath, properties)
         print(connectionQueue[i],connectionQueue[i+1],objectsIndex[connectionQueue[i+2]])
     end
 
-    print(newTilemap)
 
     newTilemap:GenerateChunks()
 
-    print(newTilemap:GetChildren()[2]:ToString(true))
+    
 
     tiled_export = nil
     collectgarbage("collect")

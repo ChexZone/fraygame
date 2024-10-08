@@ -2,6 +2,54 @@ local CameraZone = {
     Name = "CameraZone", _super = "Prop", _global = true
 }
 
+
+
+
+
+-- {
+--     id = 12,
+--     name = "",
+--     type = "Wheel",
+--     shape = "rectangle",
+--     x = 840.667,
+--     y = 1356.67,
+--     width = 128,
+--     height = 128,
+--     rotation = 0,
+--     gid = 257,
+--     visible = true,
+--     properties = {}
+--   },
+
+
+-- objects = {
+--     {
+--       id = 16,
+--       name = "TestZone",
+--       type = "CameraZone",
+--       shape = "rectangle",
+--       x = 151.75,
+--       y = -11.25,
+--       width = 291.25,
+--       height = 89.5,
+--       rotation = 0,
+--       visible = true,
+--       properties = {
+--         ["Focus"] = { id = 17 }
+--       }
+--     },
+
+
+
+
+
+
+
+
+
+
+
+
 function CameraZone.new()
     local cameraZone = Prop.new{
         Solid = true, Visible = true, Passthrough = true,
