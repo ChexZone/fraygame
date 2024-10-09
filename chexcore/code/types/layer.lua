@@ -69,9 +69,20 @@ function Layer:Draw(tx, ty)
     -- loop through each Visible child
     for child in self:EachChild() do
         if child.Visible then
-            child:Draw(tx, ty)
+            if child.DrawInForeground then
+                self:DelayDrawCall(child.Draw, tx, ty, true)
+                
+            else
+                child:Draw(tx, ty)
+            end
+            
         elseif child.DrawChildren then
-            child:DrawChildren(tx, ty)
+            -- i don't know if this will work
+            if child.DrawInForeground then
+                self:DelayDrawCall(child.DrawChildren, tx, ty)
+            else
+                child:DrawChildren(tx, ty)
+            end
         end
     end
 

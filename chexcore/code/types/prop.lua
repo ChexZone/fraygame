@@ -36,16 +36,28 @@ function Prop.new(properties)
 end
 
 
-function Prop:DrawChildren(tx, ty)
+function Prop:DrawChildren(tx, ty, isForeground)
     for _, child in ipairs(self._children) do
-        if child.Visible then child:Draw(tx, ty) end
+        if child.Visible then 
+            if not isForeground and child.DrawInForeground then
+                self:GetLayer():DelayDrawCall(child.Draw, child, tx, ty, true)
+            else
+                child:Draw(tx, ty) 
+            end
+        end
     end
 end
 
 local sin, cos, abs, max, sqrt, floor = math.sin, math.cos, math.abs, math.max, math.sqrt, math.floor
 local lg = love.graphics
-function Prop:Draw(tx, ty)
+function Prop:Draw(tx, ty, isForeground)
     
+    -- if self.DrawInForeground and not isForeground then
+    --     print(self)
+    --     self:GetLayer():DelayDrawCall(Prop.Draw, self, tx, ty, true)
+    --     return
+    -- end
+
     local oldshader
     if self.Shader then
         self.Shader:Activate()

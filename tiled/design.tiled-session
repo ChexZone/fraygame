@@ -6,6 +6,7 @@
     "activeFile": "",
     "expandedProjectPaths": [
     ],
+    "file.lastUsedOpenFilter": "All Files (*)",
     "fileStates": {
         "another_tilemap.tsx": {
             "dynamicWrapping": false
@@ -26,7 +27,7 @@
     "openFiles": [
     ],
     "project": "design.tiled-project",
-    "property.type": "string",
+    "property.type": "bool",
     "recentFiles": [
     ],
     "tileset.lastUsedFormat": "tsx",

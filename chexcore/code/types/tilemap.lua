@@ -14,30 +14,39 @@ local Tilemap = {
     Scale = 1,
 
     -- internal properties
+    _hasParallaxObjectLayers = false,   -- little optimization
     _numChunks = V{1, 1},
     _drawChunks = {},
-    _chunkSize = 32, -- measured in tiles, not pixels
+    _chunkSize = 64, -- measured in tiles, not pixels
     _super = "Prop",      -- Supertype
     _cache = setmetatable({}, {__mode = "k"}), -- cache has weak keys
     _global = true
 }
 
-Tilemap._globalUpdate = function (dt)
+Tilemap._priorityGlobalUpdate = function (dt)
     for tilemap, _ in pairs(Tilemap._cache) do
-        if tilemap.Position ~= tilemap._trackingOldPos then
+        if tilemap._hasParallaxObjectLayers or tilemap.Position ~= tilemap._trackingOldPos then
+            local camTilemapDist = tilemap:GetLayer():GetParent().Camera.Position - tilemap:GetPoint(0,0)
+            
             if tilemap:HasChildren() then
-                for child in tilemap:EachChild("TrackTilemap", true) do
-                    if not child._tilemapOriginPoint then
-                        child._tilemapOriginPoint = V{child.Position.X/(tilemap.TileSize*tilemap._dimensions[1]), child.Position.Y/(tilemap.TileSize*tilemap._dimensions[2])}
+                for group in tilemap:EachChild() do
+                    
+                    if group:HasChildren() and (group._parallax.X ~= 1 or group._parallax.X ~= 1) then
+                        
+                        for child in group:EachChild() do
+                            if not child._tilemapOriginPoint then
+                                child._tilemapOriginPoint = V{child.Position.X/(tilemap.TileSize*tilemap._dimensions[1]), child.Position.Y/(tilemap.TileSize*tilemap._dimensions[2])}
+                            end
+                            child.Position = tilemap.Position + (tilemap._dimensions * tilemap.TileSize) * child._tilemapOriginPoint + camTilemapDist * (-group._parallax+1)
+                        end
                     end
-                    child.Position = tilemap.Position + (tilemap._dimensions * tilemap.TileSize) * child._tilemapOriginPoint
+                    
                 end
             end
         end
         tilemap._trackingOldPos = tilemap.Position:Clone()
     end
 end
-
 --[[
     ex. usage
     local tilemap = Tilemap.new("atlasPath", 16, 128, 128) -- initializes a new 16px tile tilemap with 128x128 tiles
@@ -435,7 +444,17 @@ function Tilemap.import(tiledPath, atlasPath, properties)
             newTilemap.Layers[n] = layer.data
 
         elseif layer.objects then
-            local objLayerGroup = newTilemap:Adopt(Group.new{Solid = true})
+            local objLayerGroup = newTilemap:Adopt(Group.new{Solid = true, _parallax = V{layer.parallaxx or 1, layer.parallaxy or 1}})
+
+            if layer.parallaxx ~= 1 or layer.parallaxy ~= 1 then
+                newTilemap._hasParallaxObjectLayers = true
+            end
+
+            local isForegroundLayer
+            if layer.properties then
+                isForegroundLayer = layer.properties.Foreground
+            end
+
             for _, objData in ipairs(layer.objects) do
                 local class = objData.type ~= "" and objData.type or "Prop"
                 
@@ -446,7 +465,8 @@ function Tilemap.import(tiledPath, atlasPath, properties)
                     local newObj = objLayerGroup:Adopt(Chexcore._types[class].new():Properties{
                         Position = V{objData.x, objData.y} * newTilemap.Scale,
                         Size = V{objData.width, objData.height} * newTilemap.Scale,
-                        Name = objData.name
+                        Name = objData.name,
+                        DrawInForeground = isForegroundLayer
                     })
 
                     if objData.shape == "point" then
@@ -514,7 +534,7 @@ function Tilemap.import(tiledPath, atlasPath, properties)
                     if objData.shape == "text" then
                         newObj.FontSize = objData.pixelsize or 16
                         newObj.Text = objData.text
-                        newObj.TextColor = objData.color and V(objData.color)/255
+                        newObj.TextColor = objData.color and V(objData.color)/255 or Constant.COLOR.BLACK
                         newObj.Font = (objData.properties and objData.properties.Font and Font.new(objData.properties.Font, objData.pixelsize or 16)) or Font._paths[objData.fontfamily] and Font.new(Font._paths[objData.fontfamily], objData.pixelsize or 16) or nil
                         newObj.WordWrap = objData.wrap or false
                         newObj.AlignMode = objData.halign or nil
@@ -529,7 +549,6 @@ function Tilemap.import(tiledPath, atlasPath, properties)
     -- make those object references
     for i = 1, #connectionQueue, 3 do
         connectionQueue[i][connectionQueue[i+1]] = objectsIndex[connectionQueue[i+2]]
-        print(connectionQueue[i],connectionQueue[i+1],objectsIndex[connectionQueue[i+2]])
     end
 
 

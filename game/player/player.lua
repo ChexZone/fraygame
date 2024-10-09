@@ -1262,7 +1262,7 @@ function Player:UpdateAnimation()
 
 
     if self.ParryStatus > 0 then
-        self.Texture:AddProperties{LeftBound = 21, RightBound = 24, Duration = 0.2, PlaybackScaling = 1, Loop = false}
+        self.Texture:AddProperties{LeftBound = 21, RightBound = 24, Duration = 0.3, PlaybackScaling = 1, Loop = false}
         if not self.Texture.IsPlaying then
             self.ShouldRestartJumpAnim = true
             self.ParryStatus = 0

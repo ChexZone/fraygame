@@ -505,6 +505,8 @@ local AUTOFILLS = {
 
 
 function Particles:Emit(properties)
+    -- if true then return false end
+
     local newSlot
     if #self._vacantSlots == 0 then
         -- create new particle slot

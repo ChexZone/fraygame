@@ -15,7 +15,7 @@ local GameCamera = {
 function GameCamera._globalUpdate(dt)
     for camera in pairs(GameCamera._cache) do
         if camera.Focus then
-            camera.Position = camera.Position:Lerp(camera.Focus.Position, camera.DampeningFactor*dt)
+            camera.Position = camera.Position:Lerp(camera.Focus:GetPoint(.5,.5), camera.DampeningFactor*dt)
         end
     end
 end

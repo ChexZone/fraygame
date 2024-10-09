@@ -58,7 +58,8 @@ end
 local lg = love.graphics
 local floor = math.floor
 
-function Text:Draw(tx, ty)
+function Text:Draw(tx, ty, isForeground)
+
     if self.Shader then
         self.Shader:Activate()
     end
