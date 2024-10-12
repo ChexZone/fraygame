@@ -181,6 +181,20 @@ function Object:ToString(properties, typeLabels, displayMethods)
     return out
 end
 
+-- for inline definition stuff
+function Object:Set(...)
+    local key
+    for i, v in ipairs{...} do
+        if i % 2 == 1 then -- v is key
+            key = v
+        else -- set
+            self[key] = v
+        end
+    end
+    return self
+end
+
+
 --[[
     Object:GetChild( id )
      - returns the child at the given internal index.

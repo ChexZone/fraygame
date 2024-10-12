@@ -241,7 +241,7 @@ if mode ~= "web" then
             
             local end_time = love.timer.getTime()
 
-            if love.timer then love.timer.sleep(timeToWait - (end_time - start_time)) end
+            if love.timer and not _G.FAST_MODE then love.timer.sleep(timeToWait - (end_time - start_time)) else love.timer.sleep(0) end
 
             Chexcore._cpuTime = (end_time - start_time)
         end

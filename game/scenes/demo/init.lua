@@ -13,9 +13,11 @@ Chexcore:AddType("game.objects.cameraZone")
 local bg = Prop.new{Size = V{64, 36}, Color = V{0.5,0,1,0.2}, Texture = Texture.new("chexcore/assets/images/square.png")}:Nest(scene:AddLayer(Layer.new("BG", 64, 36, true):Properties{TranslationInfluence = 0}))
 local mainLayer = scene:AddLayer(Layer.new("Gameplay", 640, 360))
 
-local tilemap = Tilemap.import("game.scenes.demo.tilemap", "chexcore/assets/images/test/player/another_tilemap.png", {Scale = 1 }):Nest(mainLayer):Properties{
+local tilemap = Tilemap.import("game.scenes.demo.tilemap2", "game/scenes/demo/tilemap.png", {Scale = 1 }):Nest(mainLayer):Properties{
     Update = function (self,dt)
         -- self.Position = self.Position + V{1,0}
+        self.LayerColors[2].H = (self.LayerColors[2].H + dt/2)%1 
+        self.LayerColors[1].S = math.sin(Chexcore._clock)/2 + 0.5 
     end
 }
 

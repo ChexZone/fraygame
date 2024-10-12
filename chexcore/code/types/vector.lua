@@ -8,11 +8,81 @@ local Vector = {
     _global = true
 }
 
+-- Converts HSV to RGB. (input and output range: 0 - 1) (source: love2d help site)
+local function hsv_to_rgb(h, s, v)
+    if s <= 0 then return v,v,v end
+    h = h*6
+    local c = v*s
+    local x = (1-math.abs((h%2)-1))*c
+    local m,r,g,b = (v-c), 0, 0, 0
+    if h < 1 then
+        r, g, b = c, x, 0
+    elseif h < 2 then
+        r, g, b = x, c, 0
+    elseif h < 3 then
+        r, g, b = 0, c, x
+    elseif h < 4 then
+        r, g, b = 0, x, c
+    elseif h < 5 then
+        r, g, b = x, 0, c
+    else
+        r, g, b = c, 0, x
+    end
+    return r+m, g+m, b+m
+end
+
+local min, max = math.min, math.max
+local function rgb_to_hsv(r, g, b)
+    local max = max(r, g, b)
+    local min = min(r, g, b)
+    local h, s, v = 0, 0, max
+
+    local d = max - min
+    s = max == 0 and 0 or d / max
+
+    if max == min then
+        h = 0 -- achromatic (gray)
+    else
+        if max == r then
+            h = (g - b) / d + (g < b and 6 or 0)
+        elseif max == g then
+            h = (b - r) / d + 2
+        elseif max == b then
+            h = (r - g) / d + 4
+        end
+        h = h / 6
+    end
+
+    return h, s, v
+end
+
+
+
+
+
+
+
 -- vector creation tries to be more optimized since it's frequent
 local smt = setmetatable
 function Vector.new(vec)
     return smt(vec, Vector)
 end
+
+function Vector.HSV(h, s, v)
+    local vec
+    if type(h) == "table" then
+        vec =  h
+        vec[1], vec[2], vec[3] = hsv_to_rgb(vec[1], vec[2], vec[3])
+    else
+        vec = {}
+        vec[1], vec[2], vec[3] = hsv_to_rgb(h, s, v)
+    end
+    return smt(vec, Vector)
+end
+_G.HSV = Vector.HSV
+
+
+
 -- SET A METATABLE FOR VECTOR FOR __call
 setmetatable(Vector, {
     __call = function (_, vec)
@@ -21,11 +91,45 @@ setmetatable(Vector, {
 })
 -- custom indexing to react to X, Y, Z
 local map, rg, rs, OBJ = {X = 1, Y = 2, Z = 3, A = 4, R = 1, G = 2, B = 3}, rawget, rawset, Object
+local f_map_set = {
+    H = function(vec, val)
+        local _, s, v = rgb_to_hsv(vec[1], vec[2], vec[3])
+        vec[1], vec[2], vec[3] = hsv_to_rgb(val, s, v)
+    end,
+    S = function(vec, val)
+        local h, _, v = rgb_to_hsv(vec[1], vec[2], vec[3])
+        vec[1], vec[2], vec[3] = hsv_to_rgb(h, val, v)
+    end,
+    V = function(vec, val)
+        local h, s, _ = rgb_to_hsv(vec[1], vec[2], vec[3])
+        vec[1], vec[2], vec[3] = hsv_to_rgb(h, s, val)
+    end
+}
+
+local f_map_get = {
+    H = function(vec)
+        local h = rgb_to_hsv(vec[1], vec[2], vec[3])
+        return h
+    end,
+    S = function(vec)
+        local max, min = max(vec[1],vec[2],vec[3]), min(vec[1],vec[2],vec[3])  
+        local d = max - min
+        return max == 0 and 0 or d / max
+    end,
+    V = function(vec)
+        return max(vec[1], vec[2], vec[3])
+    end
+}
+
 function Vector.__index(t, d)
-    return rg(t, map[d]) or rg(Vector, d) or Vector.__index2(t, d)
+    return f_map_get[d] and f_map_get[d](t) or rg(t, map[d]) or rg(Vector, d) or Vector.__index2(t, d)
 end
 function Vector.__newindex(t, d, v)
-    rs(t, map[d] or d, v)
+    if f_map_set[d] then
+        f_map_set[d](t, v)
+    else
+        rs(t, map[d] or d, v)
+    end
 end
 
 
