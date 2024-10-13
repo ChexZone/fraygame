@@ -69,6 +69,8 @@ local Player = {
     DiveExpired = false,                   -- whether the player has used up their dive in the air
 
     ParryPower = 2.65,                   -- the initial upward momentum of a parry
+    LungePitch = 1,                     -- trends towards 1
+    LungePitchTweenSpeed = 2.5,
     WallBumpHeight = 0.5,               -- tiny wall height bump
     LastParryFace = "none",             -- which wall side was last parried off of
     DoubleJumpFrameLength = 12,         -- how many frames a double jump takes
@@ -110,6 +112,8 @@ local Player = {
     PounceAccelerationSpeed = 0.155,      -- how much the player accelerates per frame during a pounce
     DiveAccelerationSpeed = 0.025,
     ParryDiveAccelerationSpeed = 0.025,
+    LedgeUpwardClipDistance = 8,              -- how far up a wall is before the player can just walk up without any airtime
+    LedgeDownwardClipDistance = 8,
     LastDiveWasParryDive = false,        -- was the last dive a parry dive?
     FramesAfterParryCanParryDive = 12,   -- how many frames after a parry will a player's dives become eligible for 
     FramesAfterDiveCanCancel = 5,       -- how many frames after diving the player is allowed to cancel the dive
@@ -242,6 +246,73 @@ function Player.new()
     newPlayer.Canvas = Canvas.new(Player.CanvasSize())
     newPlayer.TailPoints = {}
     newPlayer.TouchEvents = {} 
+
+
+    newPlayer.LastSFX_ID = {}
+    newPlayer.SFX = {
+        Jump = {
+            Sound.new("game/assets/sounds/jump1.wav", "static"):Set("Volume", 0.5),
+            Sound.new("game/assets/sounds/jump2.wav", "static"):Set("Volume", 0.5)
+        },
+        DoubleJump = {
+            Sound.new("game/assets/sounds/double_jump1.wav", "static"):Set("Volume", 0.5),
+            Sound.new("game/assets/sounds/double_jump2.wav", "static"):Set("Volume", 0.5),
+            Sound.new("game/assets/sounds/double_jump3.wav", "static"):Set("Volume", 0.5),
+            Sound.new("game/assets/sounds/double_jump4.wav", "static"):Set("Volume", 0.5),
+        },
+        DiveCancel = {
+            Sound.new("game/assets/sounds/backflip1.wav", "static"):Set("Volume", 0.4),
+            Sound.new("game/assets/sounds/backflip2.wav", "static"):Set("Volume", 0.4),
+        },
+        Dive = {
+            Sound.new("game/assets/sounds/dive1.wav", "static"):Set("Volume", 0.4),
+        },
+        DiveSqueak = {
+            Sound.new("game/assets/sounds/squeak_dive.wav", "static"):Set("Volume", 0.05),
+        },
+        LedgeLunge = {
+            Sound.new("game/assets/sounds/ledgelunge1.wav", "static"):Set("Volume", 0.4),
+        },
+        Parry = {
+            Sound.new("game/assets/sounds/parry3.wav", "static"):Set("Volume", 0.25),
+            Sound.new("game/assets/sounds/parry4.wav", "static"):Set("Volume", 0.25),
+        },
+        Parry2 = {
+            Sound.new("game/assets/sounds/parry1.wav", "static"):Set("Volume", 0.025),
+            Sound.new("game/assets/sounds/parry2.wav", "static"):Set("Volume", 0.025),
+        },
+        FailParry = {
+            Sound.new("game/assets/sounds/parry_fail1.wav", "static"):Set("Volume", 0.2),
+            Sound.new("game/assets/sounds/parry_fail2.wav", "static"):Set("Volume", 0.2),
+            Sound.new("game/assets/sounds/parry_fail3.wav", "static"):Set("Volume", 0.2),
+        },
+        FailParrySqueak = {
+            Sound.new("game/assets/sounds/squeak_ow.wav", "static"):Set("Volume", 0.3),
+        },
+        Bonk = {
+            Sound.new("game/assets/sounds/bonk1.wav", "static"):Set("Volume", 0.15),
+        },
+        WeakRoll = {
+            Sound.new("game/assets/sounds/roll_weak1.wav"):Set("Volume", 0.025)
+        },
+        Roll = {
+            Sound.new("game/assets/sounds/roll1.wav"):Set("Volume", 0.035)
+        },
+        FastRoll = {
+            Sound.new("game/assets/sounds/roll_fast1.wav"):Set("Volume", 0.04)
+        },
+        RollWhoosh = {
+            Sound.new("game/assets/sounds/roll_whoosh1.wav"):Set("Volume", 0.15)
+        },
+        ShimmyWhoosh = {
+            Sound.new("game/assets/sounds/shimmy1.wav"):Set("Volume", 0.1)
+        },
+        PounceSqueak = {
+            Sound.new("game/assets/sounds/squeak_pounce.wav", "static"):Set("Volume", 0.03),
+        },
+    }
+
+    newPlayer.SFX.Jump[1].Test = true
 
     Particles.new{
         Name = "RollKickoffDust",
@@ -378,6 +449,13 @@ function Player.new()
     function newPlayer.InputListener:Press(device, key)
         newPlayer.JustPressed[key] = true
     end
+
+
+    local c = 0
+    for _ in pairs(Player) do
+        c=c+1
+    end
+    print(c)
 
     return newPlayer
 end
@@ -523,7 +601,7 @@ function Player:Unclip(forTesting)
         self.PreviousFloorHeight = self.Position.Y
         self:Roll()
         self.RolledOutOfDive = true
-        mesSinceDive = -1
+        self.FramesSinceDive = -1
     end
 
     if not forTesting then
@@ -549,12 +627,34 @@ function Player:Unclip(forTesting)
     local pushX = 0
     for solid, hDist, vDist, tileID in self.XHitbox:CollisionPass(self._parent, true) do
         local face = Prop.GetHitFace(hDist,vDist)
-        if solid ~= self.XHitbox and (face == "left" or face == "right") and not solid.Passthrough then
-            -- if pushY == 0 then self.Velocity.X = 0 end
-            pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
-            self:AlignHitboxes()
 
-            self:ConnectToWall(solid, face)
+
+
+        if solid ~= self.XHitbox and (face == "left" or face == "right") and not solid.Passthrough then
+            
+            -- check if this is a ledge
+            local hit
+            local i = 1
+            while i <= self.LedgeUpwardClipDistance do
+                self.XHitbox.Position.Y = self.XHitbox.Position.Y - 1
+                hit = solid:CollisionInfo(self.XHitbox)
+                if not hit then break end
+                i = i + 1
+            end
+            
+            self.XHitbox.Position.X = self.XHitbox.Position.Y + i-- self.LedgeUpwardClipDistance
+            if not hit then
+                self.Position.Y = self.Position.Y - i
+            else
+                -- if pushY == 0 then self.Velocity.X = 0 end
+                pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
+                self:AlignHitboxes()
+
+                self:ConnectToWall(solid, face)
+            end
+
+
+
         end
         
     end
@@ -597,34 +697,52 @@ function Player:ValidateFloor()
 
         local hit, hDist, vDist = self.Floor:CollisionInfo(self.YHitbox)
         if not hit then
-            if self.Floor.LockPlayerVelocity then
-                -- lock in the player to the floor's movement arc
-                self.AerialMovementLockedToFloorPos = true
-            elseif self.FloorDelta then
-                -- inherit some velocity of the floor object
-                local amt = math.floor(self.FloorDelta.X*2+0.5) / (self._usingPerformanceMode and 2 or 1)
-                if math.abs(amt) > 1 then
-                    if -sign(amt) == self.MoveDir then
-                        self.Velocity.X = self.Velocity.X - amt/2
+
+            -- first check to see if there's a ledge or slope right below us
+            local i = 1
+            while i <= self.LedgeDownwardClipDistance do
+                self.XHitbox.Position.Y = self.XHitbox.Position.Y + 1
+                hit = self.Floor:CollisionInfo(self.XHitbox)
+                if hit then break end
+                i = i + 1
+            end
+            self.XHitbox.Position.Y = self.XHitbox.Position.Y - i
+
+            if hit and self.FramesSinceLastLunge >= self.LedgeLungeWindow then
+                self.Position.Y = self.Position.Y + i
+            else
+                -- fine. we left the floor
+                if self.Floor.LockPlayerVelocity then
+                    -- lock in the player to the floor's movement arc
+                    self.AerialMovementLockedToFloorPos = true
+                elseif self.FloorDelta then
+                    -- inherit some velocity of the floor object
+                    local amt = math.floor(self.FloorDelta.X*2+0.5) / (self._usingPerformanceMode and 2 or 1)
+                    if math.abs(amt) > 1 then
+                        if -sign(amt) == self.MoveDir then
+                            self.Velocity.X = self.Velocity.X - amt/2
+                        end
                     end
                 end
-            end
-            self.YPositionAtLedge = self.Position.Y
-            self:DisconnectFromFloor()
-            if self.FramesSinceRoll == -1 then
-                self.Texture.Clock = 0
-            end
-            self.HangStatus = self.DropHangTime+1
-            -- set up coyote frames
-            self.CoyoteBuffer = self.CoyoteFrames
-
-            if self.FramesSinceLastLunge < self.LedgeLungeWindow and self.InputListener:IsDown("crouch") and self.InputListener:IsDown("action") then
-                self:Dive()
-                self.DiveExpired = false
-                self.Velocity.Y = self.TerminalLedgeLungeVelocity
-                self.Velocity.X = self.Velocity.X * 1.2
-                self.InLedgeLunge = true
-                self.ActiveTerminalLedgeLungeVelocity = self.TerminalLedgeLungeVelocity
+                self.YPositionAtLedge = self.Position.Y
+                self:DisconnectFromFloor()
+                if self.FramesSinceRoll == -1 then
+                    self.Texture.Clock = 0
+                end
+                self.HangStatus = self.DropHangTime+1
+                -- set up coyote frames
+                self.CoyoteBuffer = self.CoyoteFrames
+    
+                if self.FramesSinceLastLunge < self.LedgeLungeWindow and self.InputListener:IsDown("crouch") and self.InputListener:IsDown("action") then
+                    self:Dive()
+                    self.DiveExpired = false
+                    self.Velocity.Y = self.TerminalLedgeLungeVelocity
+                    self.Velocity.X = self.Velocity.X * 1.2
+                    self.InLedgeLunge = true
+                    self.LungePitch = self.LungePitch + 0.1
+                    self:PlaySFX("LedgeLunge", self.LungePitch)
+                    self.ActiveTerminalLedgeLungeVelocity = self.TerminalLedgeLungeVelocity
+                end
             end
         end
     end
@@ -763,7 +881,36 @@ function Player:ProcessInput()
         end
     end
 
+    -- print(self.MoveDir)
+end
+
+function Player:PlayDynamicDashSound(speed)
+    speed = speed or math.abs(self.Velocity.X)
+    local pitch = math.lerp(self.LungePitch, 1, 0.2)
+    if speed > 6 then
+        Timer.Schedule(0.1, function() self:PlaySFX("FastRoll", pitch) end)
+    elseif speed > 5 then
+        Timer.Schedule(0.15, function() self:PlaySFX("Roll", pitch) end)
+    else
+        Timer.Schedule(0.15, function() self:PlaySFX("WeakRoll", pitch) end)
+    end
+end
+function Player:PlaySFX(name, pitch, variance)
+    pitch = pitch or 1
+    variance = variance or 1
+    local no = math.random(1, #self.SFX[name])
+    if no == self.LastSFX_ID[name] then
+        no = no+1
+        if no > #self.SFX[name] then
+            no = 1
+        end
+    end
+    self.LastSFX_ID[name] = no
     
+    self.SFX[name][no]:Stop()
+    
+    self.SFX[name][no]:SetPitch(pitch + math.random(-5,5)/45 * variance)
+    self.SFX[name][no]:Play()
 end
 
 function Player:Jump()
@@ -771,11 +918,14 @@ function Player:Jump()
     self.FramesSinceDive = -1
     self.DiveExpired = false
     self.Velocity.Y = -self.JumpPower
-    
-    if self.FramesSinceLastLunge <= self.CoyoteFrames then
+
+    ---- SFX ----
+    self:PlaySFX("Jump")
+    -------------
+
+    if self.FramesSinceLastLunge <= self.CoyoteFrames and not self.Floor then
         self.Position.Y = math.lerp(self.Position.Y, self.YPositionAtLedge, 0.8)
         self.Velocity.X = self.XVelocityBeforeLastLunge
-        print(self.XVelocityBeforeLastLunge)
     else
         self.YPositionAtLedge = self.Position.Y
     end
@@ -785,11 +935,18 @@ function Player:Jump()
     -- pounce  handling
     if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
         self.Velocity.X = sign(self.Velocity.X) * math.min(math.max(self.MinPouncePower, math.abs(self.Velocity.X)), self.MaxPouncePower)
+        self:PlayDynamicDashSound()
+        self:PlaySFX("PounceSqueak", 1 + math.abs(self.Velocity.X)/30, 0)
         self.Velocity.Y = sign(self.Velocity.Y) * self.PounceHeight
         self.FramesSincePounce = 0
         self.FramesSinceRoll = -1
         self.PounceAnimCancelled = false
         self.PounceParticlePower = self.PounceParticlePower + 2.5
+        -- self:PlaySFX("Pounce")
+        -- if self.SFX.RollWhoosh[self.LastSFX_ID.RollWhoosh] then
+        --     print("FUCK")
+        --     self.SFX.RollWhoosh[self.LastSFX_ID.RollWhoosh]:Stop()
+        -- end
 
         local kickoffdust = self:GetChild("RollKickoffDust")
         kickoffdust:Emit{
@@ -912,10 +1069,16 @@ function Player:DoubleJump()
         end
         self.Velocity.Y = -self.DiveCancelPower
         self.LastDoubleJumpWasDiveCancel = true
+
+        -- SFX
+        self:PlaySFX("DiveCancel")
     else
         self.Velocity.X =  self.DoubleJumpStoredSpeed * self.MoveDir
         self.Velocity.Y = -self.DoubleJumpPower
         self.LastDoubleJumpWasDiveCancel = false
+
+        -- SFX
+        self:PlaySFX("DoubleJump")
     end
 
     
@@ -942,6 +1105,9 @@ function Player:Parry()
         -- can't parry off the same wall twice!
         self.FramesSinceDive = -1
         self.FramesSinceDoubleJump = math.max(-1, self.FramesSinceDoubleJump)
+        self:PlaySFX("FailParry")
+        self:PlaySFX("FailParrySqueak")
+        self:PlaySFX("Bonk")
         return
     end
 
@@ -970,6 +1136,9 @@ function Player:Parry()
     self.LastParryWallPos = self.Wall.Position:Clone()
     self.LastParryFace = self.WallBumpDirection
     self.FramesSinceParry = 0
+
+    self:PlaySFX("Parry")
+    self:PlaySFX("Parry2")
 end
 
 function Player:BumpWall()
@@ -1054,6 +1223,7 @@ function Player:Dive()
     else
         self.PounceParticlePower = self.PounceParticlePower + 2.25
         self.DiveWasLunge = false
+        self:PlaySFX("DiveSqueak")
         self.Position.Y = self.Position.Y - 3
     end
 
@@ -1064,6 +1234,22 @@ function Player:Dive()
     self.FramesSinceDive = 0
     self.FramesSinceDoubleJump = -1
     self.DiveExpired = true
+
+    ---- SFX ----
+    -- local no =  math.random(1, #self.SFX.Dive)
+    -- self.SFX.Dive[no]:Stop()
+    -- self.SFX.Dive[no]:SetPitch(1 + math.random(-5,5)/45)
+    -- self.SFX.Dive[no]:Play()
+
+    self:PlaySFX("Dive", self.LungePitch)
+    
+    
+
+    -- local no =  math.random(1, #self.SFX.DiveSqueak)
+    -- self.SFX.DiveSqueak[no]:Stop()
+    -- self.SFX.DiveSqueak[no]:SetPitch(1 + math.random(-5,5)/100)
+    -- self.SFX.DiveSqueak[no]:Play()
+    -------------
 end
 
 function Player:Roll()
@@ -1109,7 +1295,7 @@ function Player:Roll()
         
     end
     
-
+    
 
     self:ShrinkHitbox()
 
@@ -1128,6 +1314,15 @@ function Player:Roll()
     self.ActionBuffer = 0
     self.Texture.Clock = 0
     self.Texture.IsPlaying = true
+
+    if movementPower == self.ShimmyPower and self.FramesSinceGrounded > 0 and not self.InputListener:IsDown("jump") then
+        self:PlaySFX("ShimmyWhoosh")
+        
+    else
+        
+        self:PlaySFX("RollWhoosh", pitch)
+        self:PlayDynamicDashSound()
+    end
 
     return blockJump
 end
@@ -1458,6 +1653,9 @@ function Player:UpdateFrameValues()
     end
 
     
+    if self.LungePitch ~= 1 then
+        self.LungePitch = math.lerp(self.LungePitch, 1, self.LungePitchTweenSpeed/60)
+    end
 
     if self.Wall then
         self.FramesSinceAgainstWall = self.FramesSinceAgainstWall + 1
@@ -1837,7 +2035,6 @@ function Player:UpdatePhysics()
     -- account for gravity
     local terminalVelocity = (self.InLedgeLunge and math.abs(self.Velocity.X) > 2 and self.FramesSinceDoubleJump == -1) and self.ActiveTerminalLedgeLungeVelocity or (self.FramesSinceDive > -1 and self.FramesSinceDoubleJump == -1) and (self.DiveWasLunge and self.TerminalLungeVelocity or self.TerminalDiveVelocity) or self.TerminalVelocity
     
-    print(terminalVelocity)
     if self.Velocity.Y > terminalVelocity then
         self.Velocity.Y = terminalVelocity
     end

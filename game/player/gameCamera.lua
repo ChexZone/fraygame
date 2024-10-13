@@ -1,21 +1,30 @@
 local GameCamera = {
     -- properties
     Name = "GameCamera",
-    Zoom = 1,
+    Zoom = 1.5,
+    ZoomSpeed = 5,
+
+    DisplayHeight = 360,
 
     TrackingPosition = nil,
 
+    FillWithFocus = false,
+
+    Overrides = {},
+
     Focus = nil,    -- prop
     DampeningFactor = V{5, 0},
-    MaxDistancePerFrame = V{5, 5},
-    MinDistancePerFrame = V{1.5, 0},
-    MaxDistanceFromFocus = V{50, 50},
+    MaxDistancePerFrame = V{10, 5},
+    MinDistancePerFrame = V{1.5, 1.5},
+    MaxDistanceFromFocus = V{50, 60},
     RealMaxDistanceFromFocus = V{250, 80},
+    DampeningFactorReeling = V{15, 2},
+    MinDistancePerFrameReeling = V{1.5, 1.5},
+    MaxDistancePerFrameReeling = V{5, 5},
 
     Offset = V{0, 0},
 
-    DampeningFactorReeling = V{15, 2},
-    MaxDistancePerFrameReeling = V{3, 3},
+
 
     -- internal properties
     _super = "Camera",      -- Supertype
@@ -25,22 +34,51 @@ local GameCamera = {
 
 function GameCamera._globalUpdate(dt)
     for camera in pairs(GameCamera._cache) do
-        print(camera.Reeling)
         if camera.Focus then
+            local focus = camera.Focus
             camera.TrackingPosition = camera.TrackingPosition or camera.Position
-            local dampening = V{
-                camera.Reeling.X and camera.DampeningFactorReeling.X or camera.DampeningFactor.X,
-                camera.Reeling.Y and camera.DampeningFactorReeling.Y or camera.DampeningFactor.Y
-            }
-            local maxDist = V{
-                camera.Reeling.X and camera.MaxDistancePerFrameReeling.X or camera.MaxDistancePerFrame.X,
-                camera.Reeling.Y and camera.MaxDistancePerFrameReeling.Y or camera.MaxDistancePerFrame.Y,
-            }*60*dt
-            local minDist = V{
-                camera.MinDistancePerFrame.X,
-                camera.MinDistancePerFrame.Y,
-            }*60*dt
-            local focusPoint = camera.Focus:GetPoint(.5,.5)
+            
+            local dampening, maxDist, minDist, zoomSpeed
+            if #camera.Overrides > 0 then -- use the latest override camera option
+                local override = camera.Overrides[#camera.Overrides]
+                focus = override.Focus
+                dampening = V{
+                    camera.Reeling.X and override.DampeningFactorReelingX or override.DampeningFactorX,
+                    camera.Reeling.Y and override.DampeningFactorReelingY or override.DampeningFactorY
+                }
+                maxDist = V{
+                    camera.Reeling.X and override.MaxDistancePerFrameReelingX or override.MaxDistancePerFrameX,
+                    camera.Reeling.Y and override.MaxDistancePerFrameReelingY or override.MaxDistancePerFrameY,
+                }*60*dt
+                minDist = V{
+                    camera.Reeling.X and override.MinDistancePerFrameReelingX or override.MinDistancePerFrameX,
+                    camera.Reeling.Y and override.MinDistancePerFrameReelingY or override.MinDistancePerFrameY
+                }*60*dt
+                zoomSpeed = override.ZoomSpeed
+            else -- regular dampening
+                dampening = V{
+                    camera.Reeling.X and camera.DampeningFactorReeling.X or camera.DampeningFactor.X,
+                    camera.Reeling.Y and camera.DampeningFactorReeling.Y or camera.DampeningFactor.Y
+                }
+                maxDist = V{
+                    camera.Reeling.X and camera.MaxDistancePerFrameReeling.X or camera.MaxDistancePerFrame.X,
+                    camera.Reeling.Y and camera.MaxDistancePerFrameReeling.Y or camera.MaxDistancePerFrame.Y,
+                }*60*dt
+                minDist = V{
+                    camera.Reeling.X and camera.MinDistancePerFrameReeling.X or camera.MinDistancePerFrame.X,
+                    camera.Reeling.Y and camera.MinDistancePerFrameReeling.Y or camera.MinDistancePerFrame.Y
+                }*60*dt
+                zoomSpeed = camera.ZoomSpeed
+            end
+            
+
+            local focusPoint
+            if focus:IsA("Player") then
+                focusPoint = focus.YHitbox:GetPoint(.5,.5)
+            else
+                focusPoint = focus:GetPoint(.5,.5)
+            end
+            
             
             
             local newPos = V{
@@ -53,7 +91,6 @@ function GameCamera._globalUpdate(dt)
             if math.abs(dist.X) > maxDist.X or math.abs(focusDist.X) > camera.MaxDistanceFromFocus.X then
                 newPos.X = camera.TrackingPosition.X - maxDist.X * sign(dist.X)
                 camera.Reeling.X = true
-                print("reeling")
             elseif math.abs(focusDist.X) < minDist.X then
                 camera.Reeling.X = false
                 newPos.X = focusPoint.X
@@ -85,6 +122,23 @@ function GameCamera._globalUpdate(dt)
 
             camera.TrackingPosition = newPos
             camera.Position = camera.TrackingPosition + camera.Offset
+
+            local goalZoom
+            local fillWithFocus = camera.FillWithFocus or #camera.Overrides>0 and camera.Overrides[#camera.Overrides].Size:Magnitude()>0
+            if fillWithFocus then
+                local ratioFocusSize = focus.Size.Y/focus.Size.X
+                local screenRatio = camera.Scene.GameplaySize.Y/camera.Scene.GameplaySize.X
+                if ratioFocusSize < screenRatio then
+                    -- use Y
+                    goalZoom = camera.Scene.GameplaySize.X/focus.Size.X
+                else
+                    goalZoom = camera.Scene.GameplaySize.Y/focus.Size.Y
+                end
+            else
+                goalZoom = camera.Scene.GameplaySize.Y/camera.DisplayHeight
+            end
+
+            camera.Zoom = math.lerp(camera.Zoom, goalZoom, zoomSpeed * dt, 0.0025)
         end
     end
 end
@@ -97,6 +151,7 @@ function GameCamera.new(properties)
         end
     end
 
+    newCamera.Overrides = {}
     newCamera.Reeling = V{false, false}
 
     GameCamera._cache[newCamera] = true

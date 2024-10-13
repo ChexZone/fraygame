@@ -1,5 +1,33 @@
 local CameraZone = {
-    Name = "CameraZone", _super = "Prop", _global = true
+    Name = "CameraZone",
+    
+    DampeningFactorX = 5,
+    DampeningFactorY = 5,
+    
+    MaxDistancePerFrameX = 10,
+    MaxDistancePerFrameY = 10,
+    
+    MinDistancePerFrameX = 1.5,
+    MinDistancePerFrameY = 1.5,
+
+    MaxDistanceFromFocusX = 0,
+    MaxDistanceFromFocusY = 0,
+
+    RealMaxDistanceFromFocusX = 250,
+    RealMaxDistanceFromFocusY = 80,
+
+    DampeningFactorReelingX = 10,
+    DampeningFactorReelingY = 10,
+
+    MinDistancePerFrameReelingX = 1.5,
+    MinDistancePerFrameReelingY = 1.5,
+    
+    MaxDistancePerFrameReelingX = 15,
+    MaxDistancePerFrameReelingY = 15,
+
+    ZoomSpeed = 10,
+    
+    _super = "Prop", _global = true
 }
 
 function CameraZone.new()
@@ -18,13 +46,27 @@ function CameraZone.new()
 end
 
 function CameraZone:OnTouchEnter(other)
-    self:GetLayer():GetParent().Camera.Focus = self.Focus
-    self:GetLayer():GetParent().Camera.DampeningFactor = 10
+    if not other:IsA("Player") then return end
+    local cam = self:GetLayer():GetParent().Camera
+    cam.Overrides[#cam.Overrides+1] = self
+    -- cam.Focus = self.Focus
+    -- cam.FillWithFocus = self.Size:Magnitude() > 0
+    -- self:GetLayer():GetParent().Camera.DampeningFactor = 10
 end
 
 function CameraZone:OnTouchLeave(other)
-    self:GetLayer():GetParent().Camera.Focus = other
-    self:GetLayer():GetParent().Camera.DampeningFactor = 60
+    -- self:GetLayer():GetParent().Camera.Focus = other
+    local cam = self:GetLayer():GetParent().Camera
+
+    for i = #cam.Overrides, 1, -1 do
+        if cam.Overrides[i] == self then
+            table.remove(cam.Overrides, i)
+            break
+        end
+    end
+
+    -- cam.FillWithFocus = false
+    -- self:GetLayer():GetParent().Camera.DampeningFactor = 60
 end
 
 return CameraZone

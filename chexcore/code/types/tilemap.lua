@@ -469,6 +469,10 @@ function Tilemap.import(tiledPath, atlasPath, properties)
                         DrawInForeground = isForegroundLayer
                     })
 
+                    if objData.type == "" then
+                        newObj.Color = V{1,1,1,0}
+                    end
+
                     if objData.shape == "point" then
                         newObj.Size = V{0,0}
                     end

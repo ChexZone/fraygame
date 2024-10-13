@@ -2,6 +2,8 @@ local GameScene = {
     -- properties
     Name = "GameScene",
 
+    GameplaySize = V{960, 540},
+
     Player = nil,   -- will search for this at runtime
     
     FrameLimit = 60,  -- maximum FPS
@@ -9,7 +11,7 @@ local GameScene = {
     _normalFPS = 60,            -- normal mode target FPS
     _performanceFPS = 30,       -- performance mode target FPS
 
-    DeathHeight = 1000, -- if the player's height is greater than this, respawn it
+    DeathHeight = 2000, -- if the player's height is greater than this, respawn it
     InRespawn = false,  -- whether the player is in a respawn sequence or not
 
     ShowStats = false,  -- show stats of the player
@@ -29,8 +31,9 @@ function GameScene.new(properties)
             newGameScene[prop] = val
         end
     end
+    local mainLayer = newGameScene:AddLayer(Layer.new("Gameplay", GameScene.GameplaySize.X, GameScene.GameplaySize.Y))
 
-    newGameScene.Camera = GameCamera.new()
+    newGameScene.Camera = GameCamera.new():Set("Scene", newGameScene)
 
 
     newGameScene.GuiLayer = newGameScene:Adopt(Layer.new("GUI", 1280, 720, true))

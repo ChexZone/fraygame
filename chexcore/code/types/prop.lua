@@ -14,7 +14,7 @@ local Prop = {
     Solid = false,          -- is the object collidable?
     Anchored = true,        -- follows its Parent ?
 
-    Texture = Texture.new("chexcore/assets/images/diamond.png"),    -- default sample texture
+    Texture = Texture.new("chexcore/assets/images/square.png"),    -- default sample texture
 
     -- internal properties
     _super = "Object",      -- Supertype

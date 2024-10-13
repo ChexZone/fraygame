@@ -18,6 +18,31 @@ function Sound.new(path, mode)
     return newSound
 end
 
+local set_fields = {
+    Pitch = function(self, v)
+        self:SetPitch(v)
+    end,
+
+    Volume = function (self, v)
+        self:SetVolume(v)
+    end
+}
+local get_fields = {
+    
+}
+
+function Sound:__newindex(k, v)
+    if set_fields[k] then
+        set_fields[k](self, v)
+    else
+        rawset(self, k, v)
+    end
+end
+
+function Sound:__index(k)
+    return rawget(self, k) or get_fields[k] and get_fields[k](self) or Sound.__index2(self, k)
+end
+
 local draw = cdraw
 function Sound:Play()
     self._source:play()
@@ -30,6 +55,14 @@ function Sound:Stop()
 end
 function Sound:IsPlaying()
     return self._source:isPlaying()
+end
+function Sound:SetPitch(pitch)
+    rawset(self, "Pitch", pitch)
+    self._source:setPitch(pitch)
+end
+function Sound:SetVolume(vol)
+    rawset(self, "Volume", vol)
+    self._source:setVolume(vol)
 end
 
 return Sound
