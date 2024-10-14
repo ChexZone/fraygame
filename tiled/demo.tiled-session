@@ -19,7 +19,7 @@
     "openFiles": [
     ],
     "project": "demo.tiled-project",
-    "property.type": "bool",
+    "property.type": "float",
     "recentFiles": [
     ],
     "tileset.lastUsedFormat": "tsx",

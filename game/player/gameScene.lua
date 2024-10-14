@@ -35,7 +35,6 @@ function GameScene.new(properties)
 
     newGameScene.Camera = GameCamera.new():Set("Scene", newGameScene)
 
-
     newGameScene.GuiLayer = newGameScene:Adopt(Layer.new("GUI", 1280, 720, true))
 
     newGameScene.fallGuiTop = newGameScene.GuiLayer:Adopt(Prop.new{
@@ -105,6 +104,69 @@ function GameScene.new(properties)
         end
     })
 
+    newGameScene.CameraBounds = Group.new("Gameplay"):With(Prop.new{
+        Name = "Left",
+        AnchorPoint = V{0, 0.5},
+        Color = V{0,0,0,1},
+        DrawInForeground = true
+    }):With(Prop.new{
+        Name = "Right",
+        AnchorPoint = V{1, 0.5},
+        Color = V{0,0,0,1},
+        DrawInForeground = true
+    }):With(Prop.new{
+        Name = "Top",
+        AnchorPoint = V{0.5, 0},
+        Color = V{0,0,0,1},
+        DrawInForeground = true
+    }):With(Prop.new{
+        Name = "Bottom",
+        AnchorPoint = V{0.5, 1},
+        Color = V{0,0,0,1},
+        DrawInForeground = true
+    }):Properties{
+        Scene = newGameScene,
+        PrepareToDraw = function (self)
+            local dt = Chexcore._lastFrameTime
+            local camPos = self.Scene.Camera.Position
+            local camSize = self.Scene.GameplaySize / self.Scene.Camera.Zoom
+            local focusSize = self.Scene.Camera:GetFocus().Size
+
+            local horizBarSize, vertiBarSize = 0, 0
+            local left, right, top, bottom = self:GetChild("Left"), self:GetChild("Right"), self:GetChild("Top"), self:GetChild("Bottom")
+
+            local offsetX, offsetY = 0, 0
+            local realFocus = self.Scene.Camera:GetFocus()
+            if realFocus ~= self.Scene.Camera.Focus then -- camera is being overridden
+                local override = self.Scene.Camera.Overrides[#self.Scene.Camera.Overrides]
+                if override.BlackBorder then
+                    horizBarSize = focusSize.X < camSize.X and (camSize.X - focusSize.X)/2 or 0
+                    vertiBarSize = focusSize.Y < camSize.Y and (camSize.Y - focusSize.Y)/2 or 0
+                    offsetX = override.CameraOffsetX or offsetX
+                    offsetY = override.CameraOffsetY or offsetY
+                end
+
+            end
+            
+            local goalHorizSize = V{horizBarSize, camSize.Y}
+            local goalVertiSize = V{camSize.X, vertiBarSize}
+
+            left.Size = left.Size:Lerp(goalHorizSize - V{offsetX, 0}, 7*dt)
+            right.Size = right.Size:Lerp(goalHorizSize + V{offsetX, 0}, 7*dt)
+            top.Size = top.Size:Lerp(goalVertiSize - V{0, offsetY}, 7*dt)
+            bottom.Size = bottom.Size:Lerp(goalVertiSize + V{0, offsetY}, 7*dt)
+
+            local hBase = V{camSize.X/2+1, 0}
+            local vBase = V{0, camSize.Y/2+1}
+            left.Position = camPos - hBase
+            right.Position = camPos + hBase
+            top.Position = camPos - vBase
+            bottom.Position = camPos + vBase
+        end
+    }:Nest(mainLayer)
+
+    
+
     newGameScene.GuiLayer:GetChild("StatsGui"):Adopt(Text.new{
         AlignMode = "justify",
         TextColor = V{1, 1, 1},
@@ -137,6 +199,7 @@ function GameScene:Update(dt)
     else
         -- print(self.Player.Position)
         
+
         if self.statsGui.Visible then
             local curFpsRatio = (1/self.Player:GetLayer():GetParent().FrameLimit)/Chexcore._lastFrameTime
             self.lastFpsRatio = math.lerp(self.lastFpsRatio or curFpsRatio, curFpsRatio, 0.05)
@@ -209,7 +272,13 @@ function GameScene:Update(dt)
         guiID = self.GuiLayer:GetChildID()
     end
 
-    return Scene.Update(self, dt)
+    local ret = Scene.Update(self, dt)
+    return ret
+end
+
+function GameScene:Draw(tx, ty)
+    self.CameraBounds:PrepareToDraw()
+    return Scene.Draw(self, tx, ty)
 end
 
 return GameScene

@@ -260,7 +260,7 @@ function Tilemap:Draw(tx, ty)
     local camTilemapDist = self:GetLayer():GetParent().Camera.Position - self:GetPoint(0,0)
     for layerID = 1, #self.Layers do
         if self.ForegroundLayers[layerID] then
-            self:GetLayer():DelayDrawCall(drawLayer, self, layerID, camTilemapDist, sx, sy, ax, ay, tx, ty)
+            self:GetLayer():DelayDrawCall(self.ZIndex or 0, drawLayer, self, layerID, camTilemapDist, sx, sy, ax, ay, tx, ty)
         else
             drawLayer(self, layerID, camTilemapDist, sx, sy, ax, ay, tx, ty)
         end

@@ -21,10 +21,7 @@ local GameCamera = {
     DampeningFactorReeling = V{15, 2},
     MinDistancePerFrameReeling = V{1.5, 1.5},
     MaxDistancePerFrameReeling = V{5, 5},
-
     Offset = V{0, 0},
-
-
 
     -- internal properties
     _super = "Camera",      -- Supertype
@@ -39,6 +36,7 @@ function GameCamera._globalUpdate(dt)
             camera.TrackingPosition = camera.TrackingPosition or camera.Position
             
             local dampening, maxDist, minDist, zoomSpeed
+            local offsetX, offsetY = 0, 0
             if #camera.Overrides > 0 then -- use the latest override camera option
                 local override = camera.Overrides[#camera.Overrides]
                 focus = override.Focus
@@ -55,6 +53,8 @@ function GameCamera._globalUpdate(dt)
                     camera.Reeling.Y and override.MinDistancePerFrameReelingY or override.MinDistancePerFrameY
                 }*60*dt
                 zoomSpeed = override.ZoomSpeed
+                offsetX = override.CameraOffsetX or offsetX
+                offsetY = override.CameraOffsetY or offsetY
             else -- regular dampening
                 dampening = V{
                     camera.Reeling.X and camera.DampeningFactorReeling.X or camera.DampeningFactor.X,
@@ -74,9 +74,9 @@ function GameCamera._globalUpdate(dt)
 
             local focusPoint
             if focus:IsA("Player") then
-                focusPoint = focus.YHitbox:GetPoint(.5,.5)
+                focusPoint = focus.YHitbox:GetPoint(.5,.5) + V{offsetX, offsetY}
             else
-                focusPoint = focus:GetPoint(.5,.5)
+                focusPoint = focus:GetPoint(.5,.5) + V{offsetX, offsetY}
             end
             
             
@@ -125,17 +125,27 @@ function GameCamera._globalUpdate(dt)
 
             local goalZoom
             local fillWithFocus = camera.FillWithFocus or #camera.Overrides>0 and camera.Overrides[#camera.Overrides].Size:Magnitude()>0
-            if fillWithFocus then
+            
+            local customCameraSize
+            local cameraSize = camera.Scene.GameplaySize
+            if #camera.Overrides>0 and (camera.Overrides[#camera.Overrides].CameraSizeY or camera.Overrides[#camera.Overrides].CameraSizeX) then
+                customCameraSize = V{
+                    camera.Overrides[#camera.Overrides].CameraSizeX or camera.Overrides[#camera.Overrides].CameraSizeY * (cameraSize.Y/cameraSize.X),
+                    camera.Overrides[#camera.Overrides].CameraSizeY or camera.Overrides[#camera.Overrides].CameraSizeX * (cameraSize.Y/cameraSize.X)
+                }
+            end
+            
+            if fillWithFocus or customCameraSize then
                 local ratioFocusSize = focus.Size.Y/focus.Size.X
-                local screenRatio = camera.Scene.GameplaySize.Y/camera.Scene.GameplaySize.X
+                local screenRatio = cameraSize.Y/cameraSize.X
                 if ratioFocusSize < screenRatio then
                     -- use Y
-                    goalZoom = camera.Scene.GameplaySize.X/focus.Size.X
+                    goalZoom = cameraSize.X/(customCameraSize and customCameraSize.X or focus.Size.X) --customCameraSize and cameraSize.X/customCameraSize.X or cameraSize.X/focus.Size.X
                 else
-                    goalZoom = camera.Scene.GameplaySize.Y/focus.Size.Y
+                    goalZoom = cameraSize.Y/(customCameraSize and customCameraSize.Y or focus.Size.Y)
                 end
             else
-                goalZoom = camera.Scene.GameplaySize.Y/camera.DisplayHeight
+                goalZoom = cameraSize.Y/camera.DisplayHeight
             end
 
             camera.Zoom = math.lerp(camera.Zoom, goalZoom, zoomSpeed * dt, 0.0025)
@@ -156,6 +166,11 @@ function GameCamera.new(properties)
 
     GameCamera._cache[newCamera] = true
     return GameCamera:Connect(newCamera)
+end
+
+
+function GameCamera:GetFocus()
+    return #self.Overrides > 0 and self.Overrides[#self.Overrides].Focus or self.Focus
 end
 
 return GameCamera

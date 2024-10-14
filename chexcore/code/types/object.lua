@@ -395,6 +395,25 @@ function Object:Nest(parent)
     return parent:Adopt(self)
 end
 
+-- same as Adopt(), but returns the parent instead of the child
+function Object:With(child)
+    self:Adopt(child)
+    return self
+end
+
+-- same as Nest(), but returns the parent instead of the child
+function Object:Into(parent)
+    parent:Adopt(self)
+    return parent
+end
+
+--[[ USAGE OF ADOPT/NEST/WITH/INTO
+    child = parent:Adopt(child)
+    child = child:Nest(parent)
+    parent = parent:With(child)
+    parent = child:Into(parent)
+]]
+
 function Object:HasChildren()
     return rg(self, "_children") and #self._children > 0
 end

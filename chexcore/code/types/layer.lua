@@ -70,7 +70,7 @@ function Layer:Draw(tx, ty)
     for child in self:EachChild() do
         if child.Visible then
             if child.DrawInForeground then
-                self:DelayDrawCall(child.Draw, tx, ty, true)
+                self:DelayDrawCall(child.ZIndex or 0, child.Draw, tx, ty, true)
                 
             else
                 child:Draw(tx, ty)
@@ -79,7 +79,7 @@ function Layer:Draw(tx, ty)
         elseif child.DrawChildren then
             -- i don't know if this will work
             if child.DrawInForeground then
-                self:DelayDrawCall(child.DrawChildren, tx, ty)
+                self:DelayDrawCall(child.ZIndex or 0, child.DrawChildren, tx, ty)
             else
                 child:DrawChildren(tx, ty)
             end
@@ -87,19 +87,32 @@ function Layer:Draw(tx, ty)
     end
 
     -- catch any DelayDrawCall calls
-    for i = 1, #self._delayedDrawcalls, 2 do
-        self._delayedDrawcalls[i](unpack(self._delayedDrawcalls[i+1]))
+    local delayedCallsList = {}
+    for priority in pairs(self._delayedDrawcalls) do
+        delayedCallsList[#delayedCallsList+1] = priority
     end
+    table.sort(delayedCallsList)
+
+    for _, priority in ipairs(delayedCallsList) do
+        local callPairs = self._delayedDrawcalls[priority]
+        for i = 1, #callPairs, 2 do
+            callPairs[i](unpack(callPairs[i+1]))
+        end
+    end
+
+
     self._delayedDrawcalls = {}
 
     self.Canvases[1]:Deactivate()
 end
 
 -- a Prop can choose to delay its drawcall to be drawn after everything else in the Layer
-function Layer:DelayDrawCall(drawFunc, ...)
+function Layer:DelayDrawCall(priority, drawFunc, ...)
     local args = {...}
-    self._delayedDrawcalls[#self._delayedDrawcalls+1] = drawFunc
-    self._delayedDrawcalls[#self._delayedDrawcalls+1] = args
+    self._delayedDrawcalls[priority] = self._delayedDrawcalls[priority] or {}
+    local priorityTable = self._delayedDrawcalls[priority]
+    priorityTable[#priorityTable+1] = drawFunc
+    priorityTable[#priorityTable+1] = args
 end
 
 local In = Input

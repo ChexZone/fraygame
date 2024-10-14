@@ -884,15 +884,16 @@ function Player:ProcessInput()
     -- print(self.MoveDir)
 end
 
-function Player:PlayDynamicDashSound(speed)
+function Player:PlayDynamicDashSound(speed, delay)
     speed = speed or math.abs(self.Velocity.X)
+    delay = delay or 0.15
     local pitch = math.lerp(self.LungePitch, 1, 0.2)
     if speed > 6 then
-        Timer.Schedule(0.1, function() self:PlaySFX("FastRoll", pitch) end)
+        Timer.Schedule(delay, function() self:PlaySFX("FastRoll", pitch) end)
     elseif speed > 5 then
-        Timer.Schedule(0.15, function() self:PlaySFX("Roll", pitch) end)
+        Timer.Schedule(delay, function() self:PlaySFX("Roll", pitch) end)
     else
-        Timer.Schedule(0.15, function() self:PlaySFX("WeakRoll", pitch) end)
+        Timer.Schedule(delay, function() self:PlaySFX("WeakRoll", pitch) end)
     end
 end
 function Player:PlaySFX(name, pitch, variance)
@@ -935,7 +936,7 @@ function Player:Jump()
     -- pounce  handling
     if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
         self.Velocity.X = sign(self.Velocity.X) * math.min(math.max(self.MinPouncePower, math.abs(self.Velocity.X)), self.MaxPouncePower)
-        self:PlayDynamicDashSound()
+        self:PlayDynamicDashSound(nil, 0)
         self:PlaySFX("PounceSqueak", 1 + math.abs(self.Velocity.X)/30, 0)
         self.Velocity.Y = sign(self.Velocity.Y) * self.PounceHeight
         self.FramesSincePounce = 0

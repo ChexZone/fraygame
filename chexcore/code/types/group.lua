@@ -16,7 +16,9 @@ function Group.new(properties)
     newGroup.Size.X = Group.Size.X
     newGroup.Size.Y = newGroup.Size.Y
 
-    if properties then
+    if type(properties) == "string" then
+        newGroup.Name = properties
+    elseif properties then
         for prop, val in pairs(properties) do
             newGroup[prop] = val
         end

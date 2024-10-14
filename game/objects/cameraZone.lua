@@ -25,7 +25,13 @@ local CameraZone = {
     MaxDistancePerFrameReelingX = 15,
     MaxDistancePerFrameReelingY = 15,
 
-    ZoomSpeed = 10,
+    CameraSizeX = false,    -- can set custom camera dimensions!
+    CameraSizeY = false,    -- can set custom camera dimensions!
+
+    CameraOffsetX = false, -- can also set custom camera offsets
+    CameraOffsetY = false, -- can also set custom camera offsets
+
+    ZoomSpeed = 5,
     
     _super = "Prop", _global = true
 }
