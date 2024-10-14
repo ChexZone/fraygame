@@ -310,6 +310,9 @@ function Player.new()
         PounceSqueak = {
             Sound.new("game/assets/sounds/squeak_pounce.wav", "static"):Set("Volume", 0.03),
         },
+        UpwardDive = {
+            Sound.new("game/assets/sounds/upwarddive.wav", "static"):Set("Volume", 0.055)
+        }
     }
 
     newPlayer.SFX.Jump[1].Test = true
@@ -1186,6 +1189,7 @@ function Player:Dive()
 
     if (self.FramesSinceDoubleJump == -1 and  math.abs(self.Velocity.Y) > 2.35) then
         measuredVelocityY = self.Velocity.Y/1.3
+        self:PlaySFX("UpwardDive", 1, 0)
     end
 
     if self.FramesSinceParry > -1 and self.FramesSinceParry < self.FramesAfterParryCanParryDive and self.FramesSinceDoubleJump == -1 then
