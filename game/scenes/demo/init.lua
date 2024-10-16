@@ -10,8 +10,10 @@ local scene = GameScene.new{
 Chexcore:AddType("game.objects.wheel")
 Chexcore:AddType("game.objects.cameraZone")
 
-local bg = Prop.new{Size = V{64, 36}, Color = V{0.5,0,1,0.2}, Texture = Texture.new("chexcore/assets/images/square.png")}:Nest(scene:AddLayer(Layer.new("BG", 64, 36, true):Properties{TranslationInfluence = 0}))
+local bgLayer = Prop.new{Size = V{64, 36}, Color = HSV{0,0.5,0.5,01}, Texture = Texture.new("chexcore/assets/images/square.png"),Update = function(s,dt) s.Color.H = (s.Color.H + dt/5)%1 end}:Into(scene:AddLayer(Layer.new("BG", 64, 36, true):Properties{TranslationInfluence = 0}))
 local mainLayer = scene:GetLayer("Gameplay")
+
+scene:SwapChildOrder(bgLayer, mainLayer)
 
 local tilemap = Tilemap.import("game.scenes.demo.tilemap2", "game/scenes/demo/tilemap.png", {Scale = 1 }):Nest(mainLayer):Properties{
     Scale = 1,

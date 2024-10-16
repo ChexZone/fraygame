@@ -13,6 +13,8 @@ local GameCamera = {
     Overrides = {},
 
     Focus = nil,    -- prop
+    LastFocus = nil,
+
     DampeningFactor = V{5, 0},
     MaxDistancePerFrame = V{10, 5},
     MinDistancePerFrame = V{1.5, 1.5},
@@ -21,7 +23,10 @@ local GameCamera = {
     DampeningFactorReeling = V{15, 2},
     MinDistancePerFrameReeling = V{1.5, 1.5},
     MaxDistancePerFrameReeling = V{5, 5},
+    BorderSpeed = V{14, 14},
     Offset = V{0, 0},
+
+    DampeningDampener = 0,  -- when changing to a new source, we want to slow down the camera first
 
     -- internal properties
     _super = "Camera",      -- Supertype
@@ -31,26 +36,29 @@ local GameCamera = {
 
 function GameCamera._globalUpdate(dt)
     for camera in pairs(GameCamera._cache) do
+        camera.DampeningDampener = math.lerp(camera.DampeningDampener, 1, 2*dt, 0.01)
+        print(camera.DampeningDampener)
         if camera.Focus then
             local focus = camera.Focus
+
             camera.TrackingPosition = camera.TrackingPosition or camera.Position
             
             local dampening, maxDist, minDist, zoomSpeed
             local offsetX, offsetY = 0, 0
             if #camera.Overrides > 0 then -- use the latest override camera option
                 local override = camera.Overrides[#camera.Overrides]
-                focus = override.Focus
+                focus = override.Focus or focus
                 dampening = V{
-                    camera.Reeling.X and override.DampeningFactorReelingX or override.DampeningFactorX,
-                    camera.Reeling.Y and override.DampeningFactorReelingY or override.DampeningFactorY
+                    camera.Reeling.X and (override.DampeningFactorReelingX or override.DampeningFactorX or camera.DampeningFactorReeling.X) or (override.DampeningFactorX  or camera.DampeningFactor.X),
+                    camera.Reeling.Y and (override.DampeningFactorReelingY or override.DampeningFactorY or camera.DampeningFactorReeling.Y) or (override.DampeningFactorY  or camera.DampeningFactor.Y),
                 }
                 maxDist = V{
-                    camera.Reeling.X and override.MaxDistancePerFrameReelingX or override.MaxDistancePerFrameX,
-                    camera.Reeling.Y and override.MaxDistancePerFrameReelingY or override.MaxDistancePerFrameY,
+                    camera.Reeling.X and (override.MaxDistancePerFrameReelingX or override.MaxDistancePerFrameX or camera.MaxDistancePerFrameReeling.X) or (override.MaxDistancePerFrameX or camera.MaxDistancePerFrame.X),
+                    camera.Reeling.Y and (override.MaxDistancePerFrameReelingY or override.MaxDistancePerFrameY or camera.MaxDistancePerFrameReeling.Y) or (override.MaxDistancePerFrameY or camera.MaxDistancePerFrame.Y),
                 }*60*dt
                 minDist = V{
-                    camera.Reeling.X and override.MinDistancePerFrameReelingX or override.MinDistancePerFrameX,
-                    camera.Reeling.Y and override.MinDistancePerFrameReelingY or override.MinDistancePerFrameY
+                    camera.Reeling.X and (override.MinDistancePerFrameReelingX or override.MinDistancePerFrameX or camera.MinDistancePerFrameReeling.X) or (override.MinDistancePerFrameX or camera.MinDistancePerFrame.X),
+                    camera.Reeling.Y and (override.MinDistancePerFrameReelingY or override.MinDistancePerFrameY or camera.MinDistancePerFrameReeling.Y) or (override.MinDistancePerFrameY or camera.MinDistancePerFrame.Y),
                 }*60*dt
                 zoomSpeed = override.ZoomSpeed
                 offsetX = override.CameraOffsetX or offsetX
@@ -79,11 +87,14 @@ function GameCamera._globalUpdate(dt)
                 focusPoint = focus:GetPoint(.5,.5) + V{offsetX, offsetY}
             end
             
-            
+            if focus ~= camera.LastFocus then
+                camera.LastFocus = focus
+                camera.DampeningDampener = 0
+            end
             
             local newPos = V{
-                math.lerp(camera.TrackingPosition.X, focusPoint.X, dampening.X*dt),
-                math.lerp(camera.TrackingPosition.Y, focusPoint.Y, dampening.Y*dt),                
+                math.lerp(camera.TrackingPosition.X, focusPoint.X, dampening.X*dt*(camera.DampeningDampener^2)),
+                math.lerp(camera.TrackingPosition.Y, focusPoint.Y, dampening.Y*dt*camera.DampeningDampener^2),
             }
             local dist = (camera.TrackingPosition - newPos)
             local focusDist = (focusPoint - newPos)

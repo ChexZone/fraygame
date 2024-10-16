@@ -247,7 +247,6 @@ function Player.new()
     newPlayer.TailPoints = {}
     newPlayer.TouchEvents = {} 
 
-
     newPlayer.LastSFX_ID = {}
     newPlayer.SFX = {
         Jump = {
@@ -1189,7 +1188,9 @@ function Player:Dive()
 
     if (self.FramesSinceDoubleJump == -1 and  math.abs(self.Velocity.Y) > 2.35) then
         measuredVelocityY = self.Velocity.Y/1.3
-        self:PlaySFX("UpwardDive", 1, 0)
+        if self.Velocity.Y < 0 then
+            self:PlaySFX("UpwardDive", 1, 0)
+        end
     end
 
     if self.FramesSinceParry > -1 and self.FramesSinceParry < self.FramesAfterParryCanParryDive and self.FramesSinceDoubleJump == -1 then

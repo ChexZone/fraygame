@@ -127,41 +127,99 @@ function GameScene.new(properties)
     }):Properties{
         Scene = newGameScene,
         PrepareToDraw = function (self)
+            local PADDING = 500
             local dt = Chexcore._lastFrameTime
-            local camPos = self.Scene.Camera.Position
-            local camSize = self.Scene.GameplaySize / self.Scene.Camera.Zoom
-            local focusSize = self.Scene.Camera:GetFocus().Size
+            local camera = self.Scene.Camera
+            local camPos = camera.Position
+            local camSize = self.Scene.GameplaySize / camera.Zoom
+            local focusSize = camera:GetFocus().Size
 
             local horizBarSize, vertiBarSize = 0, 0
             local left, right, top, bottom = self:GetChild("Left"), self:GetChild("Right"), self:GetChild("Top"), self:GetChild("Bottom")
 
             local offsetX, offsetY = 0, 0
-            local realFocus = self.Scene.Camera:GetFocus()
-            if realFocus ~= self.Scene.Camera.Focus then -- camera is being overridden
-                local override = self.Scene.Camera.Overrides[#self.Scene.Camera.Overrides]
+            local realFocus = camera:GetFocus()
+            local override = camera.Overrides[#camera.Overrides]
+            if realFocus ~= camera.Focus then -- camera is being overridden
                 if override.BlackBorder then
                     horizBarSize = focusSize.X < camSize.X and (camSize.X - focusSize.X)/2 or 0
                     vertiBarSize = focusSize.Y < camSize.Y and (camSize.Y - focusSize.Y)/2 or 0
                     offsetX = override.CameraOffsetX or offsetX
                     offsetY = override.CameraOffsetY or offsetY
+                    if not self.RecordedEdges then
+                        self.LeftEdge = left:GetEdge("right")
+                        self.RightEdge = right:GetEdge("left")
+                        self.TopEdge = top:GetEdge("bottom")
+                        self.BottomEdge = bottom:GetEdge("top")
+                        self.RecordedEdges = true
+                    end
                 end
-
+            else
+                self.RecordedEdges = false
             end
             
-            local goalHorizSize = V{horizBarSize, camSize.Y}
-            local goalVertiSize = V{camSize.X, vertiBarSize}
+            local borderSpeedX = (override and override.BorderSpeedX) or camera.BorderSpeed.X
+            local borderSpeedY = (override and override.BorderSpeedY) or camera.BorderSpeed.Y
 
-            left.Size = left.Size:Lerp(goalHorizSize - V{offsetX, 0}, 7*dt)
-            right.Size = right.Size:Lerp(goalHorizSize + V{offsetX, 0}, 7*dt)
-            top.Size = top.Size:Lerp(goalVertiSize - V{0, offsetY}, 7*dt)
-            bottom.Size = bottom.Size:Lerp(goalVertiSize + V{0, offsetY}, 7*dt)
+            local goalHorizSize = V{horizBarSize+1, camSize.Y*2}
+            local goalVertiSize = V{camSize.X*2, vertiBarSize+1}
 
-            local hBase = V{camSize.X/2+1, 0}
-            local vBase = V{0, camSize.Y/2+1}
+            local leftGoalSize = goalHorizSize - V{offsetX-1-PADDING, 0}
+            local rightGoalSize = goalHorizSize + V{offsetX+PADDING, 0}
+            local topGoalSize = goalVertiSize - V{0, offsetY-1-PADDING}
+            local bottomGoalSize = goalVertiSize + V{0, offsetY+PADDING}
+
+            
+
+            left.Size = left.Size:Lerp(leftGoalSize, borderSpeedX*dt, 1)
+            right.Size = right.Size:Lerp(rightGoalSize, borderSpeedX*dt, 1)
+            top.Size = top.Size:Lerp(topGoalSize, borderSpeedY*dt, 1)
+            bottom.Size = bottom.Size:Lerp(bottomGoalSize, borderSpeedY*dt, 1)
+
+
+            left.Visible = left.Size.X - PADDING - 1 > 1
+            right.Visible = right.Size.X - PADDING > 1
+            top.Visible = top.Size.Y - PADDING - 1 > 1
+            bottom.Visible = bottom.Size.Y - PADDING > 1
+
+            -- if left.Size.X > leftGoalSize.X then
+            --     left.Size.X = leftGoalSize.X
+            -- end
+            -- if right.Size.X > rightGoalSize.X then
+            --     right.Size.X = rightGoalSize.X
+            -- end
+            -- if top.Size.Y > topGoalSize.Y then
+            --     top.Size.Y = topGoalSize.Y
+            -- end
+            -- if bottom.Size.Y > bottomGoalSize.Y then
+            --     print("AAH")
+            --     bottom.Size.Y = bottomGoalSize.Y
+            -- end
+
+            local hBase = V{camSize.X/2+1 + PADDING, 0}
+            local vBase = V{0, camSize.Y/2+1 + PADDING}
+            -- local l,r,t,b = left:GetEdge("left"), left:GetEdge("right"), left:GetEdge("top"), left:GetEdge("bottom")
             left.Position = camPos - hBase
             right.Position = camPos + hBase
             top.Position = camPos - vBase
             bottom.Position = camPos + vBase
+
+            -- if self.LeftEdge and left:GetEdge("right") > self.LeftEdge then
+            --     left.Size.X = left.Size.X*2
+            --     left:SetEdge("right", self.LeftEdge)
+            -- end
+            -- if vertiBarSize == 0 and self.BottomEdge and bottom:GetEdge("top") < self.BottomEdge then
+            --     bottom:SetEdge("top", self.BottomEdge)
+            -- end
+            -- if vertiBarSize == 0 and self.TopEdge and top:GetEdge("bottom") > self.TopEdge then
+            --     top:SetEdge("bottom", self.TopEdge)
+            -- end
+            -- if horizBarSize == 0 and self.LeftEdge and left:GetEdge("right") < self.LeftEdge and left.Size.X > 2 then
+            --     left:SetEdge("right", self.LeftEdge)
+            -- end
+            -- if horizBarSize == 0 and self.RightEdge and right:GetEdge("left") > self.RightEdge and right.Size.X > 2 then
+            --     right:SetEdge("left", self.RightEdge)
+            -- end
         end
     }:Nest(mainLayer)
 

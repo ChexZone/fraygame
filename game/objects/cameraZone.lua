@@ -1,29 +1,32 @@
 local CameraZone = {
     Name = "CameraZone",
     
-    DampeningFactorX = 5,
-    DampeningFactorY = 5,
+    DampeningFactorX = 10,
+    DampeningFactorY = 10,
     
-    MaxDistancePerFrameX = 10,
-    MaxDistancePerFrameY = 10,
+    MaxDistancePerFrameX = false,--10,
+    MaxDistancePerFrameY = false,--10,
     
-    MinDistancePerFrameX = 1.5,
-    MinDistancePerFrameY = 1.5,
+    MinDistancePerFrameX = false,--1.5,
+    MinDistancePerFrameY = false,--1.5,
 
-    MaxDistanceFromFocusX = 0,
-    MaxDistanceFromFocusY = 0,
+    MaxDistanceFromFocusX = false,--0,
+    MaxDistanceFromFocusY = false,--0,
 
-    RealMaxDistanceFromFocusX = 250,
-    RealMaxDistanceFromFocusY = 80,
+    RealMaxDistanceFromFocusX = math.inf,
+    RealMaxDistanceFromFocusY = math.inf,
 
     DampeningFactorReelingX = 10,
     DampeningFactorReelingY = 10,
 
-    MinDistancePerFrameReelingX = 1.5,
-    MinDistancePerFrameReelingY = 1.5,
+    MinDistancePerFrameReelingX = false,--1.5,
+    MinDistancePerFrameReelingY = false,--1.5,
     
-    MaxDistancePerFrameReelingX = 15,
-    MaxDistancePerFrameReelingY = 15,
+    MaxDistancePerFrameReelingX = false,--15,
+    MaxDistancePerFrameReelingY = false,--15,
+
+    BorderSpeedX = false,--14,
+    BorderSpeedY = false,--14,
 
     CameraSizeX = false,    -- can set custom camera dimensions!
     CameraSizeY = false,    -- can set custom camera dimensions!
