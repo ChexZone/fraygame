@@ -19,7 +19,7 @@ local GameCamera = {
     MaxDistancePerFrame = V{10, 5},
     MinDistancePerFrame = V{1.5, 1.5},
     MaxDistanceFromFocus = V{50, 60},
-    RealMaxDistanceFromFocus = V{250, 80},
+    RealMaxDistanceFromFocus = V{250, 50},
     DampeningFactorReeling = V{15, 2},
     MinDistancePerFrameReeling = V{1.5, 1.5},
     MaxDistancePerFrameReeling = V{5, 5},
@@ -37,7 +37,7 @@ local GameCamera = {
 function GameCamera._globalUpdate(dt)
     for camera in pairs(GameCamera._cache) do
         camera.DampeningDampener = math.lerp(camera.DampeningDampener, 1, 2*dt, 0.01)
-        print(camera.DampeningDampener)
+        -- print(camera.DampeningDampener)
         if camera.Focus then
             local focus = camera.Focus
 

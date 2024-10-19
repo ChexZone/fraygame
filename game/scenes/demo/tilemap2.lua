@@ -35,7 +35,7 @@ return {
       offsety = 0,
       parallaxx = 0.2,
       parallaxy = 0.2,
-      tintcolor = { 144, 144, 144 },
+      tintcolor = { 93, 80, 144 },
       properties = {
         ["IgnoreCollision"] = true
       },
@@ -1628,13 +1628,13 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["BlackBorder"] = false,
-            ["BorderSpeedX"] = 10,
-            ["BorderSpeedY"] = 10,
+            ["BlackBorder"] = true,
+            ["BorderSpeedX"] = 25,
+            ["BorderSpeedY"] = 25,
             ["CameraOffsetX"] = 100,
             ["CameraSizeX"] = 960,
-            ["DampeningFactorX"] = 2,
-            ["DampeningFactorY"] = 2,
+            ["DampeningFactorX"] = 30,
+            ["DampeningFactorY"] = 30,
             ["FillWithFocus"] = true,
             ["Focus"] = { id = 5 },
             ["ZoomSpeed"] = 2
@@ -1676,14 +1676,14 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["BlackBorder"] = false,
-            ["BorderSpeedX"] = 10,
-            ["BorderSpeedY"] = 10,
-            ["CameraOffsetX"] = -200,
+            ["BlackBorder"] = true,
+            ["BorderSpeedX"] = 25,
+            ["BorderSpeedY"] = 25,
+            ["CameraOffsetX"] = 100,
             ["CameraOffsetY"] = -100,
             ["CameraSizeX"] = 960,
-            ["DampeningFactorX"] = 2,
-            ["DampeningFactorY"] = 2,
+            ["DampeningFactorX"] = 30,
+            ["DampeningFactorY"] = 30,
             ["FillWithFocus"] = true,
             ["Focus"] = { id = 9 }
           }

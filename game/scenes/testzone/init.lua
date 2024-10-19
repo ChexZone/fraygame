@@ -4,7 +4,7 @@ local scene = GameScene.new{
         GameScene.Update(self, dt)
         self.Player = self:GetDescendant("Player")
         self.Camera.Position = self.Camera.Position:Lerp((self.Player:GetPoint(0.5,0.5)), 1000*dt)
-        self.Camera.Zoom = 1 --+ (math.sin(Chexcore._clock)+1)/2
+        self.Camera.Zoom = 2 --+ (math.sin(Chexcore._clock)+1)/2
     end
 }
 
@@ -41,7 +41,7 @@ Draw = function (self)
     self.Canvases[1]:Deactivate()
 end}
 
-local mainLayer = scene:AddLayer(Layer.new("Gameplay", 640, 360))
+local mainLayer = scene:GetLayer("Gameplay")
 
 mainLayer.Canvases[1].Shader = Shader.new[[
     vec4 origOut;
@@ -74,6 +74,8 @@ mainLayer.Canvases[1].Shader = Shader.new[[
 scene:AddLayer(Layer.new("GUI", 1920, 1080))
 
 print(scene:GetChild("Buildings").TranslationInfluence)
+
+mainLayer:GetParent():SwapChildOrder(mainLayer, mainLayer:GetParent():GetChild("Buildings"))
 
 local crate2
 -- test collidable
@@ -188,7 +190,7 @@ local particles = mainLayer:Adopt(Particles.new{
     -- ParticleColorVelocity = V{1,1,1,-1},
     ParticleColor = V{1,1,1,1},
     Update = function (self,dt)
-        self.Position = self:GetLayer():GetChild("Player"):GetPoint(0.5,0.5)
+        self.Position = self:GetLayer():GetChild("Player") and self:GetLayer():GetChild("Player"):GetPoint(0.5,0.5)
         if math.random(1,20) == 1 then
             for i = 1,1 do
                 self:Emit{SizeAcceleration = V{-50, -50}, Size = V{16, 16}, Position = V{0,0}}

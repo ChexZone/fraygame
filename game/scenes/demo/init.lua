@@ -16,8 +16,9 @@ local mainLayer = scene:GetLayer("Gameplay")
 scene:SwapChildOrder(bgLayer, mainLayer)
 
 local tilemap = Tilemap.import("game.scenes.demo.tilemap2", "game/scenes/demo/tilemap.png", {Scale = 1 }):Nest(mainLayer):Properties{
-    Scale = 1,
+    LockPlayerVelocity = true,
     Update = function (self,dt)
+        
         -- self.Position = self.Position + V{1,0}
         -- self.LayerColors[3].H = (self.LayerColors[2].H + dt/2)%1 
         self.LayerColors[1].S = math.sin(Chexcore._clock)/2 + 0.5 

@@ -50,7 +50,7 @@ local Player = {
     TerminalDiveVelocity = 3,
     TerminalLungeVelocity = 4,         
     YPositionAtLedge = nil,             -- the Y position of the player at the last ledge they walked off
-    TerminalLedgeLungeVelocity = 10,      -- terminal velocity out of a lunge off a ledge
+    TerminalLedgeLungeVelocity = 11,      -- terminal velocity out of a lunge off a ledge
     TerminalLedgeLungeVelocityGoal = 2,      -- terminal velocity out of a lunge off a ledge
     ActiveTerminalLedgeLungeVelocity = 3,   -- it will slowly lerp towards TerminalDiveVelocity
     LedgeLungeWindow = 30,              -- how many frames after a lunge can you fall off a ledge to do a ledge lunge 
@@ -453,12 +453,6 @@ function Player.new()
     end
 
 
-    local c = 0
-    for _ in pairs(Player) do
-        c=c+1
-    end
-    print(c)
-
     return newPlayer
 end
 
@@ -487,7 +481,9 @@ function Player:DisconnectFromWall()
 end
 
 function Player:ConnectToFloor(floor)
+    -- print("EHEGH")
     
+    -- if true then return flase end
     if not self.Floor then
         -- just landed
         self.VelocityBeforeHittingGround = self.Velocity.Y
@@ -552,7 +548,7 @@ function Player:FollowFloor()
         end
 
         self.FloorPos = self.Floor.Position:Clone()
-
+        
         self.PreviousFloorHeight = self:GetEdge("bottom")
     elseif self.LastFloor then
         self.LastFloorDelta = self.LastFloorPos - self.LastFloor.Position
@@ -561,7 +557,7 @@ end
 
 ------- collison function
 function Player:Unclip(forTesting)
-    
+    self.UnclipCount = self.UnclipCount + 1
     if self.Floor then
         self.Position.Y = self.Position.Y + 1
     end
@@ -608,7 +604,9 @@ function Player:Unclip(forTesting)
 
     if not forTesting then
         -- try to "undo" if the player clipped too hard
-        if math.abs(pushY) > self.Size.Y/2 then
+        -- print(pushY)
+        if math.abs(pushY) > self.YHitbox.Size.Y/2 then
+            print("FIXING Y")
             self.Position.Y = self.Position.Y - self.VelocityLastFrame.Y
         else
             self.Position.Y = self.Position.Y + pushY - sign(pushY) * 0.01
@@ -633,37 +631,46 @@ function Player:Unclip(forTesting)
 
 
         if solid ~= self.XHitbox and (face == "left" or face == "right") and not solid.Passthrough then
+
+            -- -- check if this is a ledge
+            -- local hit
+            -- local i = 1
+            -- while i <= self.LedgeUpwardClipDistance do
+            --     self.XHitbox.Position.Y = self.XHitbox.Position.Y - 1
+            --     hit = solid:CollisionInfo(self.XHitbox)
+            --     if not hit then break end
+            --     i = i + 1
+            -- end
             
-            -- check if this is a ledge
-            local hit
-            local i = 1
-            while i <= self.LedgeUpwardClipDistance do
-                self.XHitbox.Position.Y = self.XHitbox.Position.Y - 1
-                hit = solid:CollisionInfo(self.XHitbox)
-                if not hit then break end
-                i = i + 1
-            end
-            
-            self.XHitbox.Position.X = self.XHitbox.Position.Y + i-- self.LedgeUpwardClipDistance
-            if not hit then
-                self.Position.Y = self.Position.Y - i
-            else
+            -- self.XHitbox.Position.Y = self.XHitbox.Position.Y + i-- self.LedgeUpwardClipDistance
+            -- if not hit then
+            --     self.Position.Y = self.Position.Y - i
+            -- else
+            --     -- if pushY == 0 then self.Velocity.X = 0 end
+            --     pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
+            --     self:AlignHitboxes()
+
+            --     self:ConnectToWall(solid, face)
+            -- end
+
                 -- if pushY == 0 then self.Velocity.X = 0 end
                 pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
                 self:AlignHitboxes()
 
                 self:ConnectToWall(solid, face)
-            end
-
-
 
         end
         
     end
 
+    
+
     if not forTesting then
+        -- print(pushX, pushY)
+        -- print(self.Size.X/2)
         -- again, try to "undo" any extreme clipping
-        if math.abs(pushX) > self.Size.X/2 then
+        if math.abs(pushX) > self.XHitbox.Size.X/2 then
+            print("FIXING X")
             self.Position.X = self.Position.X - self.VelocityLastFrame.X
         else
             self.Position.X = self.Position.X + pushX
@@ -696,7 +703,6 @@ function Player:ValidateFloor()
         self.YHitbox.Position.Y = self.Position.Y + 1
         
         self.Velocity.Y = 0
-
         local hit, hDist, vDist = self.Floor:CollisionInfo(self.YHitbox)
         if not hit then
 
@@ -2055,8 +2061,8 @@ function Player:UpdatePhysics()
     -- adhere to MaxSpeed
     
     -- update position before velocity, so that there is at least 1 frame of whatever Velocity is set by prev frame
-    local MAX_Y_DIST = 1
-    local MAX_X_DIST = 1
+    local MAX_Y_DIST = 2
+    local MAX_X_DIST = 2
     local subdivisions = 1
 
     if math.abs(self.Velocity.X) > MAX_X_DIST then
@@ -2067,7 +2073,33 @@ function Player:UpdatePhysics()
         subdivisions = math.max(subdivisions, math.floor(1+math.abs(self.Velocity.Y)/MAX_Y_DIST))
     end
     
-    local posDelta = self.Velocity - (self.AerialMovementLockedToFloorPos and self.LastFloorDelta or EMPTYVEC)
+    local posDelta = self.Velocity
+    local cam = self:GetLayer():GetParent().Camera
+    if self.AerialMovementLockedToFloorPos then
+        posDelta = posDelta - (self.LastFloorDelta or EMPTYVEC)
+        
+        cam.TrackingPosition = cam.TrackingPosition - (self.LastFloorDelta or EMPTYVEC)
+
+        local roundingUpX = math.round(cam.TrackingPosition.X) > cam.TrackingPosition.X
+        local roundingUpY = math.round(cam.TrackingPosition.Y) > cam.TrackingPosition.Y
+        cam.TrackingPosition.X = math.floor(cam.TrackingPosition.X) + (self.LastFloor.Position.X % 1)
+        cam.TrackingPosition.Y = math.floor(cam.TrackingPosition.Y) + (self.LastFloor.Position.Y % 1)
+
+        -- cam.TrackingPosition.X = math.floor(cam.TrackingPosition.X) + (self.LastFloor.Position.X % 1)
+        -- cam.TrackingPosition.Y = math.floor(cam.TrackingPosition.Y) + (self.LastFloor.Position.Y % 1)
+    elseif self.Floor and self.Floor.LockPlayerVelocity then
+        cam.TrackingPosition = cam.TrackingPosition - (self.FloorDelta or EMPTYVEC)
+        local roundingUpX = math.round(cam.TrackingPosition.X) > cam.TrackingPosition.X
+        local roundingUpY = math.round(cam.TrackingPosition.Y) > cam.TrackingPosition.Y
+        cam.TrackingPosition.X = math.round(cam.TrackingPosition.X) + (self.Floor.Position.X % 1) - (roundingUpX and 1 or 0)
+        cam.TrackingPosition.Y = math.round(cam.TrackingPosition.Y) + (self.Floor.Position.Y % 1) - (roundingUpY and 1 or 0)
+    end
+
+    if self.AerialMovementLockedToFloorPos or (self.Floor and self.Floor.LockPlayerVelocity) then
+        
+        
+    end
+     
     local interval = subdivisions == 1 and posDelta or posDelta / subdivisions
 
     local posBeforeMove = self.Position:Clone()
@@ -2097,6 +2129,7 @@ function Player:UpdatePhysics()
     -- special edge case for "falling" just off the corner of an object
     -- this happens when the player doesn't move far enough down for the x hitbox to touch the collider and move the player to the side
     -- the solution I think is just to force the movement and pray it doesn't create any edge case collision bugs
+    -- print("PUSHEDY", pushedY)
     if pushedY and self.Velocity.X == 0 and self.Acceleration.X == 0 and not self.Floor and math.abs(posAfterMove.Y - posBeforeMove.Y) < 1 then
         print("HANGING OFF LEDGE!!!")
         self.Position.Y = self.Position.Y + self.Velocity.Y
@@ -2131,12 +2164,14 @@ end
 
 ------------------------ MAIN UPDATE LOOP -----------------------------
 function Player:Update(engine_dt)
+    -- print(self.Floor)
     self._usingPerformanceMode = self:GetLayer():GetParent().PerformanceMode
     -- also, engine_dt will be 1/60 in normal mode and 1/30 in performance mode
     
     local dt = 1/60 -- player value changes should always assume 60hz updates
 
-    
+    print(self.UnclipCount)
+    self.UnclipCount = 0
 
 
     -- self.Color = V{math.random(0,1),math.random(0,1),math.random(0,1)}
