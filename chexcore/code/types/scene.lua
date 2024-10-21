@@ -58,6 +58,11 @@ function Scene:Draw()
 
     -- make sure the MasterCanvas exists (lazy solution for now)
     self.MasterCanvas = self.MasterCanvas or Canvas.new(self.DrawSize.X, self.DrawSize.Y):AddProperties{AlphaMode = "premultiplied"}
+    
+    if self.MasterCanvas:GetSize() ~= self.DrawSize then
+        self.MasterCanvas = Canvas.new(self.DrawSize.X, self.DrawSize.Y):AddProperties{AlphaMode = "premultiplied"}
+    end
+    
     local canvasSize = self.MasterCanvas:GetSize()
 
     -- render all layers to the MasterCanvas
