@@ -14,6 +14,8 @@ local Input = {
     _global = true
 }
 
+love.mouse = love.mouse or {}
+
 Input._globalUpdate = function (dt)
     for k, _ in pairs(Input._justPressed) do
         Input._justPressed[k] = nil
@@ -123,7 +125,7 @@ function Input:Release(device, key)
     -- dummy
 end
 
-local getMousePos = love.mouse.getPosition
+local getMousePos = love.mouse.getPosition or function() return 0, 0 end
 local getScreenSize = love.graphics.getDimensions
 local vec = V
 
