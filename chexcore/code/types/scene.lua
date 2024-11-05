@@ -15,6 +15,9 @@ local Scene = {
     _super = "Object",      -- Supertype
     _global = true
 }
+if love._console == "3ds" then
+    Scene.DrawSize = V{400,240}
+end
 
 function Scene.new(properties)
     local newScene = Scene:SuperInstance()
@@ -45,12 +48,28 @@ end
 
 -- the default rendering pipeline for a Scene
 local lg = love.graphics
-function Scene:Draw()
+function Scene:Draw(params)
     
+    local usingCanvases = false
     -- go through all the Layers uh... think about it chex !!
     local tx, ty = self.Camera.Position:Filter(math.floor)()
-    for layer in self:EachChild() do
-        layer:Draw(tx, ty)
+
+    if params.screen then
+        -- for love potion
+        for layer in self:EachChild("Screen", params.screen) do
+            print(params.screen, layer)
+            layer:Draw(tx, ty)
+            if layer.Canvases then
+                usingCanvases = true
+            end
+        end
+    else
+        for layer in self:EachChild() do
+            layer:Draw(tx, ty)
+            if layer.Canvases then
+                usingCanvases = true
+            end
+        end
     end
     
     -- we use this later
@@ -63,23 +82,24 @@ function Scene:Draw()
         self.MasterCanvas = Canvas.new(self.DrawSize.X, self.DrawSize.Y):AddProperties{AlphaMode = "premultiplied"}
     end
     
-    local canvasSize = self.MasterCanvas:GetSize()
+    if usingCanvases then
+        local canvasSize = self.MasterCanvas:GetSize()
 
-    -- render all layers to the MasterCanvas
-    self:CombineLayers()
+        -- render all layers to the MasterCanvas
+        self:CombineLayers()
 
-    -- draw the MasterCanvas
-   
-    local canvasRatio, windowRatio = canvasSize.X / canvasSize.Y, windowSize.X / windowSize.Y
-    local scaleByWidth = canvasRatio > windowRatio
-    local pixelWidth = scaleByWidth and windowSize.X or windowSize.Y * canvasRatio
-    local pixelHeight = scaleByWidth and windowSize.X/canvasRatio or windowSize.Y
+        -- draw the MasterCanvas
+    
+        local canvasRatio, windowRatio = canvasSize.X / canvasSize.Y, windowSize.X / windowSize.Y
+        local scaleByWidth = canvasRatio > windowRatio
+        local pixelWidth = scaleByWidth and windowSize.X or windowSize.Y * canvasRatio
+        local pixelHeight = scaleByWidth and windowSize.X/canvasRatio or windowSize.Y
 
-    -- claim render space and draw
-    lg.setCanvas()
-    lg.setColor(1,1,1,1)
-    self.MasterCanvas:DrawToScreen(windowSize.X/2, windowSize.Y/2, 0, pixelWidth, pixelHeight, 0.5, 0.5)
-
+        -- claim render space and draw
+        lg.setCanvas()
+        lg.setColor(1,1,1,1)
+        self.MasterCanvas:DrawToScreen(windowSize.X/2, windowSize.Y/2, 0, pixelWidth, pixelHeight, 0.5, 0.5)
+    end
 end
 
 -- the default implementation of layer combination for the MasterCanvas. No I/O, just apply all the Layers to Canvases
@@ -91,18 +111,20 @@ function Scene:CombineLayers()
     -- collect a list of all Canvases from all Layers
     local masterCanvasSize = self.MasterCanvas:GetSize()
     for layer in self:EachChild() do
-        for _, canvas in ipairs(layer.Canvases) do
-            -- canvases[#canvases+1] = canvas
-                    -- by default, we'll just stretch each Canvas to fit the MasterCanvas. 
-        -- maybe make this a property later ?
-        local zoomInfluence = layer.Static and 0 or layer.ZoomInfluence
-        canvas:DrawToScreen(
-            masterCanvasSize.X/2,
-            masterCanvasSize.Y/2, 0,
-            masterCanvasSize.X + masterCanvasSize.X * (self.Camera.Zoom-1) * zoomInfluence,
-            masterCanvasSize.Y + masterCanvasSize.Y * (self.Camera.Zoom-1) * zoomInfluence,
-            0.5, 0.5
-        )
+        if layer.Canvases then
+            for _, canvas in ipairs(layer.Canvases) do
+                -- canvases[#canvases+1] = canvas
+                        -- by default, we'll just stretch each Canvas to fit the MasterCanvas. 
+            -- maybe make this a property later ?
+            local zoomInfluence = layer.Static and 0 or layer.ZoomInfluence
+            canvas:DrawToScreen(
+                masterCanvasSize.X/2,
+                masterCanvasSize.Y/2, 0,
+                masterCanvasSize.X + masterCanvasSize.X * (self.Camera.Zoom-1) * zoomInfluence,
+                masterCanvasSize.Y + masterCanvasSize.Y * (self.Camera.Zoom-1) * zoomInfluence,
+                0.5, 0.5
+            )
+            end
         end
     end
 

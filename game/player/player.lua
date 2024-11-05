@@ -2363,7 +2363,7 @@ function Player:Draw(tx, ty)
         )
     end
 
-    self.Shader:Activate()
+    if self.Shader then self.Shader:Activate() end
 
     love.graphics.setColor(1, 1, 1)
     self.Canvas:DrawToScreen(
@@ -2378,7 +2378,7 @@ function Player:Draw(tx, ty)
 
 
 
-    self.Shader:Deactivate()
+    if self.Shader then self.Shader:Deactivate() end
     
     if self.XHitbox.Visible then
         self.XHitbox:Draw(tx, ty)

@@ -17,7 +17,7 @@ local Tilemap = {
     _hasParallaxObjectLayers = false,   -- little optimization
     _numChunks = V{1, 1},
     _drawChunks = {},
-    _chunkSize = 64, -- measured in tiles, not pixels
+    _chunkSize = 16, -- measured in tiles, not pixels
     _super = "Prop",      -- Supertype
     _cache = setmetatable({}, {__mode = "k"}), -- cache has weak keys
     _global = true
@@ -186,7 +186,7 @@ local function drawLayer(self, layerID, camTilemapDist, sx, sy, ax, ay, tx, ty)
     local layer = self:GetLayer()
     local camera = layer:GetParent().Camera
     local cameraPos = camera.Position
-    local cameraSize = (layer.Canvases[1]:GetSize() * layer.TranslationInfluence) * camera.Zoom
+    local cameraSize = layer.Canvases and (layer.Canvases[1]:GetSize() * layer.TranslationInfluence) * camera.Zoom or V{love.graphics.getDimensions()} * layer.TranslationInfluence * camera.Zoom
 
     love.graphics.setColor(self.Color * (self.LayerColors[layerID] or Constant.COLOR.WHITE))
     local parallaxX = self.LayerParallax[layerID] and self.LayerParallax[layerID][1] or 1

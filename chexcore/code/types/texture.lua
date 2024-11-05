@@ -23,7 +23,7 @@ function Texture.new(path)
         
         newTexture = smt({}, Texture)
         if path then
-            newTexture._drawable = love.graphics.newImage(path)
+            newTexture._drawable = love.graphics.newTexture and love.graphics.newTexture(path) or love.graphics.newImage(path)
             Texture._cache[path] = newTexture
         end
     end

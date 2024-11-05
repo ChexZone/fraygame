@@ -14,7 +14,7 @@ local Input = {
     _global = true
 }
 
-love.mouse = love.mouse or {}
+-- love.mouse = love.mouse or {}
 
 Input._globalUpdate = function (dt)
     for k, _ in pairs(Input._justPressed) do
@@ -75,13 +75,8 @@ function Input.new(map)
 
     return newListener
 end
--- Animation._globalUpdate = function (dt)
---     for anim in pairs(Animation._cache) do
---         if anim.IsPlaying then
---             anim:Update(dt * anim.PlaybackScaling)
---         end
---     end
--- end
+
+
 function love.keypressed(key, scancode)
     sendInputDown("kb", key)
 end
@@ -90,24 +85,25 @@ function love.keyreleased(key, scancode)
     sendInputUp("kb", key)
 end
 
-function love.mousepressed(x, y, button, isTouch)
-    sendInputDown("mouse", "m_"..tostring(button))
-end
+if love._console ~= "3ds" then
+    function love.mousepressed(x, y, button, isTouch)
+        sendInputDown("mouse", "m_"..tostring(button))
+    end
 
-function love.mousereleased(x, y, button, isTouch)
-    sendInputUp("mouse", "m_"..tostring(button))
-end
+    function love.mousereleased(x, y, button, isTouch)
+        sendInputUp("mouse", "m_"..tostring(button))
+    end
 
-function love.wheelmoved(x, y)
-    if y > 0 then
-        sendInputDown("mouse", "m_wheelup")
-        sendInputUp("mouse", "m_wheelup")
-    elseif y < 0 then
-        sendInputDown("mouse", "m_wheeldown")
-        sendInputUp("mouse", "m_wheeldown")
+    function love.wheelmoved(x, y)
+        if y > 0 then
+            sendInputDown("mouse", "m_wheelup")
+            sendInputUp("mouse", "m_wheelup")
+        elseif y < 0 then
+            sendInputDown("mouse", "m_wheeldown")
+            sendInputUp("mouse", "m_wheeldown")
+        end
     end
 end
-
 
 function Input:IsDown(key)
     return self.Active and (self._isDown[key] or false)
@@ -125,7 +121,15 @@ function Input:Release(device, key)
     -- dummy
 end
 
-local getMousePos = love.mouse.getPosition or function() return 0, 0 end
+local getMousePos
+if love._console == "3ds" then
+    getMousePos = function ()
+        return 0,0
+    end
+else
+    getMousePos = love.mouse and love.mouse.getPosition or function() return 0, 0 end
+end
+
 local getScreenSize = love.graphics.getDimensions
 local vec = V
 

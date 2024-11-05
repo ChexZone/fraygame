@@ -8,6 +8,8 @@ local Layer = {
     AutoClearCanvas = true,
     Static = false,         -- whether the top left corner of the canvas sits at V{0, 0} or not
 
+    Screen = "left",
+
     -- internal properties
     _delayedDrawcalls = {}, -- created in constructor
     _super = "Object",      -- Supertype
@@ -22,11 +24,14 @@ function Layer.new(properties, width, height, static)
         end
     elseif type(properties) == "string" then
         newLayer.Name = properties
-        newLayer.Canvases = { Canvas.new(width, height) }
+        
+        if width and height then
+            newLayer.Canvases = { Canvas.new(width, height) }
+        end
     end
 
-    newLayer.Static = static
-    newLayer.Canvases = newLayer.Canvases or {}
+    newLayer.Static = static or newLayer.Static
+    -- newLayer.Canvases = newLayer.Canvases or {}
     newLayer._delayedDrawcalls = {}
 
     return Layer:Connect(newLayer)
@@ -46,22 +51,35 @@ function Layer:Draw(tx, ty)
     -- tx, ty: translation values from camera (layers are responsible for handling this)
 
     -- default implementation is to draw all children to Canvases[1]
-    self.Canvases[1]:Activate()
-
-    if self.AutoClearCanvas then
-        lg.clear()
+    if self.Canvases then 
+        self.Canvases[1]:Activate() 
+        if self.AutoClearCanvas then
+            lg.clear()
+        end
     end
+
+    
     
     -- love.graphics.setColor(1,1,1,1)
     -- love.graphics.rectangle("fill", 0, 0, 1920,1080)
+
+    local centerX, centerY
+    if self.Canvases then
+        centerX = self.Canvases[1]:GetWidth()/2
+        centerY = self.Canvases[1]:GetHeight()/2
+    else
+        centerX = love.graphics.getWidth()/2
+        centerY = love.graphics.getHeight()/2
+    end
+
     if self.Static then
         tx, ty = 0, 0
     elseif type(self.TranslationInfluence) == "table" then
-        tx = tx * self.TranslationInfluence[1] - self.Canvases[1]:GetWidth()/2
-        ty = ty * self.TranslationInfluence[2] - self.Canvases[1]:GetHeight()/2
-    else 
-        tx = tx * self.TranslationInfluence - self.Canvases[1]:GetWidth()/2
-        ty = ty * self.TranslationInfluence - self.Canvases[1]:GetHeight()/2
+        tx = tx * self.TranslationInfluence[1] - centerX
+        ty = ty * self.TranslationInfluence[2] - centerY
+    else
+        tx = tx * self.TranslationInfluence - centerX
+        ty = ty * self.TranslationInfluence - centerY
     end
     
     
@@ -103,7 +121,7 @@ function Layer:Draw(tx, ty)
 
     self._delayedDrawcalls = {}
 
-    self.Canvases[1]:Deactivate()
+    if self.Canvases then self.Canvases[1]:Deactivate() end
 end
 
 -- a Prop can choose to delay its drawcall to be drawn after everything else in the Layer
@@ -118,7 +136,7 @@ end
 local In = Input
 function Layer:GetMousePosition(canvasID)
     local normalizedPos, inWindow = In:GetMousePosition()
-    local activeCanvasSize = self.Canvases[canvasID or 1]:GetSize()
+    local activeCanvasSize = self.Canvases and self.Canvases[canvasID or 1]:GetSize() or V{love.graphics.getDimensions()}
     local cameraPosition = self.Static and activeCanvasSize/2 or self._parent.Camera.Position
     local cameraZoom = self._parent.Camera.Zoom
     local translationInfluence = self.TranslationInfluence

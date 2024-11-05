@@ -1,10 +1,10 @@
 -- CHEXCORE EXAMPLE SCENE
-love.mouse.setVisible(false)
+-- love.mouse.setVisible(false)
 -- create a Scene with this syntax:
 local scene = Scene.new()
 
 -- Scenes need to have at least one Layer to do anything!
-local layer = Layer.new("exampleLayer", 1280, 720) -- specify the Name, and pixel width/height
+local layer = Layer.new("exampleLayer") -- specify the Name, and pixel width/height
 -- attach the Layer to the Scene:
 scene:Adopt(layer)
 
@@ -157,7 +157,7 @@ local myButton = Gui.new{
 
 layer:Adopt(myButton)
 
-local layer2 = scene:Adopt( Layer.new("exampleLayer", 1280, 720) ) -- specify the Name, and pixel width/height
+local layer2 = scene:Adopt( Layer.new("exampleLayer") ) -- specify the Name, and pixel width/height
 
 -- local testText = layer2:Adopt(Text.new{
 --     Name = "TestText",

@@ -4,7 +4,7 @@ require "chexcore"
 -- some of the constructors are still somewhat manual but they'll get cleaned up !
 
 -- Scenes contain all the components of the game
-function love.load()
+function love.load2()
 
 
     -- BLIND BIRDS STUFF

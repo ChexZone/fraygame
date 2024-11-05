@@ -55,11 +55,14 @@ function Chexcore.Update(dt)
     end
 end
 
-function Chexcore.Draw()
+function Chexcore.Draw(params)
+
+    params = params or {}
+    
     -- draw all visible Scenes
     for id, scene in ipairs(Chexcore._scenes) do
         if scene.Visible then
-            scene:Draw()
+            scene:Draw(params)
         end
     end
 
@@ -176,75 +179,124 @@ end
 local fps = 0
 Chexcore.FrameLimit = 500
 local frameTime = 0
-local mode = "standard"
+local mode = "web"
 
-if mode ~= "web" then
-    function love.run()
-        if love.load then love.load(love.arg.parseGameArguments(arg), arg) end
+local start_time = 0
 
-        -- We don't want the first frame's dt to include time taken by love.load.
-        if love.timer then love.timer.step() end
+local windows = nestVideo and nestVideo.getFramebuffers()
 
-        local dt = 0
+function love.run()
+    if love.load then love.load(love.arg.parseGameArguments(arg), arg) end
 
-        -- Main loop time.
-        return function()
-            Chexcore._preciseClock = love.timer.getTime()
+    -- We don't want the first frame's dt to include time taken by love.load.
+    if love.timer then love.timer.step() end
 
-            local start_time = Chexcore._preciseClock
-            -- Process events.
-            if love.event then
-                love.event.pump()
-                for name, a,b,c,d,e,f in love.event.poll() do
-                    if name == "quit" then
-                        if not love.quit or not love.quit() then
-                            return a or 0
-                        end
+    local dt = 0
+
+    -- Main loop time.
+    return function()
+        Chexcore._preciseClock = love.timer.getTime()
+
+        -- if mode ~= "web" then
+            start_time = Chexcore._preciseClock
+        -- end
+        
+        -- Process events.
+        if love.event then
+            love.event.pump()
+            for name, a,b,c,d,e,f in love.event.poll() do
+                if name == "quit" then
+                    if not love.quit or not love.quit() then
+                        return a or 0
                     end
-                    love.handlers[name](a,b,c,d,e,f)
                 end
+                love.handlers[name](a,b,c,d,e,f)
             end
+        end
 
-            -- Update dt, as we'll be passing it to update
-            if love.timer then dt = love.timer.step() end
+        -- Update dt, as we'll be passing it to update
+        if love.timer then dt = love.timer.step() end
 
-            Chexcore._lastFrameTime = dt
-            
-            local frameLimit = (Chexcore._scenes[1] and Chexcore._scenes[1].FrameLimit) or Chexcore.FrameLimit
+        Chexcore._lastFrameTime = dt
+        
+        local frameLimit = (Chexcore._scenes[1] and Chexcore._scenes[1].FrameLimit) or Chexcore.FrameLimit
 
-            -- Call update and draw
-            frameTime = frameTime + dt
+        -- if mode == "web" then frameLimit = frameLimit * 1.4 end
 
-            if frameTime >= 1/frameLimit and love.graphics and love.graphics.isActive() then
-                frameTime = frameTime - 1/frameLimit
+        -- Call update and draw
+        frameTime = frameTime + dt
 
-                if love.update then
-                    love.update(1/frameLimit)
+        if frameTime >= 1/frameLimit and love.graphics and love.graphics.isActive() then
+            frameTime = frameTime - 1/frameLimit
+
+            if love.update then
+                love.update(1/frameLimit)
+            end
+            Chexcore.Update(1/frameLimit)
+
+
+
+            local screens = love.graphics.getScreens and love.graphics.getScreens()
+
+            if windows then
+                for _, screen in ipairs(windows) do
+                    love.graphics.setActiveScreen(screen:getName())
+                    
+
+                    screen:renderTo(function()
+                        Chexcore.Draw{screen = screen:getName()}
+                        -- love.graphics.clear(love.graphics.getBackgroundColor())
+                        
+                        if love.draw then
+                            love.draw(screen:getName())
+                        end
+                        
+                        
+                    end)
+                    
+                    screen:draw()
+                    
                 end
-                Chexcore.Update(1/frameLimit)
-
+                
+            elseif screens then
+                for _, screen in ipairs(screens) do
+                    love.graphics.origin()
+                    love.graphics.setActiveScreen(screen)
+                    
+                    love.graphics.clear(love.graphics.getBackgroundColor())
+                    if love.draw then love.draw(screen) end
+                    Chexcore.Draw{screen = screen}
+                end
+            else
                 love.graphics.origin()
                 love.graphics.clear(love.graphics.getBackgroundColor())
-
-                if love.draw then 
-                    love.draw() 
-                end
-                Chexcore.Draw()
-
-                love.graphics.present()
+                if love.draw then love.draw() end
+                Chexcore.Draw{}
             end
-
-
             
-            local timeToWait = _G.TRUE_FPS and 1/_G.TRUE_FPS or 1/frameLimit
-            -- local frameOverTime = dt - timeToWait --math.max(dt - timeToWait, 0)
-            
-            local end_time = love.timer.getTime()
 
-            if love.timer and not _G.FAST_MODE then love.timer.sleep(timeToWait - (end_time - start_time)) else love.timer.sleep(0) end
-
-            Chexcore._cpuTime = (end_time - start_time)
+            love.graphics.present()
         end
+
+
+        
+        local timeToWait = _G.TRUE_FPS and 1/_G.TRUE_FPS or 1/frameLimit
+        -- local frameOverTime = dt - timeToWait --math.max(dt - timeToWait, 0)
+        
+        local end_time = love.timer.getTime()
+
+        if love.timer then 
+            local waitTime = timeToWait - (end_time - start_time)
+            if mode == "web" then
+                waitTime = waitTime / 4
+            end
+            love.timer.sleep(waitTime)
+        end
+
+        Chexcore._cpuTime = (end_time - start_time)
+
+
+        -- if mode == "web" then start_time = Chexcore._preciseClock end
     end
 end
 ------------------------------------------------

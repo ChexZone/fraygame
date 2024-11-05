@@ -15,9 +15,9 @@ local GameCamera = {
     Focus = nil,    -- prop
     LastFocus = nil,
 
-    DampeningFactor = V{5, 0},
+    DampeningFactor = V{15, 0},
     MaxDistancePerFrame = V{10, 5},
-    MinDistancePerFrame = V{1.5, 1.5},
+    MinDistancePerFrame = V{5, 5},
     MaxDistanceFromFocus = V{50, 60},
     RealMaxDistanceFromFocus = V{250, 50},
     DampeningFactorReeling = V{15, 2},

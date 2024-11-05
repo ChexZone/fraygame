@@ -13,6 +13,7 @@
         "param-type-mismatch",
         "need-check-nil",
         "cast-local-type",
-        "inject-field"
+        "inject-field",
+        "redundant-parameter"
     ]
 }

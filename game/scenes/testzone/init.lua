@@ -43,32 +43,6 @@ end}
 
 local mainLayer = scene:GetLayer("Gameplay")
 
-mainLayer.Canvases[1].Shader = Shader.new[[
-    vec4 origOut;
-    float dist;
-    vec4 effect( vec4 col, Image texture, vec2 texturePos, vec2 screenPos )
-{
-    origOut = (Texel(texture, texturePos) * col);
-
-    if (origOut.a == 1.0f) {
-
-        vec2 normalizedScreenPos = screenPos / love_ScreenSize.xy;
-
-        dist = max(min(sqrt(pow(0.5 - normalizedScreenPos.x, 2) + pow(0.5 - normalizedScreenPos.y, 2)) * 8, 0.5), 0) * 0;
-        return vec4(
-            origOut.r - dist,
-            origOut.g - dist,
-            origOut.b - dist,
-            1.0f
-        );
-    } else {
-        return origOut;
-    }
-
-    
-}
-    
-]]
 
 
 scene:AddLayer(Layer.new("GUI", 1920, 1080))
