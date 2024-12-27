@@ -82,7 +82,7 @@ function GameCamera._globalUpdate(dt)
 
             local focusPoint
             if focus:IsA("Player") then
-                focusPoint = focus.YHitbox:GetPoint(.5,.5) + V{offsetX, offsetY}
+                focusPoint = focus:GetPoint(.5,1) + V{offsetX, offsetY}
             else
                 focusPoint = focus:GetPoint(.5,.5) + V{offsetX, offsetY}
             end

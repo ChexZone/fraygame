@@ -6,11 +6,11 @@ if not exist builds mkdir builds
 
 :: Zip the files into "game.love" in the builds folder
 :: Adjust the path to 7z.exe if needed
-"C:\Program Files\7-Zip\7z.exe" a -tzip builds\game_3ds.love conf.lua main.lua game\ chexcore\ tiled\
+"C:\Program Files\7-Zip\7z.exe" a -tzip builds\game.love conf.lua main.lua game\ chexcore\ tiled\
 
 if not exist builds/browser mkdir builds/browser
 
-npx love.js.cmd "%cd%\builds\game.love" "%cd%\builds\browser" -c -t Chexcore -m 60000000
+npx love.js.cmd "%cd%\builds\game.love" "%cd%\builds\browser" -c -t Chexcore -m 100000000
 if %errorlevel% neq 0 (
     echo Error: Failed to run love.js.
     pause

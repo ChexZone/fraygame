@@ -17,7 +17,7 @@ local Tilemap = {
     _hasParallaxObjectLayers = false,   -- little optimization
     _numChunks = V{1, 1},
     _drawChunks = {},
-    _chunkSize = 16, -- measured in tiles, not pixels
+    _chunkSize = 64, -- measured in tiles, not pixels
     _super = "Prop",      -- Supertype
     _cache = setmetatable({}, {__mode = "k"}), -- cache has weak keys
     _global = true

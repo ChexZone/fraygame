@@ -1,0 +1,57 @@
+{
+    "Map/SizeTest": {
+        "height": 4300,
+        "width": 2
+    },
+    "activeFile": "",
+    "expandedProjectPaths": [
+    ],
+    "fileStates": {
+        "debug.tmx": {
+            "expandedObjectLayers": [
+                5,
+                4
+            ],
+            "scale": 2,
+            "selectedLayer": 3,
+            "viewCenter": {
+                "x": 1388.25,
+                "y": 1825.75
+            }
+        },
+        "demo.tmx": {
+            "expandedObjectLayers": [
+                5
+            ],
+            "scale": 1.5,
+            "selectedLayer": 3,
+            "viewCenter": {
+                "x": 670.3333333333333,
+                "y": 473
+            }
+        },
+        "tilemap2.tsx": {
+            "scaleInEditor": 1
+        }
+    },
+    "last.exportedFilePath": "D:/VSCode/lua/chexcore/game/scenes/debug",
+    "last.imagePath": "D:/VSCode/lua/chexcore/game/scenes/debug",
+    "map.height": 200,
+    "map.lastUsedExportFilter": "Lua files (*.lua)",
+    "map.lastUsedFormat": "tmx",
+    "map.tileHeight": 16,
+    "map.tileWidth": 16,
+    "map.width": 200,
+    "openFiles": [
+    ],
+    "project": "debug-zone.tiled-project",
+    "property.type": "float",
+    "recentFiles": [
+        "tilemap2.tsx"
+    ],
+    "tileset.lastUsedFormat": "tsx",
+    "tileset.tileSize": {
+        "height": 16,
+        "width": 16
+    }
+}

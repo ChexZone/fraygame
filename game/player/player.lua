@@ -19,7 +19,7 @@ local Player = {
 
     VelocityLastFrame = V{0,0},         -- the velocity of the player the previous frame (valid after Player:UpdatePhysics())
 
-    MaxSpeed = V{8, 10},                 -- the absolute velocity caps (+/-) of the player
+    MaxSpeed = V{10, 10},                 -- the absolute velocity caps (+/-) of the player
     RunSpeed = 1.5,                     -- how fast the player runs by default
     DiveSpeed = 3,                      -- minimum speed during a dive
     Gravity = 0.15,                     -- how many pixels the player falls per frame
@@ -48,14 +48,14 @@ local Player = {
     ImmediatelyAfterPounceCancelGravity = 1.25,-- the gravity of the player in the upward pounce arc after jump has been released immediately after being pressed
     TerminalVelocity = 3.5,             -- how many units per frame the player can fall
     TerminalDiveVelocity = 3,
-    TerminalLungeVelocity = 4,         
+    TerminalLungeVelocity = 4,
     YPositionAtLedge = nil,             -- the Y position of the player at the last ledge they walked off
     TerminalLedgeLungeVelocity = 11,      -- terminal velocity out of a lunge off a ledge
-    TerminalLedgeLungeVelocityGoal = 2,      -- terminal velocity out of a lunge off a ledge
+    TerminalLedgeLungeVelocityGoal = 8,      -- terminal velocity out of a lunge off a ledge
     ActiveTerminalLedgeLungeVelocity = 3,   -- it will slowly lerp towards TerminalDiveVelocity
     LedgeLungeWindow = 30,              -- how many frames after a lunge can you fall off a ledge to do a ledge lunge 
     LedgeLungeTaperSpeed = 0.15,         -- how quickly ActiveTerminalLedgeLungeVelocity moves towards TerminalDiveVelocity
-    HangTime = 3,                       -- how many frames of hang time are afforded in the jump arc
+    HangTime = 4,                       -- how many frames of hang time are afforded in the jump arc
     HalfHangTime = 1,                   -- how many frames of hang time are afforded for medium-height jumps
     DoubleJumpHangTime = 3,             -- how many frames of hang time are afforded for double jumps
     HangTimeActivationTime = 16,        -- how many frames the player must hold jump before they are owed hang time
@@ -87,9 +87,25 @@ local Player = {
     LastRollPower = 0,                  -- records the last RollPower used for the previous roll\
     ShimmyPower = 3,                   -- how much RollPower the player gets while crouching
     RollPower = 5,                    -- the player's X velocity on the first frame of a roll
-    MinPouncePower = 5.5,                  -- the X velocity out of a sideways pounce
+    MinPouncePower = 5,                  -- the X velocity out of a sideways pounce
     MaxPouncePower = 6.5,                  -- the X velocity out of a sideways pounce
     
+    InLedgeLunge = false,                   -- if the player is currently in a "ledge lunge" (AKA lunged into a staircase ledge)
+    WaitingForLedgeLunge = false,           -- if the player just did a lunge and is waiting for ledge lunge
+    LedgeLungeCharge = 0,                   -- charges up with consecutive ledge lunges to charge a pounce
+    LedgeLungeBoostRate = 0.2,            -- how much LedgeLungeCharge increases with each ledge lunge
+    LedgeLungeGroundedDepletionRate = 0.1,  -- how much power LedgeLungeCharge loses per frame 
+    LedgeLungePounceDepletionRate = 0.05,   -- how much power LedgeLungeCharge loses per pounce
+    LedgeLungeAerialDepletionRate = 0.001,    -- how much power LedgeLungeCharge loses per frame 
+    LedgeLungeMaxCharge = 5,                -- how big LedgeLungeCharge can get
+    LedgeLungeGraceFrames = 4,              -- how many frames after a ledge lunge before LedgeLungeGroundedDepletionRate takes effect
+    LedgeLungeStartCharge = 0.2,            -- how much charge for the first ledge in a ledge lunge
+    LedgeLungeChain = 0,                    -- the amount of consecutive ledge lunges before spending 30 frames on the ground
+    LedgeLungeStairCount = 0,               -- how many stairs the player has lunged down since otherwise disconnecting form the floor
+    OnGroundAfterLedgeLunge = false,        -- if the player is on the ground and did a ledge lunge in the last 30 frames
+    FramesOnGroundSinceLedgeLunge = -1,     -- how many frames since last ledge lunge (resets to -1 after 30 frames)
+
+    LastLungeDownwardVelocity = 0,      -- how hard the player last lunged
     DiveCancelSpeedThreshold = 0,       -- how fast the player must be moving (X) to be eligible to dive cancel
     DiveWasLunge = false,               -- whether the last dive was a lunge or not (resets with dive state)
     DivePower = 5.25,                    -- the X velocity out of an aerial dive
@@ -124,7 +140,7 @@ local Player = {
     IdleDeceleration = 0.2,             -- how fast the player halts to a stop while idle on the ground
     AirBackwardDeceleration = 0.25,     -- how much the player decelerates while in the air, against the movement direction
     AirForwardDeceleration = 0.2,      -- how much the player decelerates while in the air, moving in the same direction
-    AirIdleDeceleration = 0.2,          -- how much the player decelerates while idle in the air
+    AirIdleDeceleration = 0.2,          -- how much the player decelerates while idle in the air    
     DiveBackwardDeceleration = 0.08,     -- how much the player decelerates while in a dive, against the movement direction
     DiveForwardDeceleration = 0.07,      -- how much the player decelerates while in a dive, moving in the same direction
     DiveIdleDeceleration = 0.025,          -- how much the player decelerates while idle in a dive    
@@ -133,12 +149,16 @@ local Player = {
     ParryDiveIdleDeceleration = 0.125,          -- how much the player decelerates while idle in a dive    
     PounceForwardDeceleration = 0.22,   -- how much the player accelerates while in a pounce
     PounceIdleDeceleration = 0.16,   -- how mucgh the player decelerates while idle in a pounce
-    PreviousFloorHeight = 0,      -- the last recorded height of the floor
     PounceBackwardDeceleration = 0.25, -- how much the player decelerates while moving backwards in a pounce
+    ChargedPounceForwardDeceleration = 0.205,   -- how much the player accelerates while in a pounce
+    ChargedPounceIdleDeceleration = 0.16,   -- how mucgh the player decelerates while idle in a pounce
+    ChargedPounceBackwardDeceleration = 0.25, -- how much the player decelerates while moving backwards in a pounce
+    PreviousFloorHeight = 0,      -- the last recorded height of the floor
     PounceAnimCancelled = false,        -- during a pounce, whether to transition the player animation back to normal jump
     ConsecutivePouncesSpeedMult = 1.5, -- how much the player's speed is multiplied by during a new pounce (basically, how easily the player can speed up doing chained pounces)
     ConsecutiveLungesSpeedMult = 1.15,  -- how much the player's speed is multiplied by during a new pounce coming out of a downward lunge
     MoveDir = 0,                        -- 1 for left, -1 for right, 0 for neutral
+    
 
     FramesSinceFlippedDirection = 0,   -- reset to 0 every time sign(DrawScale.X) changes
     LastFaceDirection = 0,             -- last recorded facing direction ( sign(DrawScale.X) )
@@ -189,6 +209,7 @@ local Player = {
     FramesSinceIdle = -1,               -- will be -1 if the player is currently moving
     FramesSinceDive = -1,               -- will be -1 if the player isn't diving
     DiveBlock = 10,                     -- amount of frames the player is ineligible for diving due to something
+    
 
     -- other stuff
     Canvas = nil,                       -- rendering the player is hard
@@ -432,12 +453,12 @@ function Player.new()
     
     
     newPlayer.InputListener = Input.new{
-        a = "move_left",
-        d = "move_right",
-        space = "jump",
-        lshift = "action",
+        a = "move_left", gp_dpleft = "move_left", gp_lsleft = "move_left",
+        d = "move_right", gp_dpright = "move_right", gp_lsright = "move_right",
+        space = "jump", gp_a = "jump", gp_b= "jump",
+        lshift = "action", gp_x = "action", gp_y = "action", gp_leftshoulder = "action",
         e = "action",
-        s = "crouch",
+        s = "crouch", gp_dpdown = "crouch", gp_lsdown = "crouch",
 
         h = "HITBOXTOGGLE",
         j = "SLOWMODETOGGLE",
@@ -471,6 +492,16 @@ function Player:DisconnectFromFloor()
     self.FloorLeftEdge, self.FloorRightEdge = nil, nil
     self.DistanceAlongFloor = nil
     
+    if self.LedgeLungeStairCount == 0 then
+        self.LedgeLungeChain = 0
+    end
+
+    if not self.InLedgeLunge then
+        self.LedgeLungeStairCount = 0
+    end
+    -- print("FUCK",)
+
+    self.OnGroundAfterLedgeLunge = false
     -- we actually don't do this until later; FloorDelta is set to nil once there are no more coyote frames (in UpdateFrameValues)
     -- self.FloorDelta = nil
 end
@@ -489,6 +520,9 @@ function Player:ConnectToFloor(floor)
         self.VelocityBeforeHittingGround = self.Velocity.Y
         self.FramesSinceGrounded = 0
 
+        if self.FramesOnGroundSinceLedgeLunge > -1 then
+            self.OnGroundAfterLedgeLunge = true
+        end
 
     end
     self.Floor = floor
@@ -556,17 +590,52 @@ function Player:FollowFloor()
 end
 
 ------- collison function
+local justLanded, hitCeiling, inParry
 function Player:Unclip(forTesting)
     self.UnclipCount = self.UnclipCount + 1
     if self.Floor then
         self.Position.Y = self.Position.Y + 1
     end
+    justLanded = false
+    hitCeiling = false
+    
+    local pushX, pushY
+    
+    if self.FramesSinceDive > -1 then
+        -- when diving, we reverse the X/Y collision check order because otherwise
+        -- the player might rollout instead of parry when hitting between two wall tiles
+        pushX = self:UnclipX(forTesting)
+        pushY = self:UnclipY(forTesting)
+    else
+        pushX = self:UnclipX(forTesting)
+        pushY = self:UnclipY(forTesting)
+    end
 
+
+    if pushX == 0 and hitCeiling then
+        
+        if inParry then
+            -- skip
+        else
+            if self.FramesSincePounce > -1 and self.FramesSincePounce < 30 and self.MoveDir ~= 0 then
+                -- if pouncing and hitting a ceiling, knock the player back down to the floor (makes pounce chaining easier in corridors)
+                self.Velocity.Y = math.max(0, -self.Velocity.Y)
+                self.DiveBlock = self.DiveBlock + 10
+            else
+                self.Velocity.Y = math.max(0, self.Velocity.Y)
+            end
+        end
+    end
+    
+
+    return pushX, pushY
+end
+
+function Player:UnclipY(forTesting)
     -- make sure hitboxes are aligned first!!!
     self:AlignHitboxes()
-    local justLanded = false
-    local hitCeiling = false
     local pushY = 0
+
     for solid, hDist, vDist, tileID in self.YHitbox:CollisionPass(self._parent, true) do
         local face = Prop.GetHitFace(hDist,vDist)
         -- we check the "sign" of the direction to make sure the player is "moving into" the object before clipping back
@@ -579,7 +648,7 @@ function Player:Unclip(forTesting)
                     -- just landed
                     justLanded = true
                 end
-                self:ConnectToFloor(solid)
+                if not forTesting then self:ConnectToFloor(solid) end
             elseif face == "top" then
                 hitCeiling = true
             end
@@ -623,7 +692,11 @@ function Player:Unclip(forTesting)
         }
     end
 
+    return pushY
+end
 
+function Player:UnclipX(forTesting)
+    self:AlignHitboxes()
     local pushX = 0
     for solid, hDist, vDist, tileID in self.XHitbox:CollisionPass(self._parent, true) do
         local face = Prop.GetHitFace(hDist,vDist)
@@ -677,26 +750,15 @@ function Player:Unclip(forTesting)
         end
     end
 
-    local inParry = (self.FramesSinceParry > -1 and self.FramesSinceParry < 10) and self.FramesSinceDoubleJump == -1 and self.FramesSinceDive == -1
-    if pushX == 0 and hitCeiling then
-        
-        if inParry then
-            -- skip
-        else
-            if self.FramesSincePounce > -1 and self.FramesSincePounce < 30 and self.MoveDir ~= 0 then
-                -- if pouncing and hitting a ceiling, knock the player back down to the floor (makes pounce chaining easier in corridors)
-                self.Velocity.Y = math.max(0, -self.Velocity.Y)
-                self.DiveBlock = self.DiveBlock + 10
-            else
-                self.Velocity.Y = math.max(0, self.Velocity.Y)
-            end
-        end
-    end
+    inParry = (self.FramesSinceParry > -1 and self.FramesSinceParry < 10) and self.FramesSinceDoubleJump == -1 and self.FramesSinceDive == -1
+    
 
-    return pushX, pushY
+    return pushX
 end
 
+local TILE_SIZE_LEDGE_LUNGE = 16
 function Player:ValidateFloor()
+    local wasOnGroundAfterLedgeLunge = self.OnGroundAfterLedgeLunge
     if self.Floor then
         -- check if we've collided with the current floor or not
         self:AlignHitboxes()
@@ -705,6 +767,8 @@ function Player:ValidateFloor()
         self.Velocity.Y = 0
         local hit, hDist, vDist = self.Floor:CollisionInfo(self.YHitbox)
         if not hit then
+
+            
 
             -- first check to see if there's a ledge or slope right below us
             local i = 1
@@ -733,7 +797,10 @@ function Player:ValidateFloor()
                     end
                 end
                 self.YPositionAtLedge = self.Position.Y
-                self:DisconnectFromFloor()
+
+                
+                local ledgeLungeStairChain = self.LedgeLungeStairCount
+                
                 if self.FramesSinceRoll == -1 then
                     self.Texture.Clock = 0
                 end
@@ -742,16 +809,55 @@ function Player:ValidateFloor()
                 self.CoyoteBuffer = self.CoyoteFrames
     
                 if self.FramesSinceLastLunge < self.LedgeLungeWindow and self.InputListener:IsDown("crouch") and self.InputListener:IsDown("action") then
-                    self:Dive()
-                    self.DiveExpired = false
-                    self.Velocity.Y = self.TerminalLedgeLungeVelocity
-                    self.Velocity.X = self.Velocity.X * 1.2
-                    self.InLedgeLunge = true
-                    self.LungePitch = self.LungePitch + 0.1
-                    self:PlaySFX("LedgeLunge", self.LungePitch)
-                    self.ActiveTerminalLedgeLungeVelocity = self.TerminalLedgeLungeVelocity
+                    
+                    -- next step: only ledge lunge when there's a tile below the player
+                    local oldPosY = self.Position.Y
+                    self.Position.Y = self.Position.Y + TILE_SIZE_LEDGE_LUNGE + 2
+                    
+                    local pushY = self:UnclipY(true)
+
+
+                    if pushY ~= 0 then
+                        self:Dive()
+                        self.DiveExpired = false
+                        self.Velocity.Y = self.TerminalLedgeLungeVelocity
+                        self.Velocity.X = self.Velocity.X * 1.2 --(math.abs(self.Velocity.X) + 1) * sign(self.Velocity.X)
+                        self.InLedgeLunge = true
+                        self.LedgeLungeStairCount = ledgeLungeStairChain + 1
+                        if self.WaitingForLedgeLunge then
+                            if wasOnGroundAfterLedgeLunge or self.LedgeLungeChain == 0 then
+                                self.LedgeLungeChain = self.LedgeLungeChain + 1
+                            end
+                            self.WaitingForLedgeLunge = false
+                        end
+                        
+                        local faceDirection = self.MoveDir ~= 0 and self.MoveDir or sign(self.DrawScale.X)
+                        self.Velocity.X = faceDirection * self.DivePower
+                        self.FramesOnGroundSinceLedgeLunge = 0
+
+                        if self.LedgeLungeCharge == 0 then
+                            self.LedgeLungeCharge = self.LedgeLungeStartCharge 
+                        else
+                            self.LedgeLungeCharge = math.min(self.LedgeLungeCharge + self.LedgeLungeBoostRate, self.LedgeLungeMaxCharge)
+                        end
+                        
+                        self.LungePitch = self.LungePitch + 0.
+                        self:PlaySFX("LedgeLunge", self.LungePitch)
+                        self.ActiveTerminalLedgeLungeVelocity = self.TerminalLedgeLungeVelocity
+                        self.Position.Y = oldPosY + 6
+                    else
+                        self.Position.Y = oldPosY
+                        self.LedgeLungeStairCount = 0
+                    end
+
+                    
+                    self:AlignHitboxes()
+
+                else
+                    -- self.LedgeLungeStairCount = 0
                 end
-            end
+                self:DisconnectFromFloor()
+            end            
         end
     end
 
@@ -775,6 +881,7 @@ end
 
 ------------------------ INPUT PROCESSING -----------------------------
 function Player:ProcessInput()
+
     local input = self.InputListener
 
     if self.JustPressed["HITBOXTOGGLE"] then
@@ -927,7 +1034,7 @@ function Player:Jump()
     self.FramesSinceDive = -1
     self.DiveExpired = false
     self.Velocity.Y = -self.JumpPower
-
+    
     ---- SFX ----
     self:PlaySFX("Jump")
     -------------
@@ -935,7 +1042,7 @@ function Player:Jump()
     if self.FramesSinceLastLunge <= self.CoyoteFrames and not self.Floor then
         self.Position.Y = math.lerp(self.Position.Y, self.YPositionAtLedge, 0.8)
         self.Velocity.X = self.XVelocityBeforeLastLunge
-    else
+    else 
         self.YPositionAtLedge = self.Position.Y
     end
 
@@ -943,10 +1050,14 @@ function Player:Jump()
 
     -- pounce  handling
     if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
-        self.Velocity.X = sign(self.Velocity.X) * math.min(math.max(self.MinPouncePower, math.abs(self.Velocity.X)), self.MaxPouncePower)
+        local heightBoost = math.min((self.LedgeLungeCharge*0.75 + self.LedgeLungeChain*0.2), 3)--math.max((self.LedgeLungeCharge - 6), 0) / 4
+        self.LedgeLungeCharge = math.max(self.LedgeLungeCharge - self.LedgeLungePounceDepletionRate, 0)
+        self.Velocity.X = sign(self.Velocity.X) * (math.min(math.max(self.MinPouncePower, math.abs(self.Velocity.X)), self.MaxPouncePower))
         self:PlayDynamicDashSound(nil, 0)
         self:PlaySFX("PounceSqueak", 1 + math.abs(self.Velocity.X)/30, 0)
-        self.Velocity.Y = sign(self.Velocity.Y) * self.PounceHeight
+        
+        self.Velocity.Y = sign(self.Velocity.Y) * (self.PounceHeight + heightBoost)
+        
         self.FramesSincePounce = 0
         self.FramesSinceRoll = -1
         self.PounceAnimCancelled = false
@@ -969,6 +1080,9 @@ function Player:Jump()
         -- regular jump
         self:GetChild("JumpDust"):Emit{Position = self.Position, }
     end
+
+    -- apply ledge lunge charge
+    self.Velocity.X = self.Velocity.X + (self.LedgeLungeCharge*0.7 + (self.LedgeLungeChain*0.2)) * sign(self.Velocity.X)
 
     self.FramesSinceJump = 0
     
@@ -1208,7 +1322,7 @@ function Player:Dive()
     end
     
     self.DrawScale.X = faceDirection
-    self.Velocity.X = faceDirection * self.DivePower
+    self.Velocity.X = faceDirection * math.max(self.DivePower, math.abs(self.Velocity.X))
     self.Velocity.Y = math.min(self.DiveUpwardVelocity, measuredVelocityY + self.DiveUpwardVelocity) --math.min(-3.5, self.Velocity.Y - 3.5)
     -- self.WeakDiveHangStatus = 3
     if self.FramesSinceDoubleJump > -1 then
@@ -1226,7 +1340,16 @@ function Player:Dive()
 
     if self.InputListener:IsDown("crouch") then
         -- lunge
-        self.Velocity.Y = self.LungeDownwardVelocity
+        
+        local extraLungeVelocity = self.LedgeLungeCharge*4
+        self.Velocity.Y = self.LungeDownwardVelocity + extraLungeVelocity
+        self.LastLungeDownwardVelocity = self.Velocity.Y
+        -- print(extraLungeVelocity, self.Velocity.Y)
+        
+        if self.InputListener:JustPressed("action") then
+            self.WaitingForLedgeLunge = true
+        end
+
         self.LungeBuffer = self.RollTimeAfterLunge
         -- self.Velocity.X = math.max(self.DivePower, ) * faceDirection
         self.XVelocityBeforeLastLunge = oldX
@@ -1425,7 +1548,7 @@ function Player:UpdateAnimation()
 
     -- print(self.Floor, self.Velocity)
 
-
+    print(self.LedgeLungeChain)
     
     -- squash and stretch
     if false then
@@ -1504,7 +1627,7 @@ function Player:UpdateAnimation()
         end
     end 
 
-
+    
 
     -- print(self:GetScene()._children)
     -- check what anim state to put pounce in
@@ -1683,6 +1806,20 @@ function Player:UpdateFrameValues()
         self.ActiveTerminalLedgeLungeVelocity = math.lerp(self.ActiveTerminalLedgeLungeVelocity, self.TerminalLedgeLungeVelocityGoal, self.LedgeLungeTaperSpeed)
     end
 
+    if self.FramesOnGroundSinceLedgeLunge > -1 then
+        if self.Floor then
+            self.FramesOnGroundSinceLedgeLunge = self.FramesOnGroundSinceLedgeLunge + 1
+            if self.FramesOnGroundSinceLedgeLunge > 30 then
+                self.OnGroundAfterLedgeLunge = false
+                self.FramesOnGroundSinceLedgeLunge = -1
+                self.WaitingForLedgeLunge = false
+                self.LedgeLungeChain = 0
+            end
+        else
+            self.FramesOnGroundSinceLedgeLunge = 0
+        end
+    end
+
     if self.FramesSinceRoll > -1 then
         self.FramesSinceRoll = self.FramesSinceRoll + 1
         if not self.Floor then
@@ -1706,6 +1843,20 @@ function Player:UpdateFrameValues()
     if self.ParryStatus > 0 then
         self.ParryStatus = self.ParryStatus - 1
     end
+
+    if self.LedgeLungeCharge ~= 0  then
+        local depletionRate
+        if (self.FramesOnGroundSinceLedgeLunge == -1 or self.FramesOnGroundSinceLedgeLunge > self.LedgeLungeGraceFrames) then
+            depletionRate = self.Floor and self.LedgeLungeGroundedDepletionRate or self.LedgeLungeAerialDepletionRate
+        else
+            depletionRate = self.LedgeLungeAerialDepletionRate
+        end
+        self.LedgeLungeCharge = math.max(self.LedgeLungeCharge - depletionRate, 0)
+    
+    
+    end
+
+    -- print(self.LedgeLungeCharge)
 
     if self.FramesSinceDive > -1 then
         self.FramesSinceDive = self.FramesSinceDive + 1
@@ -1981,17 +2132,33 @@ function Player:UpdatePhysics()
                 end
                 
             elseif self.FramesSincePounce > -1 then
-                -- pounce velocity
-                if self.MoveDir == 0 then
-                    -- player is idle
-                    self:Decelerate(self.PounceIdleDeceleration)
-                elseif sign(self.Velocity.X) == self.MoveDir then
-                    -- player is moving "with" the direction of their momentum; don't slow down as much
-                    self:Decelerate(self.PounceForwardDeceleration)
+
+                if self.LedgeLungeCharge > 0 then
+                    -- charged pounce velocity
+                    if self.MoveDir == 0 then
+                        -- player is idle
+                        self:Decelerate(self.ChargedPounceIdleDeceleration)
+                    elseif sign(self.Velocity.X) == self.MoveDir then
+                        -- player is moving "with" the direction of their momentum; don't slow down as much
+                        self:Decelerate(self.ChargedPounceForwardDeceleration)
+                    else
+                        -- player is against the direction of momentum; normal deceleration
+                        self:Decelerate(self.ChargedPounceBackwardDeceleration)
+                    end
                 else
-                    -- player is against the direction of momentum; normal deceleration
-                    self:Decelerate(self.PounceBackwardDeceleration)
+                    -- pounce velocity
+                    if self.MoveDir == 0 then
+                        -- player is idle
+                        self:Decelerate(self.PounceIdleDeceleration)
+                    elseif sign(self.Velocity.X) == self.MoveDir then
+                        -- player is moving "with" the direction of their momentum; don't slow down as much
+                        self:Decelerate(self.PounceForwardDeceleration)
+                    else
+                        -- player is against the direction of momentum; normal deceleration
+                        self:Decelerate(self.PounceBackwardDeceleration)
+                    end
                 end
+                
             else
                 -- regular air velocity
                 if self.MoveDir == 0 then
@@ -2045,7 +2212,8 @@ function Player:UpdatePhysics()
 
 
     -- account for gravity
-    local terminalVelocity = (self.InLedgeLunge and math.abs(self.Velocity.X) > 2 and self.FramesSinceDoubleJump == -1) and self.ActiveTerminalLedgeLungeVelocity or (self.FramesSinceDive > -1 and self.FramesSinceDoubleJump == -1) and (self.DiveWasLunge and self.TerminalLungeVelocity or self.TerminalDiveVelocity) or self.TerminalVelocity
+    local terminalVelocity = (self.InLedgeLunge and math.abs(self.Velocity.X) > 2 and self.FramesSinceDoubleJump == -1) and self.ActiveTerminalLedgeLungeVelocity or (self.FramesSinceDive > -1 and self.FramesSinceDoubleJump == -1) and (self.DiveWasLunge and (self.LedgeLungeCharge == 0 and self.TerminalLungeVelocity or self.LastLungeDownwardVelocity) or self.TerminalDiveVelocity) or self.TerminalVelocity
+    
     
     if self.Velocity.Y > terminalVelocity then
         self.Velocity.Y = terminalVelocity
@@ -2170,7 +2338,6 @@ function Player:Update(engine_dt)
     
     local dt = 1/60 -- player value changes should always assume 60hz updates
 
-    print(self.UnclipCount)
     self.UnclipCount = 0
 
 
