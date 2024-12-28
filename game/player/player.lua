@@ -640,16 +640,25 @@ function Player:UnclipY(forTesting)
         local face = Prop.GetHitFace(hDist,vDist)
         -- we check the "sign" of the direction to make sure the player is "moving into" the object before clipping back
         local faceSign = face == "bottom" and 1 or face == "top" and -1 or 0
-        if solid ~= self.YHitbox and (faceSign == sign(self.Velocity.Y +0.01) or face == "none") and not solid.Passthrough then
+        if (solid ~= self.YHitbox and solid ~= self.XHitbox) and (faceSign == sign(self.Velocity.Y +0.01) or face == "none") and not solid.Passthrough then
+            local surfaceInfo = solid:GetSurfaceInfo(tileID)
             -- self.Velocity.Y = 0
-            pushY = math.abs(pushY) > math.abs(vDist) and pushY or vDist
-            if face == "bottom" then
+            
+            -- if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
+            
+            if self.Velocity.Y >= 0 and not surfaceInfo.Top.Passthrough and face == "bottom" then
+                
+                pushY = math.abs(pushY) > math.abs(vDist or 0) and pushY or (vDist or 0)
                 if not self.Floor then
                     -- just landed
                     justLanded = true
                 end
-                if not forTesting then self:ConnectToFloor(solid) end
-            elseif face == "top" then
+                -- print(pushY)
+
+                -- -4 IS ARBITRARY!! IDK IF IT WILL CAUSE PROBLEMS!!!!!!!!!!
+                if not forTesting and pushY >= -4 then self:ConnectToFloor(solid) end
+            elseif self.Velocity.Y <= 0 and not surfaceInfo.Bottom.Passthrough and face == "top" then
+                pushY = math.abs(pushY) > math.abs(vDist or 0) and pushY or (vDist or 0)
                 hitCeiling = true
             end
             self:AlignHitboxes()
@@ -701,9 +710,19 @@ function Player:UnclipX(forTesting)
     for solid, hDist, vDist, tileID in self.XHitbox:CollisionPass(self._parent, true) do
         local face = Prop.GetHitFace(hDist,vDist)
 
+        
+        if (solid ~= self.YHitbox and solid ~= self.XHitbox) and not solid.Passthrough then
 
 
-        if solid ~= self.XHitbox and (face == "left" or face == "right") and not solid.Passthrough then
+            local surfaceInfo = solid:GetSurfaceInfo(tileID)
+
+
+            if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
+                pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
+                self:AlignHitboxes()
+
+                self:ConnectToWall(solid, face)
+            end
 
             -- -- check if this is a ledge
             -- local hit
@@ -727,10 +746,7 @@ function Player:UnclipX(forTesting)
             -- end
 
                 -- if pushY == 0 then self.Velocity.X = 0 end
-                pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
-                self:AlignHitboxes()
 
-                self:ConnectToWall(solid, face)
 
         end
         
@@ -1246,7 +1262,7 @@ function Player:Parry()
     self.Texture.Clock = 0
     self.Velocity.Y = -self.ParryPower
     self.Velocity.X = parrySpeed * wallDir
-
+    self.LedgeLungeChain = 0
     -- self:SetBodyOrientation(-wallDir)
 
     self.FramesSinceDive = -1
@@ -1548,7 +1564,6 @@ function Player:UpdateAnimation()
 
     -- print(self.Floor, self.Velocity)
 
-    print(self.LedgeLungeChain)
     
     -- squash and stretch
     if false then

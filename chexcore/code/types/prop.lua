@@ -14,9 +14,27 @@ local Prop = {
     Solid = false,          -- is the object collidable?
     Anchored = true,        -- follows its Parent ?
 
+    
+
     Texture = Texture.new("chexcore/assets/images/square.png"),    -- default sample texture
 
     -- internal properties
+
+    _surfaceInfo = { -- basic props generally have preset surface info
+        Top = {
+            CollisionInset = 0,
+        },
+        Bottom = {
+            CollisionInset = 0,
+        },
+        Left = {
+            CollisionInset = 0,
+        },
+        Right = {
+            CollisionInset = 0,
+        }
+    },
+    
     _super = "Object",      -- Supertype
     _global = true
 }
@@ -197,13 +215,16 @@ end
 -- this function is more expensive but also returns direction info
 function Prop:CollisionInfo(other)
     if not self.Solid then return false end
+
+    local selfSurfaceInfo = self._surfaceInfo
+
     local sp, op = self.Position, other.Position
     local sap, oap = self.AnchorPoint, other.AnchorPoint
     local ss, os = self.Size, other.Size
-    local sLeftEdge  = floor(sp[1] - ss[1] * sap[1])
-    local sRightEdge = floor(sp[1] + ss[1] * (1 - sap[1]))
-    local sTopEdge  = floor(sp[2] - ss[2] * sap[2])
-    local sBottomEdge = floor(sp[2] + ss[2] * (1 - sap[2]))
+    local sLeftEdge  = floor(sp[1] + selfSurfaceInfo.Left.CollisionInset - ss[1] * sap[1])
+    local sRightEdge = floor(sp[1] - selfSurfaceInfo.Right.CollisionInset + ss[1] * (1 - sap[1]))
+    local sTopEdge  = floor(sp[2] + selfSurfaceInfo.Top.CollisionInset - ss[2] * sap[2])
+    local sBottomEdge = floor(sp[2] - selfSurfaceInfo.Bottom.CollisionInset + ss[2] * (1 - sap[2]))
     local oLeftEdge  = floor(op[1] - os[1] * oap[1])
     local oRightEdge = floor(op[1] + os[1] * (1 - oap[1]))
     local oTopEdge  = floor(op[2] - os[2] * oap[2])
@@ -413,6 +434,10 @@ function Prop:DistanceFromPoint(p)
     local dx = max(abs(p[1] - cx) - sx/2, 0)
     local dy = max(abs(p[2] - cy) - sy/2, 0)
     return sqrt(dx * dx + dy * dy)
+end
+
+function Prop:GetSurfaceInfo()
+    return self._surfaceInfo
 end
 
 return Prop

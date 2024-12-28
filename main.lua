@@ -27,7 +27,7 @@ function love.load()
 
     -- local scene = Scene.new{}
     
-    print(V{960,540}/1.5)
+
 -- local scene = Scene.new()
 -- local layer = scene:AddLayer(Layer.new("Game", 1600, 900))
 -- layer:Adopt(Prop.new{

@@ -13,6 +13,61 @@ local Tilemap = {
 
     Scale = 1,
 
+    SurfaceInfo = {
+        --[[
+            maps surface identifiers to real surface info
+            EXAMPLE:
+
+            Slab = {
+                Bottom = {}, Top = {CollisionInset = 8}, Left = {}, Right = {}
+            }
+        ]]
+
+        OnePixelHorizontalInset = {Left = {CollisionInset = 1}, Right = {CollisionInset = 1}},
+        OnePixelVerticalInset = {Top = {CollisionInset = 1}, Bottom = {CollisionInset = 1}},
+
+        FourPixelHorizontalInset = {Left = {CollisionInset = 4}, Right = {CollisionInset = 4}},
+        FourPixelVerticalInset = {Top = {CollisionInset = 4}, Bottom = {CollisionInset = 4}},
+
+        SemisolidTop = {Bottom = {Passthrough = true}, Left = {Passthrough = true}, Right = {Passthrough = true}},
+        SemisolidRight = {Bottom = {Passthrough = true}, Left = {Passthrough = true}, Top = {Passthrough = true}},
+        SemisolidLeft = {Bottom = {Passthrough = true}, Right = {Passthrough = true}, Top = {Passthrough = true}},
+        SemisolidBottom = {Left = {Passthrough = true}, Right = {Passthrough = true}, Top = {Passthrough = true}},
+
+        RightEdge = {Left = {Passthrough = true}, Bottom = {Passthrough = true}, Top = {Passthrough = true}},
+
+        Slab = {
+            Bottom = {CollisionInset = 12}
+        }
+    },
+
+    TileSurfaceMapping = {
+        --[[
+            maps tile IDs (from atlas) to surface identifiers
+            EXAMPLE:
+
+            [1] = "Slab"
+        ]]
+        [386] = "OnePixelHorizontalInset",
+        [385] = "OnePixelVerticalInset",
+
+        [145] = "FourPixelHorizontalInset",
+        [80] = "RightEdge",
+
+        [273] = "SemisolidTop",
+        [274] = "SemisolidTop",
+        [275] = "SemisolidTop",
+
+        [308] = "SemisolidRight",
+        [340] = "SemisolidRight",
+        [372] = "SemisolidRight",
+
+
+        [304] = "SemisolidLeft",
+        [336] = "SemisolidLeft",
+        [368] = "SemisolidLeft",
+    },
+
     -- internal properties
     _hasParallaxObjectLayers = false,   -- little optimization
     _numChunks = V{1, 1},
@@ -382,13 +437,19 @@ function Tilemap:CollisionInfo(other, preference)
                 
                 for x = xStart, xEnd do 
                     for y = yStart, yEnd do
-                        
+
                         tileID = self:GetTile(layerID, x, y)
-                        if tileID and tileID > 0 then
-                            boxLeft = realLeftEdge + realTileX * (x-1)
-                            boxRight = realLeftEdge + realTileX * (x)
-                            boxTop = realTopEdge + realTileY * (y-1)
-                            boxBottom = realTopEdge + realTileY * (y)
+
+                        local tileSurface = self.SurfaceInfo[self.TileSurfaceMapping[tileID]] or self._surfaceInfo
+                        
+
+
+                        if (tileID or 0) > 0 then
+                            print(tileID)
+                            boxLeft = realLeftEdge + realTileX * (x-1)     + ((tileSurface.Left or self._surfaceInfo.Left).CollisionInset or 0)
+                            boxRight = realLeftEdge + realTileX * (x)      - ((tileSurface.Right or self._surfaceInfo.Right).CollisionInset or 0)
+                            boxTop = realTopEdge + realTileY * (y-1)       + ((tileSurface.Top or self._surfaceInfo.Top).CollisionInset or 0)
+                            boxBottom = realTopEdge + realTileY * (y)      - ((tileSurface.Bottom or self._surfaceInfo.Bottom).CollisionInset or 0)
 
                             local hit, hDist, vDist = boxCollide(boxLeft,boxRight,boxTop,boxBottom,oLeftEdge,oRightEdge,oTopEdge,oBottomEdge)
 
@@ -565,4 +626,16 @@ function Tilemap.import(tiledPath, atlasPath, properties)
 
     return newTilemap
 end
+
+function Tilemap:GetSurfaceInfo(tileID)
+    local tileSurface = self.SurfaceInfo[self.TileSurfaceMapping[tileID]]
+
+    return tileSurface and {
+        Left = tileSurface.Left or self._surfaceInfo.Left,
+        Right = tileSurface.Right or self._surfaceInfo.Right,
+        Top = tileSurface.Top or self._surfaceInfo.Top,
+        Bottom = tileSurface.Bottom or self._surfaceInfo.Bottom
+    } or self._surfaceInfo
+end
+
 return Tilemap
