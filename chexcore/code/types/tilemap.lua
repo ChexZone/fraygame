@@ -66,6 +66,10 @@ local Tilemap = {
         [304] = "SemisolidLeft",
         [336] = "SemisolidLeft",
         [368] = "SemisolidLeft",
+
+        [401] = "SemisolidBottom",
+        [402] = "SemisolidBottom",
+        [403] = "SemisolidBottom",
     },
 
     -- internal properties
@@ -445,7 +449,7 @@ function Tilemap:CollisionInfo(other, preference)
 
 
                         if (tileID or 0) > 0 then
-                            print(tileID)
+                            -- print(tileID)
                             boxLeft = realLeftEdge + realTileX * (x-1)     + ((tileSurface.Left or self._surfaceInfo.Left).CollisionInset or 0)
                             boxRight = realLeftEdge + realTileX * (x)      - ((tileSurface.Right or self._surfaceInfo.Right).CollisionInset or 0)
                             boxTop = realTopEdge + realTileY * (y-1)       + ((tileSurface.Top or self._surfaceInfo.Top).CollisionInset or 0)

@@ -20,7 +20,8 @@ local Player = {
     VelocityLastFrame = V{0,0},         -- the velocity of the player the previous frame (valid after Player:UpdatePhysics())
 
     MaxSpeed = V{10, 10},                 -- the absolute velocity caps (+/-) of the player
-    RunSpeed = 1.5,                     -- how fast the player runs by default
+    WalkSpeed = 1.5,                     -- how fast the player runs by default
+    RunSpeed = 2.4,                     -- how fast the player runs by default
     DiveSpeed = 3,                      -- minimum speed during a dive
     Gravity = 0.15,                     -- how many pixels the player falls per frame
     JumpGravity = 0.14,                 -- how many pixels the player falls per frame while in the upward arc of a jump
@@ -68,6 +69,8 @@ local Player = {
     
     DiveExpired = false,                   -- whether the player has used up their dive in the air
 
+    JumpFramesBeforeRunCancel = 99999999,      -- the amount of the player has to hold out a jump input to nullify run speed
+    CantRunUntilGrounded = false,       -- if the JumpFramesBeforeRunCancel is reached, set this to true until grounded again
     ParryPower = 2.65,                   -- the initial upward momentum of a parry
     LungePitch = 1,                     -- trends towards 1
     LungePitchTweenSpeed = 2.5,
@@ -92,6 +95,7 @@ local Player = {
     
     InLedgeLunge = false,                   -- if the player is currently in a "ledge lunge" (AKA lunged into a staircase ledge)
     WaitingForLedgeLunge = false,           -- if the player just did a lunge and is waiting for ledge lunge
+    FramesOnGroundAfterLedgeLungeBeforeChainEnds = 15,
     LedgeLungeCharge = 0,                   -- charges up with consecutive ledge lunges to charge a pounce
     LedgeLungeBoostRate = 0.2,            -- how much LedgeLungeCharge increases with each ledge lunge
     LedgeLungeGroundedDepletionRate = 0.1,  -- how much power LedgeLungeCharge loses per frame 
@@ -138,6 +142,9 @@ local Player = {
     ForwardDeceleration = 0.2,          -- how much the player speed decreases while moving forward
     BackwardDeceleration = 0.7,         -- how fast the player speed decreases while "braking" on the ground
     IdleDeceleration = 0.2,             -- how fast the player halts to a stop while idle on the ground
+    RunForwardDeceleration = 0.18,          -- how much the player speed decreases while moving forward at running speed
+    RunBackwardDeceleration = 0.1,         -- how fast the player speed decreases while "braking" on the ground
+    RunIdleDeceleration = 0.2,             -- how fast the player halts to a stop while idle on the ground
     AirBackwardDeceleration = 0.25,     -- how much the player decelerates while in the air, against the movement direction
     AirForwardDeceleration = 0.2,      -- how much the player decelerates while in the air, moving in the same direction
     AirIdleDeceleration = 0.2,          -- how much the player decelerates while idle in the air    
@@ -200,6 +207,7 @@ local Player = {
     -- input vars
     JustPressed = {},                   -- all inputs from the previous frame
     FramesSinceJump = -1,               -- will be -1 if the player is on the ground, or they fell off something without jumping
+    FramesSinceHoldingJump = -1,        -- similar to above, but resets to -1 once the jump button has been released
     FramesSinceDoubleJump = -1,         -- will be -1 if the player is grounded, or in the air and hasn't double jumped
     FramesSinceParry = -1,              -- will be -1 if the player.. isn't parrying
     FramesSinceGrounded = -1,           -- will be -1 if the player is in the air
@@ -591,6 +599,7 @@ end
 
 ------- collison function
 local justLanded, hitCeiling, inParry
+local pushX, pushY
 function Player:Unclip(forTesting)
     self.UnclipCount = self.UnclipCount + 1
     if self.Floor then
@@ -599,7 +608,7 @@ function Player:Unclip(forTesting)
     justLanded = false
     hitCeiling = false
     
-    local pushX, pushY
+    
     
     if self.FramesSinceDive > -1 then
         -- when diving, we reverse the X/Y collision check order because otherwise
@@ -656,7 +665,7 @@ function Player:UnclipY(forTesting)
                 -- print(pushY)
 
                 -- -4 IS ARBITRARY!! IDK IF IT WILL CAUSE PROBLEMS!!!!!!!!!!
-                if not forTesting and pushY >= -4 then self:ConnectToFloor(solid) end
+                if not forTesting and pushX == 0 and pushY >= -4 then self:ConnectToFloor(solid) end
             elseif self.Velocity.Y <= 0 and not surfaceInfo.Bottom.Passthrough and face == "top" then
                 pushY = math.abs(pushY) > math.abs(vDist or 0) and pushY or (vDist or 0)
                 hitCeiling = true
@@ -775,13 +784,23 @@ end
 local TILE_SIZE_LEDGE_LUNGE = 16
 function Player:ValidateFloor()
     local wasOnGroundAfterLedgeLunge = self.OnGroundAfterLedgeLunge
+    
     if self.Floor then
         -- check if we've collided with the current floor or not
         self:AlignHitboxes()
         self.YHitbox.Position.Y = self.Position.Y + 1
         
         self.Velocity.Y = 0
-        local hit, hDist, vDist = self.Floor:CollisionInfo(self.YHitbox)
+        local hit --, hDist, vDist = self.Floor:CollisionInfo(self.YHitbox)
+
+        for solid, hDist, vDist, tileID in self.YHitbox:CollisionPass(self.Floor, true, false, true) do
+            local surfaceInfo = solid:GetSurfaceInfo(tileID)
+            local face = Prop.GetHitFace(hDist,vDist)
+            if self.Velocity.Y >= 0 and not surfaceInfo.Top.Passthrough and face == "bottom" then
+                hit = solid
+                break
+            end
+        end
         if not hit then
 
             
@@ -834,10 +853,12 @@ function Player:ValidateFloor()
 
 
                     if pushY ~= 0 then
+                        local vx = self.Velocity.X
                         self:Dive()
+                        Chexcore._frameDelay =Chexcore._frameDelay + 0.03333333
                         self.DiveExpired = false
                         self.Velocity.Y = self.TerminalLedgeLungeVelocity
-                        self.Velocity.X = self.Velocity.X * 1.2 --(math.abs(self.Velocity.X) + 1) * sign(self.Velocity.X)
+                        -- self.Velocity.X = self.Velocity.X * 1.3 --(math.abs(self.Velocity.X) + 1) * sign(self.Velocity.X)
                         self.InLedgeLunge = true
                         self.LedgeLungeStairCount = ledgeLungeStairChain + 1
                         if self.WaitingForLedgeLunge then
@@ -848,7 +869,8 @@ function Player:ValidateFloor()
                         end
                         
                         local faceDirection = self.MoveDir ~= 0 and self.MoveDir or sign(self.DrawScale.X)
-                        self.Velocity.X = faceDirection * self.DivePower
+                        self.Velocity.X = faceDirection * math.min(math.max(self.DivePower, math.abs(vx) - 0.5), 8)
+                        print(self.Velocity.X)
                         self.FramesOnGroundSinceLedgeLunge = 0
 
                         if self.LedgeLungeCharge == 0 then
@@ -857,7 +879,7 @@ function Player:ValidateFloor()
                             self.LedgeLungeCharge = math.min(self.LedgeLungeCharge + self.LedgeLungeBoostRate, self.LedgeLungeMaxCharge)
                         end
                         
-                        self.LungePitch = self.LungePitch + 0.
+                        self.LungePitch = self.LungePitch + (self.LedgeLungeChain/20)
                         self:PlaySFX("LedgeLunge", self.LungePitch)
                         self.ActiveTerminalLedgeLungeVelocity = self.TerminalLedgeLungeVelocity
                         self.Position.Y = oldPosY + 6
@@ -872,6 +894,8 @@ function Player:ValidateFloor()
                 else
                     -- self.LedgeLungeStairCount = 0
                 end
+                print("eek!!!!!")
+                
                 self:DisconnectFromFloor()
             end            
         end
@@ -1064,7 +1088,7 @@ function Player:Jump()
 
     
 
-    -- pounce  handling
+    -- pounce handling
     if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
         local heightBoost = math.min((self.LedgeLungeCharge*0.75 + self.LedgeLungeChain*0.2), 3)--math.max((self.LedgeLungeCharge - 6), 0) / 4
         self.LedgeLungeCharge = math.max(self.LedgeLungeCharge - self.LedgeLungePounceDepletionRate, 0)
@@ -1098,9 +1122,16 @@ function Player:Jump()
     end
 
     -- apply ledge lunge charge
-    self.Velocity.X = self.Velocity.X + (self.LedgeLungeCharge*0.7 + (self.LedgeLungeChain*0.2)) * sign(self.Velocity.X)
+    
+    self.Velocity.X = self.Velocity.X + (self.LedgeLungeCharge*0.5) * sign(self.Velocity.X)
+
+    if self.LedgeLungeStairCount == 0 and self.LedgeLungeChain > 0 then
+        print("CHAINED")
+        self.Velocity.X = self.Velocity.X + sign(self.Velocity.X) * self.LedgeLungeChain*0.4
+    end
 
     self.FramesSinceJump = 0
+    self.FramesSinceHoldingJump = 0
     
     self.FloorPositionAtJump = self.LastFloor and self.LastFloor.Position:Clone() or V{0,0}
 
@@ -1129,6 +1160,11 @@ function Player:Jump()
     if self.FramesSinceRoll == 0 then
         self.Texture.Clock = 0 -- reset jump animation
     end
+
+    if self.FramesSinceRoll > 0 then
+        self.CantRunUntilGrounded = true
+    end
+
     self:DisconnectFromFloor()
 end
 
@@ -1164,7 +1200,7 @@ function Player:DoubleJump()
 
     if self.FramesSincePounce > -1 then
         -- if self.InputListener:IsDown("action") then
-            self.Velocity.X = math.min(math.abs(self.Velocity.X), math.lerp(math.abs(self.Velocity.X), self.RunSpeed, 0.5)) * self.MoveDir
+            self.Velocity.X = math.min(math.abs(self.Velocity.X), math.lerp(math.abs(self.Velocity.X), self.WalkSpeed, 0.5)) * self.MoveDir
         -- else
         --     self.Velocity.X = 0
         -- end
@@ -1189,6 +1225,9 @@ function Player:DoubleJump()
     -- first move the player down to make sure they're even allowed to double jump
     self.JumpBuffer = 0
 
+    -- double jumping cancels run momentum
+    self.CantRunUntilGrounded = true
+
     self:GetChild("DoubleJumpDust"):Emit{Position = self:GetPoint(0.5,0.5), Rotation = math.random(0,3)*math.rad(90)}
     
     
@@ -1202,7 +1241,7 @@ function Player:DoubleJump()
         -- this is a dive cancel; player can't carry momentum from dives
         if self.InputListener:IsDown("action") then
             -- player can maintain some velocity if they're holding action during a dive cancel
-            self.Velocity.X = math.min(math.abs(self.Velocity.X), math.lerp(math.abs(self.Velocity.X), self.RunSpeed, 0.5)) * self.MoveDir
+            self.Velocity.X = math.min(math.abs(self.Velocity.X), math.lerp(math.abs(self.Velocity.X), self.WalkSpeed, 0.5)) * self.MoveDir
         else
             self.Velocity.X = 0
         end
@@ -1268,6 +1307,7 @@ function Player:Parry()
     self.FramesSinceDive = -1
     self.FramesSinceDoubleJump = -1
     self.DiveExpired = false
+    self.CantRunUntilGrounded = true
     self.Texture.Clock = 0
     self.Texture.IsPlaying = true
     self.LastParryWall = self.Wall
@@ -1745,8 +1785,9 @@ function Player:UpdateAnimation()
             -- run anim
             self:SetBodyOrientation(self.MoveDir)
             if math.abs(self.Velocity.X) <= 1.5 then
-                
                 self.Texture:AddProperties{LeftBound = 5, RightBound = 10, Duration = 0.72, PlaybackScaling = 3 - math.abs(self.Velocity.X)*1.25, IsPlaying = true, Loop = true}
+            elseif math.abs(self.Velocity.X) >= self.RunSpeed then
+                self.Texture:AddProperties{LeftBound = 61, RightBound = 66, Duration = 0.72, PlaybackScaling = 0.95 + math.abs(self.Velocity.X)*0.15, IsPlaying = true, Loop = true}
             else
                 self.Texture:AddProperties{LeftBound = 5, RightBound = 10, Duration = 0.72, PlaybackScaling = 1 + math.abs(self.Velocity.X)*0.25, IsPlaying = true, Loop = true}
             end
@@ -1776,13 +1817,14 @@ end
 
 function Player:UpdateFrameValues()
     
-    
     if self.Floor then
         self.YPositionAtLedge = self.Position.Y
         self.InLedgeLunge = false
         self.AerialMovementLockedToFloorPos = false
         self.FramesSinceDoubleJump = -1
+        self.CantRunUntilGrounded = false
         self.FramesSinceJump = -1
+        self.FramesSinceHoldingJump = -1
         self.DiveExpired = false
         if self.FramesSinceGrounded > -1 then
             self.FramesSinceGrounded = self.FramesSinceGrounded + 1
@@ -1793,6 +1835,9 @@ function Player:UpdateFrameValues()
         self.FramesSinceGrounded = -1
         if self.FramesSinceJump > -1 then
             self.FramesSinceJump = self.FramesSinceJump + 1
+        end
+        if self.FramesSinceHoldingJump > -1 then
+            self.FramesSinceHoldingJump = self.FramesSinceHoldingJump + 1
         end
         if self.FramesSinceDoubleJump > -1 then
             self.FramesSinceDoubleJump = self.FramesSinceDoubleJump + 1
@@ -1824,7 +1869,7 @@ function Player:UpdateFrameValues()
     if self.FramesOnGroundSinceLedgeLunge > -1 then
         if self.Floor then
             self.FramesOnGroundSinceLedgeLunge = self.FramesOnGroundSinceLedgeLunge + 1
-            if self.FramesOnGroundSinceLedgeLunge > 30 then
+            if self.FramesOnGroundSinceLedgeLunge > self.FramesOnGroundAfterLedgeLungeBeforeChainEnds then
                 self.OnGroundAfterLedgeLunge = false
                 self.FramesOnGroundSinceLedgeLunge = -1
                 self.WaitingForLedgeLunge = false
@@ -2025,6 +2070,12 @@ function Player:UpdatePhysics()
         -- the player is in the air from a jump
         if self.InputListener:IsDown("jump") then
             
+
+            -- check if player has been holding jump long enough to cancel run speed
+            if self.FramesSinceHoldingJump >= self.JumpFramesBeforeRunCancel then
+                self.CantRunUntilGrounded = true
+            end
+
             -- the player is still holding jump and should get maximum height
             if self.Velocity.Y < 0 then
 
@@ -2045,6 +2096,7 @@ function Player:UpdatePhysics()
         else
             
             -- the player jumped but isn't holding jump anymore
+            self.FramesSinceHoldingJump = -1
             if self.Velocity.Y < 0 then
 
                 -- end the jump arc immediately
@@ -2097,7 +2149,8 @@ function Player:UpdatePhysics()
 
 
 
-    local horizSpeed = self.FramesSinceDive > -1 and self.DiveSpeed or self.RunSpeed
+    local horizSpeed = self.FramesSinceDive > -1 and self.DiveSpeed or 
+                        (((self.Floor or not self.CantRunUntilGrounded) and math.abs(self.Velocity.X) > self.RunSpeed) and self.RunSpeed or self.WalkSpeed)
     local decelGoal = math.abs(self.MoveDir) > 0 and horizSpeed or 0
     local speedOver = math.abs(self.Velocity.X) - decelGoal
     if speedOver > 0 then
@@ -2107,13 +2160,31 @@ function Player:UpdatePhysics()
             if self.MoveDir == 0 then
                 -- player is idle
                 
-                self:Decelerate(self.IdleDeceleration)
+                if math.abs(self.Velocity.X) >= self.RunSpeed then
+                    self:Decelerate(self.RunIdleDeceleration)
+                else
+                    self:Decelerate(self.IdleDeceleration)
+                end
+                
             elseif sign(self.Velocity.X) == self.MoveDir then
                 -- player is moving "with" the direction of their momentum; don't slow down as much
-                self:Decelerate(self.ForwardDeceleration)
+                if math.abs(self.Velocity.X) >= self.RunSpeed then
+                    -- player is running
+                    self:Decelerate(self.RunForwardDeceleration)
+                else
+                    -- player is walking
+                    self:Decelerate(self.ForwardDeceleration)
+                end
+                
             else
                 -- player is against the direction of momentum; normal deceleration
-                self:Decelerate(self.BackwardDeceleration)
+                if math.abs(self.Velocity.X) >= self.RunSpeed then
+                    -- player is running
+                    self:Decelerate(self.RunBackwardDeceleration)
+                else
+                    -- player is walking
+                    self:Decelerate(self.BackwardDeceleration)
+                end            
             end
         else
             -- player is in the air

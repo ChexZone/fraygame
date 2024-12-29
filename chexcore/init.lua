@@ -6,6 +6,8 @@ _G.Chexcore = {
     _lastFrameTime = 0,     -- how long the previous frame actually took
     _graphicsStats = {},        -- the output of love.graphics.getStats()
 
+    _frameDelay = 0,        -- (sec) add to this value to wait extra time before the next frame
+
     _types = {},            -- stores all type references
     _scenes = {},           -- stores all mounted Scene references
     _globalUpdates = {},    -- for any types that want independent update control
@@ -179,7 +181,7 @@ end
 local fps = 0
 Chexcore.FrameLimit = 500
 local frameTime = 0
-local mode = "web"
+-- local mode = "web"
 
 local start_time = 0
 
@@ -285,16 +287,16 @@ function love.run()
         
         local end_time = love.timer.getTime()
 
-        if love.timer then 
+        if love.timer then
             local waitTime = timeToWait - (end_time - start_time)
             if mode == "web" then
                 waitTime = waitTime / 4
             end
-            love.timer.sleep(waitTime)
+            love.timer.sleep(waitTime + Chexcore._frameDelay)
         end
 
         Chexcore._cpuTime = (end_time - start_time)
-
+        Chexcore._frameDelay = 0
 
         -- if mode == "web" then start_time = Chexcore._preciseClock end
     end

@@ -75,7 +75,7 @@ function Prop:Draw(tx, ty, isForeground)
     --     self:GetLayer():DelayDrawCall(Prop.Draw, self, tx, ty, true)
     --     return
     -- end
-
+    
     local oldshader
     if self.Shader then
         self.Shader:Activate()
@@ -308,10 +308,14 @@ function Prop.GetHitFace(hDist, vDist, usingItWrong)
     end
 end
 
-function Prop:CollisionPass(container, deep, preference)
+-- BTW, `isSingleObject` is mainly for doing a collision pass along a single tilemap
+-- (or any other Solid Prop which can return multiple collisions)
+function Prop:CollisionPass(container, deep, preference, isSingleObject)
     local nsf = function(c) return c ~= self end
     
-    if not container then
+    if isSingleObject then
+        container = {container}
+    elseif not container then
         container = deep and self._parent:GetDescendants(nsf) or self._parent:GetChildren(nsf)
     elseif container._type then
         if self._parent == container then
