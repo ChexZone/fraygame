@@ -809,6 +809,7 @@ local function deepCopy(tab)
     local nt = smt({}, gmt(tab))
     for k, v in pairs(tab) do
         if type(v) == "table" then
+            print(v)
             if k ~= "_parent" then nt[k] = deepCopy(v) end
         else
             nt[k] = v

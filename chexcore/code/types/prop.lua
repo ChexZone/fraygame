@@ -220,7 +220,7 @@ function Prop:CollisionInfo(other)
 
     local sp, op = self.Position, other.Position
     local sap, oap = self.AnchorPoint, other.AnchorPoint
-    local ss, os = self.Size, other.Size
+    local ss, os = (self.CollisionSize or self.Size), (other.CollisionSize or other.Size)
     local sLeftEdge  = floor(sp[1] + selfSurfaceInfo.Left.CollisionInset - ss[1] * sap[1])
     local sRightEdge = floor(sp[1] - selfSurfaceInfo.Right.CollisionInset + ss[1] * (1 - sap[1]))
     local sTopEdge  = floor(sp[2] + selfSurfaceInfo.Top.CollisionInset - ss[2] * sap[2])

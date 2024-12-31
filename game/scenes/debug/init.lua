@@ -11,7 +11,7 @@ local scene = GameScene.new{
 Chexcore:AddType("game.objects.wheel")
 Chexcore:AddType("game.objects.cameraZone")
 
-local bgLayer = Prop.new{Size = V{640, 360}, 
+local bgLayer = Prop.new{Size = V{640, 360},
     Update = function (self)
         self.Color = HSV{(scene.Camera.Position.Y/2000)%1,1,0.2}
     end
@@ -369,6 +369,274 @@ layer:Adopt(Prop.new{
 
 
 scene:SwapChildOrder(#scene:GetChildren()-1,#scene:GetChildren())
+
+
+
+-- temp: holdable item
+local holdable = scene:GetLayer("Gameplay"):Adopt(Prop.new{
+    Name = "Holdable",
+    Texture = Texture.new("game/assets/images/lineless-basketball.png"),
+    LinelessTexture = Texture.new("game/assets/images/lineless-basketball.png"),
+    Size = V{14, 14},
+    CollisionSize = V{24,24},
+    -- Color = V{1, 0, 0},
+    AnchorPoint = V{0.5,0.5},
+    Position = V{2200, 1800},
+    Solid = true, Passthrough = true,
+
+
+    -- will be properties of holdables
+    IsHoldable = true,
+    Owner = nil, -- will be a Player object
+
+    COYOTE_FRAMES_AFTER_DROP = 6,
+    COYOTE_FRAMES_AFTER_THROW = 12,
+    COYOTE_FRAMES_AFTER_VERTICAL_BOUNCE = 5,
+    X_BOUNCE_DELAY = 7,
+    Y_BOUNCE_DELAY = 7,
+    DebounceX = 0,
+    DebounceY = 0,
+    CoyoteFrames = 0,
+    Velocity = V{0, 0},
+    Gravity = 0.15,
+    TerminalVelocity = V{3.5, 3.5},
+    PickupDebounce = 0,
+    FRAMES_BETWEEN_DROP_AND_REGRAB = 10,
+    X_DECELERATION_GROUND = 0.035,
+    X_DECELERATION_AIR = 0.01,
+    Y_BOUNCE_HEIGHT_LOSS = 1.5,
+    Y_MIN_BOUNCE_HEIGHT = 0.75,
+    ExtendsHitbox = true,
+    CanBeOverhang = false,
+    SquashWithPlayer = true,
+    VerticalOffset = -12,
+    RotVelocity = 0,
+    Collider = tilemap,
+    Floor = nil,
+
+    SFX = {
+        Bounce = Sound.new("game/assets/sounds/basketball_1.wav", "static"):Set("Volume", 0.1)
+    },
+
+    Draw = function (self, tx, ty, isForeground)
+        if (not self.Owner) or self.Owner.FramesSinceHoldingItem < 1 then
+            return Prop.Draw(self, tx, ty-1, isForeground)
+        end
+    end,
+
+    Update = function(self, dt)
+        if not self.Owner then
+            
+            if self.PickupDebounce > 0 then
+                self.PickupDebounce = self.PickupDebounce - 1
+            end
+
+            if self.DebounceX > 0 then
+                self.DebounceX = self.DebounceX - 1
+            end
+            if self.DebounceY > 0 then
+                self.DebounceY = self.DebounceY - 1
+            end
+
+            -- physics
+
+            local MAX_Y_DIST = 1
+            local MAX_X_DIST = 1
+            local subdivisions = 1
+            local posDelta = self.Velocity:Clone()*60*dt
+
+            if math.abs(posDelta.X) > MAX_X_DIST then
+                subdivisions = math.floor(1+math.abs(posDelta.X)/MAX_X_DIST)
+            end
+        
+            if math.abs(posDelta.Y) > MAX_Y_DIST then
+                subdivisions = math.max(subdivisions, math.floor(1+math.abs(posDelta.Y)/MAX_Y_DIST))
+            end
+            
+            local interval = subdivisions == 1 and posDelta or posDelta / subdivisions
+
+            
+
+            for i = 1, subdivisions do
+                self.Position = self.Position + interval
+                self:RunCollision(false, dt)
+            end
+
+            
+
+            if self.CoyoteFrames == 0 then
+                if not self.Floor then
+                    self.Velocity.Y = self.Velocity.Y + self.Gravity
+                end
+            else
+                self.CoyoteFrames = self.CoyoteFrames - 1
+
+                -- still apply upward velocity if it's there
+                if self.Velocity.Y < 0 then
+                    self.Velocity.Y = self.Velocity.Y + self.Gravity
+                end
+            end
+
+            if self.Floor then -- apply ground deceleration
+                self.Velocity.X = sign(self.Velocity.X) * math.max(math.abs(self.Velocity.X) - self.X_DECELERATION_GROUND*60*dt, 0)
+            else -- apply air deceleration
+                self.Velocity.X = sign(self.Velocity.X) * math.max(math.abs(self.Velocity.X) - self.X_DECELERATION_AIR*60*dt, 0)
+            end
+            -- max velocity
+            self.Velocity.X = math.min(math.abs(self.Velocity.X), self.TerminalVelocity.X) * sign(self.Velocity.X)
+            self.Velocity.Y = math.min(math.abs(self.Velocity.Y), self.TerminalVelocity.Y) * sign(self.Velocity.Y)
+
+            
+            self.RotVelocity = math.lerp(self.RotVelocity, 0, 0.03*60*dt)
+            self.Rotation = self.Rotation + self.RotVelocity
+        else
+            self.RotVelocity = 0
+            self.Rotation = 0
+        end
+        
+        self.DrawScale = self.DrawScale:Lerp(V{1,1}, 0.15*60*dt)
+    end,
+
+    PutDown = function(self, ownerWasGrounded, ownerYVelocity) -- for when it's placed down gently with crouch
+        self.Owner = nil
+        self.Velocity = V{0,math.min(0, (ownerYVelocity and ownerYVelocity/2) or 0)}
+        self.PickupDebounce = self.FRAMES_BETWEEN_DROP_AND_REGRAB
+        if not ownerWasGrounded then
+            self.CoyoteFrames = self.COYOTE_FRAMES_AFTER_DROP
+        end
+    end,
+
+    Throw = function (self, dt)
+        self.CoyoteFrames = self.COYOTE_FRAMES_AFTER_THROW
+    end,
+
+    RunCollision = function (self, expensive, dt)
+        -- normal collision pass
+        local pushX, pushY = 0, 0
+        local movedAlready
+        local ignoreSound
+        -- normal collision pass
+        if self.Floor and self.Velocity.X == 0 then
+            self:ValidateFloor(expensive)
+        else
+            self:ValidateFloor(expensive)
+            local iterator = (expensive or not self.Collider)
+                                      and self:CollisionPass(self._parent, true)
+                                       or self:CollisionPass(self.Collider, true, false, true)
+            
+            for solid, hDist, vDist, tileID in iterator do
+                if not solid.Passthrough then
+                    local surfaceInfo = solid:GetSurfaceInfo(tileID)
+                    local face = Prop.GetHitFace(hDist,vDist)
+                    
+                    if solid._parent ~= self.Owner then
+                        pushY = math.abs(pushY) > math.abs(vDist or 0) and pushY or (vDist or 0)
+                        pushX = math.abs(pushX) > math.abs(hDist or 0) and pushX or (hDist or 0)
+                    end
+                    
+                    if math.abs(pushX) > 4 then pushX = 0 end
+                    if math.abs(pushY) > 4 then pushY = 0 end
+                    -- if face == "bottom" and pushY ~= 0 then
+                    --     self.Position.Y = self.Position.Y + pushY + 0.5
+                    --     self.Floor = solid
+                    --     self.Velocity.Y = 0
+                    --     movedAlready = true
+                    --     break -- return pushX, pushY -- Exit early for floor resolution
+                    -- end
+
+                    if pushX ~= 0 and math.abs(pushX) < 4 and (pushY == 0 or math.abs(pushY) > 4) and self.DebounceX == 0 then
+                        print("X CASE", pushX, pushY)
+                        self.DrawScale.X = math.clamp(1 - math.abs(self.Velocity.X)/4, 0.3, 1)
+                        self.DebounceX = self.X_BOUNCE_DELAY
+                        self.Position.X = self.Position.X + pushX + (1 * sign(pushX))
+                        self.Velocity.X = -self.Velocity.X
+                        self.RotVelocity = self.RotVelocity - sign(self.Velocity.Y)/20
+                        self.CoyoteFrames = self.CoyoteFrames + self.COYOTE_FRAMES_AFTER_VERTICAL_BOUNCE
+                        movedAlready = true
+                    end
+                    if pushY ~= 0 and math.abs(pushY) <= 4 and (pushX == 0 or math.abs(pushX) > 4) and self.DebounceY == 0 then
+                        
+                        self.DebounceY = self.Y_BOUNCE_DELAY
+                        self.Position.Y = self.Position.Y + pushY + (1 * sign(pushY))
+                        self.RotVelocity = self.RotVelocity + sign(self.Velocity.X)/20
+                        movedAlready = true
+                        if self.Velocity.Y > 0 and self.Velocity.Y < self.Y_MIN_BOUNCE_HEIGHT then
+                            print("Y CASE 1", pushX, pushY, dt)
+                            self.Velocity.Y = 0
+                            ignoreSound = true
+                        elseif not self.Floor then
+                            print("Y CASE 2", pushX, pushY, dt)
+                            self.Velocity.Y = math.min(
+                                -(sign(self.Velocity.Y) * (math.abs(self.Velocity.Y) - self.Y_BOUNCE_HEIGHT_LOSS)),
+                                0
+                            )
+                        end
+                        self.DrawScale.Y = math.clamp(1 - math.abs(self.Velocity.Y)/4, 0.3, 1)
+                        
+                        if face == "bottom" then
+                            self.Floor = solid
+                        end
+                    end
+                end
+            end
+
+        end
+        
+        -- just give up if corner clipping, tbh
+        if math.abs(pushX) > 2 and math.abs(pushY) > 2 and not movedAlready then
+            print("whatever", self.Velocity)
+            
+            self.Position = self.Position - (self.Velocity or V{0,0})*60*dt
+            self.Velocity = -self.Velocity
+            -- if self.DebounceX == 0 then
+            --     self.DebounceX = self.X_BOUNCE_DELAY
+            --     self.Velocity.X = -self.Velocity.X
+            --     movedAlready = true
+            -- end
+            -- if self.DebounceY == 0 then
+            --     self.DebounceY = self.Y_BOUNCE_DELAY
+            --     self.Velocity.Y = -self.Velocity.Y
+            --     movedAlready = true
+            -- end
+            movedAlready = true
+            
+        end
+
+        if movedAlready and not ignoreSound then
+            self.SFX.Bounce:SetVolume(math.clamp(self.Velocity:Magnitude()/8, 0.1, 0.3)/10)
+            self.SFX.Bounce:Stop()
+            self.SFX.Bounce:SetPitch(1 + math.random(-5,5)/45 * 0.5)
+            self.SFX.Bounce:Play()
+        end
+
+        print(pushX, pushY, self.Velocity)
+        return pushX, pushY
+    end,
+
+    ValidateFloor = function (self, expensive)
+        self.Position.Y = self.Position.Y + 2
+        local foundFloor
+
+        local iterator = expensive and self:CollisionPass(self._parent, true)
+                                    or self:CollisionPass(self.Floor, true, false, true)
+        
+        for solid, hDist, vDist, tileID in iterator do
+            local surfaceInfo = solid:GetSurfaceInfo(tileID)
+            local face = Prop.GetHitFace(hDist,vDist)
+
+            if solid == self.Floor and face == "bottom" then
+                foundFloor = true
+            end
+        end
+        if foundFloor then
+            
+        else
+            
+            self.Floor = nil
+        end
+        self.Position.Y = self.Position.Y - 2
+    end
+})
 
 
 return scene

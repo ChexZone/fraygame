@@ -113,7 +113,8 @@ local Player = {
     DiveCancelSpeedThreshold = 0,       -- how fast the player must be moving (X) to be eligible to dive cancel
     DiveWasLunge = false,               -- whether the last dive was a lunge or not (resets with dive state)
     DivePower = 5.25,                    -- the X velocity out of an aerial dive
-    DiveUpwardVelocity = -0.5,         -- the Y velocity out of an aerial dive
+    DiveUpwardVelocity = -0.2,         -- the Y velocity out of an aerial dive
+    DiveCoyoteFrames = 7,               -- how many frames after a dive the player velocity remains at 0
     WeakDiveUpwardVelocity = -0.5,         -- the Y velocity out of an aerial dive that's been weakened by a double jump
     WeakDiveHangTime = 5,               -- how many frames the y velocity of the player will stay the same after a weak divided
     ParryDiveUpwardVelocity = -0.5,     -- the Y velocity out of a parry dive (an upward dive immediately after a parry, usually over an edge)
@@ -226,6 +227,60 @@ local Player = {
     TailLength = 9,                     -- amount of tail segments to record
     TailVisibleLength = 4,              -- actual drawn length
     
+
+
+
+    -- TEMPORARY
+    NearbyHoldableItem = nil,
+    HeldItem = nil,
+    CaughtHeldItemMidairChain = 0,
+    ThrewItemInAir = false,
+    FramesSinceHoldingItem = -1,
+    LastThrowDirection = 0,       -- -1 "left" or 1 "right" - the last direction an object was thrown at (resets on land)
+    LastCatchDirecton = 0,        -- -1 "left" or 1 "right" - the last direction an object was caught from (resets on land)
+    FramesSinceDroppedItem = -1,
+    PickupAnimDebounce = 0,
+    HeldItemAnimationFrameOffsets = {
+        [68] = 1,
+        [71] = 1,
+        [75] = 1,
+        [76] = 1,
+        [86] = 1,
+        [89] = 1,
+
+        -- picking up item (grounded - idle)
+        [81] = 12,
+        [82] = 8,
+        [83] = 3,
+        -- (grounded-moving)
+        [105] = 12,
+        [106] = 8,
+        [107] = 3,
+        -- (midair)
+        [93] = 11,
+        [94] = 7,
+        [95] = 2,
+
+        -- rolling into an item (grounded)
+        [25] = 12,
+        [26] = 10,
+        [27] = 5,
+        -- (midair)
+        [37] = 12,
+        [38] = 10,
+        [39] = 5,
+
+        -- diving
+        [17] = 5,
+        [18] = 9,
+        [19] = 10,
+        [20] = 10,
+
+        -- -- crouch animations
+        -- [29] = 12, [30] = 12, [31] = 12, [32] = 12, [33] = 12,
+        -- [41] = 12, [42] = 12, [43] = 12, [44] = 12
+    },
+
 
     -- internal properties
     _usingPerformanceMode = false,  -- the GameScene controls whether PerformanceMode is on. Player just listens. 
@@ -340,7 +395,22 @@ function Player.new()
         },
         UpwardDive = {
             Sound.new("game/assets/sounds/upwarddive.wav", "static"):Set("Volume", 0.055)
-        }
+        },
+
+        PickUpItem = {
+            Sound.new("game/assets/sounds/item_pickup1.wav", "static"):Set("Volume", 0.05),
+            Sound.new("game/assets/sounds/item_pickup2.wav", "static"):Set("Volume", 0.05)
+        },
+
+        CatchItem = {
+            Sound.new("game/assets/sounds/item_catch1.wav", "static"):Set("Volume", 0.1),
+            Sound.new("game/assets/sounds/item_catch2.wav", "static"):Set("Volume", 0.1),
+            Sound.new("game/assets/sounds/item_catch3.wav", "static"):Set("Volume", 0.1),
+        },
+
+        GrabItemFail = {
+            Sound.new("game/assets/sounds/grab_fail.wav", "static"):Set("Volume", 0.05),
+        },
     }
 
     newPlayer.SFX.Jump[1].Test = true
@@ -610,18 +680,17 @@ function Player:Unclip(forTesting)
     
     
     
-    if self.FramesSinceDive > -1 then
-        -- when diving, we reverse the X/Y collision check order because otherwise
-        -- the player might rollout instead of parry when hitting between two wall tiles
+    if self.HeldItem and self.HeldItem.ExtendsHitbox then
         pushX = self:UnclipX(forTesting)
         pushY = self:UnclipY(forTesting)
+        
     else
         pushX = self:UnclipX(forTesting)
         pushY = self:UnclipY(forTesting)
     end
 
 
-    if pushX == 0 and hitCeiling then
+    if (pushX == 0 or self.HeldItem) and hitCeiling then
         
         if inParry then
             -- skip
@@ -631,10 +700,12 @@ function Player:Unclip(forTesting)
                 self.Velocity.Y = math.max(0, -self.Velocity.Y)
                 self.DiveBlock = self.DiveBlock + 10
             else
+                
                 self.Velocity.Y = math.max(0, self.Velocity.Y)
             end
         end
     end
+    
     
 
     return pushX, pushY
@@ -643,43 +714,70 @@ end
 function Player:UnclipY(forTesting)
     -- make sure hitboxes are aligned first!!!
     self:AlignHitboxes()
-    local pushY = 0
+    pushY = 0
 
-    for solid, hDist, vDist, tileID in self.YHitbox:CollisionPass(self._parent, true) do
-        local face = Prop.GetHitFace(hDist,vDist)
-        -- we check the "sign" of the direction to make sure the player is "moving into" the object before clipping back
-        local faceSign = face == "bottom" and 1 or face == "top" and -1 or 0
-        if (solid ~= self.YHitbox and solid ~= self.XHitbox) and (faceSign == sign(self.Velocity.Y +0.01) or face == "none") and not solid.Passthrough then
-            local surfaceInfo = solid:GetSurfaceInfo(tileID)
-            -- self.Velocity.Y = 0
+    local yColliders = (self.HeldItem and self.HeldItem.ExtendsHitbox) and {self.HeldItem, self.YHitbox} or {self.YHitbox}
+    local activeCollider
+
+    for _, collider in ipairs(yColliders) do
+        for solid, hDist, vDist, tileID in collider:CollisionPass(self._parent, true) do
             
-            -- if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
-            
-            if self.Velocity.Y >= 0 and not surfaceInfo.Top.Passthrough and face == "bottom" then
+            local face = Prop.GetHitFace(hDist,vDist)
+            -- we check the "sign" of the direction to make sure the player is "moving into" the object before clipping back
+            local faceSign = face == "bottom" and 1 or face == "top" and -1 or 0
+            if (solid ~= self.YHitbox and solid ~= self.XHitbox and solid ~= self.HeldItem) and (faceSign == sign(self.Velocity.Y +0.01) or face == "none") and not solid.Passthrough then
+                local surfaceInfo = solid:GetSurfaceInfo(tileID)
+                -- self.Velocity.Y = 0
                 
-                pushY = math.abs(pushY) > math.abs(vDist or 0) and pushY or (vDist or 0)
-                if not self.Floor then
-                    -- just landed
-                    justLanded = true
+                -- if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
+                
+                if self.Velocity.Y >= 0 and not surfaceInfo.Top.Passthrough and face == "bottom" and not (collider == self.HeldItem and not collider.CanBeOverhang) then
+                    
+                    pushY = math.abs(pushY) > math.abs(vDist or 0) and pushY or (vDist or 0)
+                    if not self.Floor then
+                        -- just landed
+                        justLanded = true
+                    end
+                    -- print(pushY)
+    
+                    -- -4 IS ARBITRARY!! IDK IF IT WILL CAUSE PROBLEMS!!!!!!!!!!
+                    if not forTesting and pushX == 0 and pushY >= -4 then 
+                        
+                        if collider ~= self.HeldItem then
+                            self:ConnectToFloor(solid)
+                        elseif self.HeldItem and self.HeldItem.CanBeOverhang and face == "bottom" then
+                            self.ShouldCheckForHeldItemOverhang = true
+                            self.Velocity.Y = 0
+                        else
+                            pushY = 0
+                            --self.Position.X = self.Position.X - 1
+                        end
+                    end
+                elseif self.Velocity.Y <= 0 and not surfaceInfo.Bottom.Passthrough and face == "top" then
+                    pushY = math.abs(pushY) > math.abs(vDist or 0) and pushY or (vDist or 0)
+                    hitCeiling = true
                 end
-                -- print(pushY)
 
-                -- -4 IS ARBITRARY!! IDK IF IT WILL CAUSE PROBLEMS!!!!!!!!!!
-                if not forTesting and pushX == 0 and pushY >= -4 then self:ConnectToFloor(solid) end
-            elseif self.Velocity.Y <= 0 and not surfaceInfo.Bottom.Passthrough and face == "top" then
-                pushY = math.abs(pushY) > math.abs(vDist or 0) and pushY or (vDist or 0)
-                hitCeiling = true
+                self:AlignHitboxes()
+
+                if pushY ~= 0  then
+                    activeCollider = collider
+                    break
+                end
             end
-            self:AlignHitboxes()
-        end
+    
+            
 
-        if not self.TouchEvents[solid] and not solid:IsA("Tilemap") then
-            self.TouchEvents[solid] = true
-            if solid.OnTouchEnter then solid:OnTouchEnter(self) end
-            if solid.OnTouchStay then solid:OnTouchStay(self) end
+            if not self.TouchEvents[solid] and not solid:IsA("Tilemap") then
+                self.TouchEvents[solid] = true
+                if solid.OnTouchEnter then solid:OnTouchEnter(self) end
+                if solid.OnTouchStay then solid:OnTouchStay(self) end
+            end
+
+            
         end
     end
-
+    
 
     -- roll out of a fast dive
     if justLanded and self.FramesSinceDive > -1 and math.abs(self.Velocity.X) > self.DiveLandRollThreshold and self.MoveDir == sign(self.Velocity.X) then
@@ -692,9 +790,11 @@ function Player:UnclipY(forTesting)
     if not forTesting then
         -- try to "undo" if the player clipped too hard
         -- print(pushY)
-        if math.abs(pushY) > self.YHitbox.Size.Y/2 then
+        
+        if activeCollider and math.abs(pushY) > self.YHitbox.Size.Y/2 then
             print("FIXING Y")
-            self.Position.Y = self.Position.Y - self.VelocityLastFrame.Y
+            -- self.Position.Y = self.Position.Y - self.VelocityLastFrame.Y
+            self.Position.Y = self.Position.Y + pushY - sign(pushY) * 0.01
         else
             self.Position.Y = self.Position.Y + pushY - sign(pushY) * 0.01
         end
@@ -715,60 +815,49 @@ end
 
 function Player:UnclipX(forTesting)
     self:AlignHitboxes()
-    local pushX = 0
-    for solid, hDist, vDist, tileID in self.XHitbox:CollisionPass(self._parent, true) do
-        local face = Prop.GetHitFace(hDist,vDist)
 
-        
-        if (solid ~= self.YHitbox and solid ~= self.XHitbox) and not solid.Passthrough then
+    -- reset holdable item check (we do it on this pass)
+    self.NearbyHoldableItem = nil
 
+    pushX = 0
+    local xColliders = (self.HeldItem and self.HeldItem.ExtendsHitbox) and {self.HeldItem, self.XHitbox} or {self.XHitbox}
+    local activeCollider
 
-            local surfaceInfo = solid:GetSurfaceInfo(tileID)
-
-
-            if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
-                pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
-                self:AlignHitboxes()
-
-                self:ConnectToWall(solid, face)
-            end
-
-            -- -- check if this is a ledge
-            -- local hit
-            -- local i = 1
-            -- while i <= self.LedgeUpwardClipDistance do
-            --     self.XHitbox.Position.Y = self.XHitbox.Position.Y - 1
-            --     hit = solid:CollisionInfo(self.XHitbox)
-            --     if not hit then break end
-            --     i = i + 1
-            -- end
-            
-            -- self.XHitbox.Position.Y = self.XHitbox.Position.Y + i-- self.LedgeUpwardClipDistance
-            -- if not hit then
-            --     self.Position.Y = self.Position.Y - i
-            -- else
-            --     -- if pushY == 0 then self.Velocity.X = 0 end
-            --     pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
-            --     self:AlignHitboxes()
-
-            --     self:ConnectToWall(solid, face)
-            -- end
-
-                -- if pushY == 0 then self.Velocity.X = 0 end
-
-
-        end
-        
-    end
-
+    for _, collider in ipairs(xColliders) do
+        for solid, hDist, vDist, tileID in collider:CollisionPass(self._parent, true) do
+            local face = Prop.GetHitFace(hDist,vDist)
     
+            
+            if (solid ~= self.YHitbox and solid ~= self.XHitbox and solid ~= self.HeldItem) and not solid.Passthrough then
+    
+    
+                local surfaceInfo = solid:GetSurfaceInfo(tileID)
+    
+    
+                if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
+                    pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
+                    self:AlignHitboxes()
+                    self:ConnectToWall(solid, face)
+                end
+            end
+            
+            if solid.IsHoldable then
+                self.NearbyHoldableItem = solid
+            end
+        end
+    
+        if pushX ~= 0 then
+            activeCollider = collider
+            break
+        end
+    end
 
     if not forTesting then
         -- print(pushX, pushY)
         -- print(self.Size.X/2)
         -- again, try to "undo" any extreme clipping
-        if math.abs(pushX) > self.XHitbox.Size.X/2 then
-            print("FIXING X")
+        if activeCollider and math.abs(pushX) > activeCollider.Size.X/2 then
+            -- print("FIXING X")
             self.Position.X = self.Position.X - self.VelocityLastFrame.X
         else
             self.Position.X = self.Position.X + pushX
@@ -817,6 +906,7 @@ function Player:ValidateFloor()
 
             if hit and self.FramesSinceLastLunge >= self.LedgeLungeWindow then
                 self.Position.Y = self.Position.Y + i
+                
             else
                 -- fine. we left the floor
                 if self.Floor.LockPlayerVelocity then
@@ -869,8 +959,7 @@ function Player:ValidateFloor()
                         end
                         
                         local faceDirection = self.MoveDir ~= 0 and self.MoveDir or sign(self.DrawScale.X)
-                        self.Velocity.X = faceDirection * math.min(math.max(self.DivePower, math.abs(vx) - 0.5), 8)
-                        print(self.Velocity.X)
+                        self.Velocity.X = faceDirection * math.min(math.max(self.DivePower, math.abs(vx) - 0.55), 8)
                         self.FramesOnGroundSinceLedgeLunge = 0
 
                         if self.LedgeLungeCharge == 0 then
@@ -894,11 +983,33 @@ function Player:ValidateFloor()
                 else
                     -- self.LedgeLungeStairCount = 0
                 end
-                print("eek!!!!!")
                 
-                self:DisconnectFromFloor()
-            end            
+                self:DisconnectFromFloor()                
+            end
         end
+    end
+
+    if self.ShouldCheckForHeldItemOverhang and self.HeldItem then
+        
+        self.HeldItem.Position.Y = self.HeldItem.Position.Y + 1
+        
+        local hit --, hDist, vDist = self.Floor:CollisionInfo(self.YHitbox)
+
+        for solid, hDist, vDist, tileID in self.HeldItem:CollisionPass(self._parent, true) do
+            local surfaceInfo = solid:GetSurfaceInfo(tileID)
+            local face = Prop.GetHitFace(hDist,vDist)
+            if (solid ~= self.XHitbox and solid ~= self.YHitbox and solid ~= self.HeldItem) and not solid.Passthrough and self.Velocity.Y >= 0 and not surfaceInfo.Top.Passthrough and face == "bottom" then
+                hit = solid
+                break
+            end
+        end
+
+        if hit then
+            self.Velocity.Y = 0
+            self.IgnoreGravityThisFrame = true
+        end
+        
+        self:UpdateHeldItem()
     end
 
     self:AlignHitboxes()
@@ -908,19 +1019,38 @@ function Player:ValidateWall()
     if self.Wall then
         -- check if we've collided with the current floor or not
         self:AlignHitboxes()
-        local dir = (self.WallDirection == "left" and -1 or 1)
-        self.XHitbox.Position.X = self.XHitbox.Position.X + dir
-        local hit = self.Wall:CollisionInfo(self.XHitbox)
+        local dir = (self.MoveDir ~= 0 and self.MoveDir) or (self.WallDirection == "left" and -1 or 1)
+        local hit
+
+        for _, collider in ipairs((self.HeldItem and self.HeldItem.ExtendsHitbox) and {self.XHitbox, self.HeldItem} or {self.XHitbox}) do
+            collider.Position.X = collider.Position.X + dir
+            -- hit = hit or self.Wall:CollisionInfo(collider)
+            
+            for solid, hDist, vDist, tileID in collider:CollisionPass(self.Wall, true, false, true) do
+                if solid then
+                    local surfaceInfo = solid:GetSurfaceInfo(tileID)
+                    local face = Prop.GetHitFace(hDist,vDist)
+                    if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
+                        hit = solid
+                    end
+                end
+            end
+
+        end
+        
         if not hit then
             self:DisconnectFromWall()
+        else
+            self.Velocity.X = 0
         end
     end
+    self:UpdateHeldItem()
     self:AlignHitboxes()
 end
 ---------------------------------------------------------------------------------
 
 ------------------------ INPUT PROCESSING -----------------------------
-function Player:ProcessInput()
+function Player:ProcessInput(dt)
 
     local input = self.InputListener
 
@@ -947,8 +1077,15 @@ function Player:ProcessInput()
         
     end
     -- crouch input
-    if self.CrouchTime == 0 and self.InputListener:IsDown("crouch") and self.Floor and (self.FramesSinceRoll == -1 or self.FramesSinceRoll == 12) then
-        self:StartCrouch()
+    if self.CrouchTime == 0 and self.InputListener:IsDown("crouch") and (self.FramesSinceRoll == -1 or self.FramesSinceRoll == 12) then
+        if self.Floor then
+            self:StartCrouch()       
+        end
+        
+        if self.HeldItem then
+            self:PutDownItem()
+        end
+
     end
     
 
@@ -958,7 +1095,65 @@ function Player:ProcessInput()
         self.ActionBuffer = self.ActionFrames
     end
 
-    local blockJump 
+
+    -- check if the player is in the vicinity of a held item:
+    if input:IsDown("action") then
+        if self.HeldItem then
+            
+            self.ActionBuffer = 0
+            if self.JustPressed["action"] then
+                -- throw held item
+
+                local lastThrowDir = self.LastThrowDirection
+                self:ThrowItem()
+
+                if not self.Floor then
+                    local oldYVel = self.Velocity.Y
+                    local djFrames = self.FramesSinceDoubleJump
+                    self:DoubleJump(true)
+                    self.FramesSinceDoubleJump = djFrames
+                    self.ThrewItemInAir = true
+                    self.Velocity.X = 0
+                    self.DiveExpired = true
+                    if self.CaughtHeldItemMidairChain > 0 and lastThrowDir == self.LastThrowDirection then
+                        self.Velocity.Y = oldYVel
+                    end
+                end
+            end
+        elseif self.NearbyHoldableItem and not input:IsDown("crouch") then
+            local item = self.NearbyHoldableItem
+            self:PickUpItem(self.NearbyHoldableItem, dt)
+            self.ActionBuffer = 0
+
+            -- if grabbing while airborne, do a little parry
+            if not self.Floor and (self.NearbyHoldableItem.PickupDebounce == 0) then
+                local djFrames = self.FramesSinceDoubleJump
+                local oldYVel = self.Velocity.Y
+                self:DoubleJump(true)
+                self.FramesSinceDoubleJump = djFrames
+                self:PlaySFX("CatchItem")
+                local catchDir = item and sign(item.Velocity.X) or 0
+
+                -- if already caught in midair from same direction, don't give enough height
+                if self.CaughtHeldItemMidairChain > 0 then
+                    self.Velocity.Y = oldYVel
+                end
+                self.LastCatchDirection = catchDir
+
+                self.CaughtHeldItemMidairChain = self.CaughtHeldItemMidairChain + 1
+                self.Velocity.X = 0
+                self.DiveExpired = false
+            end
+        end
+    end
+
+    -- safeguard: drop item if held and crouching
+    if input:IsDown("crouch") and self.HeldItem then
+        self:PutDownItem()
+    end
+
+
+    local blockJump
 
     if not self.DiveExpired and  self.ActionBuffer > 0 and (not self.Floor and self.CoyoteBuffer == 0) and self.FramesSinceDive == -1 and (self.FramesSinceJump == -1 or self.FramesSinceJump > 4) and self.FramesSinceRoll == -1 and (self.FramesSincePounce == -1 or self.PounceAnimCancelled or self.FramesSinceDoubleJump > -1 or self.InputListener:IsDown("crouch")) then
         -- dive
@@ -979,7 +1174,7 @@ function Player:ProcessInput()
             if (self.Floor or self.CoyoteBuffer > 0) then
                 self:Jump()
                 
-            elseif self.FramesSinceDoubleJump == -1 and (self.FramesSincePounce == -1 or self.FramesSincePounce > self.TimeAfterPounceCanDoubleJump) and (self.FramesSinceDive == -1 or math.abs(self.Velocity.X) >= self.DiveCancelSpeedThreshold)  then
+            elseif self.FramesSinceDoubleJump == -1 and not self.HeldItem and (self.FramesSincePounce == -1 or self.FramesSincePounce > self.TimeAfterPounceCanDoubleJump) and (self.FramesSinceDive == -1 or math.abs(self.Velocity.X) >= self.DiveCancelSpeedThreshold)  then
                 self:DoubleJump()
             end
         end
@@ -1090,7 +1285,7 @@ function Player:Jump()
 
     -- pounce handling
     if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
-        local heightBoost = math.min((self.LedgeLungeCharge*0.75 + self.LedgeLungeChain*0.2), 3)--math.max((self.LedgeLungeCharge - 6), 0) / 4
+        local heightBoost = math.min((self.LedgeLungeCharge*0.75 + self.LedgeLungeChain*0.25), 3)--math.max((self.LedgeLungeCharge - 6), 0) / 4
         self.LedgeLungeCharge = math.max(self.LedgeLungeCharge - self.LedgeLungePounceDepletionRate, 0)
         self.Velocity.X = sign(self.Velocity.X) * (math.min(math.max(self.MinPouncePower, math.abs(self.Velocity.X)), self.MaxPouncePower))
         self:PlayDynamicDashSound(nil, 0)
@@ -1168,7 +1363,7 @@ function Player:Jump()
     self:DisconnectFromFloor()
 end
 
-function Player:DoubleJump()
+function Player:DoubleJump(force)
     self:GrowHitbox()
 
     local pos = self.Position:Clone()
@@ -1207,12 +1402,12 @@ function Player:DoubleJump()
     end
 
     if self.DiveWasLunge then
-        if self.FramesSinceDive > -1 and self.FramesSinceDive < self.FramesAfterLungeCanCancel then
+        if (not force) and self.FramesSinceDive > -1 and self.FramesSinceDive < self.FramesAfterLungeCanCancel then
             -- don't let them dive cancel right after lunging
             return
         end
     else
-        if self.FramesSinceDive > -1 and self.FramesSinceDive < self.FramesAfterDiveCanCancel then
+        if (not force) and self.FramesSinceDive > -1 and self.FramesSinceDive < self.FramesAfterDiveCanCancel then
             -- don't let them dive cancel right after diving
             -- self.JumpBuffer = 0
             return
@@ -1701,7 +1896,38 @@ function Player:UpdateAnimation()
     end
 
 
-    if self.ParryStatus > 0 then
+    if self.FramesSinceDroppedItem < 12 and self.FramesSinceDroppedItem > -1 and not self.Floor then
+        -- just dropped item in midair
+        self.Texture:AddProperties{LeftBound = 59, RightBound = 60, Duration = 0.2, PlaybackScaling = 1, Loop = false}
+        if self.FramesSinceDroppedItem == 0 then
+            self.Texture.Clock = 0
+            self.Texture.IsPlaying = true
+        end
+    elseif self.FramesSinceHoldingItem > -1 and self.FramesSinceHoldingItem < 18 and self.PickupAnimDebounce == 0 then
+        if self.FramesSinceRoll == -1 then
+
+            if self.Floor then
+                -- grabbed item from ground
+                if self.MoveDir ~= 0 then
+                    -- grabbed while moving
+                    self.Texture:AddProperties{LeftBound = 105, RightBound = 108, Duration = 0.3, PlaybackScaling = 1, Loop = false}
+                else
+                    -- grabbed while idle
+                    self.Texture:AddProperties{LeftBound = 81, RightBound = 84, Duration = 0.3, PlaybackScaling = 1, Loop = false}
+                end
+            else
+                -- grabbed item in midair
+                self.Texture:AddProperties{LeftBound = 93, RightBound = 96, Duration = 0.3, PlaybackScaling = 1, Loop = false}
+            end
+            if self.FramesSinceHoldingItem == 0 then
+                self.Texture.Clock = 0
+                self.Texture.IsPlaying = true
+            end
+        else
+            -- player rolled into the object; cancel pickup animation
+            self.PickupAnimDebounce = 30
+        end
+    elseif self.ParryStatus > 0 then
         self.Texture:AddProperties{LeftBound = 21, RightBound = 24, Duration = 0.3, PlaybackScaling = 1, Loop = false}
         if not self.Texture.IsPlaying then
             self.ShouldRestartJumpAnim = true
@@ -1780,16 +2006,36 @@ function Player:UpdateAnimation()
         -- player is grounded
         if self.MoveDir == 0 then
             -- idle anim
-            self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Duration = 1, PlaybackScaling = 1, IsPlaying = true, Loop = true}
+            if self.HeldItem then
+                -- holding an object (arms up)
+                self.Texture:AddProperties{LeftBound = 73, RightBound = 76, Duration = 1, PlaybackScaling = 1, IsPlaying = true, Loop = true}
+            else
+                self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Duration = 1, PlaybackScaling = 1, IsPlaying = true, Loop = true}
+            end
         else
             -- run anim
             self:SetBodyOrientation(self.MoveDir)
             if math.abs(self.Velocity.X) <= 1.5 then
-                self.Texture:AddProperties{LeftBound = 5, RightBound = 10, Duration = 0.72, PlaybackScaling = 3 - math.abs(self.Velocity.X)*1.25, IsPlaying = true, Loop = true}
+                if self.HeldItem then
+                    -- holding an object (arms up)
+                    self.Texture:AddProperties{LeftBound = 85, RightBound = 90, Duration = 0.72, PlaybackScaling = 3 - math.abs(self.Velocity.X)*1.25, IsPlaying = true, Loop = true}
+                else
+                    self.Texture:AddProperties{LeftBound = 5, RightBound = 10, Duration = 0.72, PlaybackScaling = 3 - math.abs(self.Velocity.X)*1.25, IsPlaying = true, Loop = true}
+                end
             elseif math.abs(self.Velocity.X) >= self.RunSpeed then
-                self.Texture:AddProperties{LeftBound = 61, RightBound = 66, Duration = 0.72, PlaybackScaling = 0.95 + math.abs(self.Velocity.X)*0.15, IsPlaying = true, Loop = true}
+                if self.HeldItem then
+                    -- holding an object (arms up)
+                    self.Texture:AddProperties{LeftBound = 67, RightBound = 71, Duration = 0.72, PlaybackScaling = 0.95 + math.abs(self.Velocity.X)*0.15, IsPlaying = true, Loop = true}
+                else
+                    self.Texture:AddProperties{LeftBound = 61, RightBound = 66, Duration = 0.72, PlaybackScaling = 0.95 + math.abs(self.Velocity.X)*0.15, IsPlaying = true, Loop = true}
+                end
             else
-                self.Texture:AddProperties{LeftBound = 5, RightBound = 10, Duration = 0.72, PlaybackScaling = 1 + math.abs(self.Velocity.X)*0.25, IsPlaying = true, Loop = true}
+                if self.HeldItem then
+                    -- holding an object (arms up)
+                    self.Texture:AddProperties{LeftBound = 85, RightBound = 90, Duration = 0.72, PlaybackScaling = 1 + math.abs(self.Velocity.X)*0.25, IsPlaying = true, Loop = true}
+                else
+                    self.Texture:AddProperties{LeftBound = 5, RightBound = 10, Duration = 0.72, PlaybackScaling = 1 + math.abs(self.Velocity.X)*0.25, IsPlaying = true, Loop = true}
+                end
             end
         end
     else -- no floor; in air
@@ -1798,11 +2044,20 @@ function Player:UpdateAnimation()
             self.Texture:AddProperties{LeftBound = 11, RightBound = 12, Duration = self.DoubleJumpFrameLength/60, PlaybackScaling = 1, Loop = false, IsPlaying = true}
         elseif self.FramesSinceJump == 0 then
             -- just jumped
-            self.Texture:AddProperties{LeftBound = 13, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
+            if self.HeldItem then
+                -- holding an object (arms up)
+                self.Texture:AddProperties{LeftBound = 77, RightBound = 80, Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
+            else
+                self.Texture:AddProperties{LeftBound = 13, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
+            end
         elseif self.FramesSinceJump == -1 and self.FramesSinceDoubleJump == -1 then
             -- just falling
-
-            self.Texture:AddProperties{LeftBound = 15, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false}
+            if self.HeldItem then
+                -- holding an object (arms up)
+                self.Texture:AddProperties{LeftBound = 79, RightBound = 80, Duration = 0.4, PlaybackScaling = 1, Loop = false}
+            else
+                self.Texture:AddProperties{LeftBound = 15, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false}
+            end
         else
             -- middle of jump state
             if self.ShouldRestartJumpAnim then
@@ -1810,14 +2065,21 @@ function Player:UpdateAnimation()
                 self.Texture.Clock = 0
                 self.Texture.IsPlaying = true
             end
-            self.Texture:AddProperties{LeftBound = 13, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false, IsPlaying = true}
+
+            if self.HeldItem then
+                -- holding an object (arms up)
+                self.Texture:AddProperties{LeftBound = 77, RightBound = 80, Duration = 0.4, PlaybackScaling = 1, Loop = false, IsPlaying = true}
+            else
+                self.Texture:AddProperties{LeftBound = 13, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false, IsPlaying = true}
+            end
         end
     end
 end
 
 function Player:UpdateFrameValues()
-    
     if self.Floor then
+        -- self.ShouldCheckForHeldItemOverhang = false
+        
         self.YPositionAtLedge = self.Position.Y
         self.InLedgeLunge = false
         self.AerialMovementLockedToFloorPos = false
@@ -1866,6 +2128,19 @@ function Player:UpdateFrameValues()
         self.ActiveTerminalLedgeLungeVelocity = math.lerp(self.ActiveTerminalLedgeLungeVelocity, self.TerminalLedgeLungeVelocityGoal, self.LedgeLungeTaperSpeed)
     end
 
+    if self.PickupAnimDebounce > 0 then
+        self.PickupAnimDebounce = self.PickupAnimDebounce - 1
+    end
+
+    if self.HeldItem then
+        self.FramesSinceDroppedItem = -1
+        self.FramesSinceHoldingItem = self.FramesSinceHoldingItem + 1
+    else
+        self.FramesSinceHoldingItem = -1
+        self.FramesSinceDroppedItem = self.FramesSinceDroppedItem + 1
+    end
+
+    
     if self.FramesOnGroundSinceLedgeLunge > -1 then
         if self.Floor then
             self.FramesOnGroundSinceLedgeLunge = self.FramesOnGroundSinceLedgeLunge + 1
@@ -1878,6 +2153,13 @@ function Player:UpdateFrameValues()
         else
             self.FramesOnGroundSinceLedgeLunge = 0
         end
+    end
+
+    if self.Floor then
+        self.CaughtHeldItemMidairChain = 0
+        self.ThrewItemInAir = false
+        self.LastThrowDirection = 0
+        self.LastCatchDirecton = 0
     end
 
     if self.FramesSinceRoll > -1 then
@@ -2006,6 +2288,7 @@ function Player:UpdateFrameValues()
         self:GrowHitbox()
     end
 
+    
 
     self.FramesSinceInit = self.FramesSinceInit + 1
 end
@@ -2018,7 +2301,7 @@ function Player:UpdatePhysics()
     if self.LastPosition == self.Position then -- player is 'idle'
         self.IdleStreak = self.IdleStreak + 1
 
-        if self.IdleStreak == self.POSITION_SAFETY_THRESHOLD or not self.LastSafePosition then
+        if self.Floor and self.IdleStreak == self.POSITION_SAFETY_THRESHOLD or not self.LastSafePosition then
             self.LastSafePosition = self.LastPosition
         end
     elseif self.IdleStreak > 0 then -- reset IdleStreak
@@ -2028,7 +2311,9 @@ function Player:UpdatePhysics()
     self.LastPosition = self.Position:Clone()
     
     -- gravity is dependent on the jump state of the character
-    if self.FramesSinceParry > -1 and self.FramesSinceDoubleJump == -1 and self.FramesSinceDive == -1 then
+    if self.IgnoreGravityThisFrame then
+        self.IgnoreGravityThisFrame = false
+    elseif self.FramesSinceParry > -1 and self.FramesSinceDoubleJump == -1 and self.FramesSinceDive == -1 then
         self.Velocity.Y = self.Velocity.Y + self.ParryGravity
     elseif self.FramesSinceDive > -1 then
         -- the player has low dive gravity
@@ -2036,10 +2321,12 @@ function Player:UpdatePhysics()
             -- getting initial airtime in the weak dive state
             self.Velocity.Y = self.Velocity.Y + 0
         else
-            if self.LastDiveWasParryDive then
-                self.Velocity.Y = self.Velocity.Y + self.ParryDiveGravity
-            else
-                self.Velocity.Y = self.Velocity.Y + self.DiveGravity
+            if self.FramesSinceDive >= self.DiveCoyoteFrames then
+                if self.LastDiveWasParryDive then
+                    self.Velocity.Y = self.Velocity.Y + self.ParryDiveGravity
+                else
+                    self.Velocity.Y = self.Velocity.Y + self.DiveGravity
+                end 
             end
         end
         
@@ -2047,12 +2334,11 @@ function Player:UpdatePhysics()
         -- the player is owed hang time
 
         self.Velocity.Y = 0
-    elseif self.FramesSinceDoubleJump > -1 then
-
+    elseif self.FramesSinceDoubleJump > -1 or (self.CaughtHeldItemMidairChain > 0) or self.ThrewItemInAir then
         -- the player is in the air from a double jump
         if self.Velocity.Y < 0 then
             -- player is in the upward arc
-
+            
             self.Velocity.Y = self.Velocity.Y + self.AfterDoubleJumpGravity
             if self.Velocity.Y > 0 then
 
@@ -2062,11 +2348,12 @@ function Player:UpdatePhysics()
                 self.HangStatus = self.DoubleJumpHangTime+1 -- + 1 because the update function decreases it                
             end
         else
+            
             -- player is in the downward arc
             self.Velocity.Y = self.Velocity.Y + self.Gravity
         end
-    elseif self.FramesSinceJump > -1 then
         
+    elseif self.FramesSinceJump > -1 then
         -- the player is in the air from a jump
         if self.InputListener:IsDown("jump") then
             
@@ -2139,7 +2426,6 @@ function Player:UpdatePhysics()
     elseif not self.Floor then
         self.Velocity.Y = self.Velocity.Y + self.Gravity
     end
-      
     
     if self.RolledOutOfDive and self.Floor and self.MoveDir == -sign(self.Velocity.X) then
         -- players are allowed to cancel rolls that come from dives by inputting the other direction
@@ -2147,6 +2433,7 @@ function Player:UpdatePhysics()
         self.Velocity.X = 0
     end
 
+    
 
 
     local horizSpeed = self.FramesSinceDive > -1 and self.DiveSpeed or 
@@ -2384,7 +2671,7 @@ function Player:UpdatePhysics()
     -- this happens when the player doesn't move far enough down for the x hitbox to touch the collider and move the player to the side
     -- the solution I think is just to force the movement and pray it doesn't create any edge case collision bugs
     -- print("PUSHEDY", pushedY)
-    if pushedY and self.Velocity.X == 0 and self.Acceleration.X == 0 and not self.Floor and math.abs(posAfterMove.Y - posBeforeMove.Y) < 1 then
+    if pushedY and not self.HeldItem and self.Velocity.X == 0 and self.Acceleration.X == 0 and not self.Floor and math.abs(posAfterMove.Y - posBeforeMove.Y) < 1 then
         print("HANGING OFF LEDGE!!!")
         self.Position.Y = self.Position.Y + self.Velocity.Y
         self:Unclip()
@@ -2429,11 +2716,16 @@ function Player:Update(engine_dt)
 
     -- self.Color = V{math.random(0,1),math.random(0,1),math.random(0,1)}
     ------------------- PHYSICS PROCESSING ----------------------------------
+    
+
+    -- process the held item, if there is one
+    self:UpdateHeldItem()
+
     -- if we're on a moving floor let's move with it
     self:FollowFloor()
 
     -- listen for inputs here
-    self:ProcessInput()
+    self:ProcessInput(engine_dt)
 
     -- update position based on velocity, velocity based on acceleration, etc
     self:UpdatePhysics()
@@ -2545,7 +2837,7 @@ function Player:Draw(tx, ty)
 
     self.Canvas:Activate()
 
-        self.DiveExpiredGoalColor = self.DiveExpiredGoalColor:Lerp((self.DiveExpired and self.FramesSinceDoubleJump > -1) and self.DiveExpiredColor or Constant.COLOR.WHITE, 0.1)
+        self.DiveExpiredGoalColor = self.DiveExpiredGoalColor:Lerp((self.DiveExpired) and self.DiveExpiredColor or Constant.COLOR.WHITE, 0.1)
 
 
         love.graphics.clear()
@@ -2590,6 +2882,23 @@ function Player:Draw(tx, ty)
             end
         end
         -- end
+
+        if self.HeldItem and self.FramesSinceHoldingItem > 1 then -- draw the held item with the player shader to merge the outlines
+            local hsx, hsy = 0, 0
+            if self.HeldItem.SquashWithPlayer then
+                hsx, hsy = self.HeldItem.Size[1] * (self.DrawScale[1]-1),
+                           self.HeldItem.Size[2] * (self.DrawScale[2]-1)
+            end
+            love.graphics.setColor(self.HeldItem.Color)
+            self.HeldItem.LinelessTexture:DrawToScreen(
+                self.Canvas:GetWidth()/2,
+                self.Canvas:GetHeight()/2 + self.HeldItem.VerticalOffset + (self.HeldItemAnimationFrameOffsets[self.Texture.CurrentFrame] or 0),
+                self.HeldItem.Rotation,
+                (self.HeldItem.Size.X + hsx) * (sign(self.DrawScale.X) == -1 and -1 or 1),
+                self.HeldItem.Size.Y + hsy,
+                0.5, 0.5
+            )
+        end
 
         love.graphics.setColor(self.Color * self.DiveExpiredGoalColor)
         self.Texture:DrawToScreen(
@@ -2647,4 +2956,57 @@ function Player:Respawn(pos)
     self.Velocity[1] = 0; self.Velocity[2] = 0;
 end
 
+function Player:UpdateHeldItem()
+    if self.HeldItem then
+        -- self.HeldItem.Position = self.Position + V{0, self.HeldItem.VerticalOffset - 12 + (self.HeldItemAnimationFrameOffsets[self.Texture.CurrentFrame] or 0)}
+        self.HeldItem.Position = self.Position + V{0, self.HeldItem.VerticalOffset - 12}
+    end
+end
+
+function Player:PickUpItem(item, dt)
+    -- pick up nearby item
+    local origItemPosition = item.Position:Clone()
+    if item.PickupDebounce == 0 then
+        self:PlaySFX("PickUpItem")
+        self.HeldItem = item
+        item.Owner = self
+        item.Floor = nil
+        self.FramesSinceHoldingItem = 0
+
+        if item.ExtendsHitbox then
+            -- make sure there's no collision fuckery
+            self:UpdateHeldItem()
+            local pushX, pushY = item:RunCollision(true, dt)
+            if math.abs(pushX) > 3 or pushY ~= 0 then
+                if self.InputListener:JustPressed("action") then
+                    self:PlaySFX("GrabItemFail", 1, 0)
+                end
+                self:PutDownItem()
+                item.Position = origItemPosition
+                item.Floor = nil
+            elseif pushX ~= 0 then -- we can handle a little bit of X pushing
+                self.Position.X = self.Position.X + pushX
+            end
+        end
+        
+    end
+end
+
+function Player:PutDownItem()
+    -- put down held item
+    self.HeldItem:PutDown(self.Floor and true, self.Velocity.Y)
+    self:PlaySFX("PickUpItem", 0.7)
+    self.FramesSinceHoldingItem = -1
+    self.FramesSinceDroppedItem = 0
+    self.HeldItem = nil
+end
+
+function Player:ThrowItem()
+    local item = self.HeldItem
+    self:PutDownItem()
+    local dir = self.MoveDir ~= 0 and self.MoveDir or sign(self.DrawScale.X)
+    item.Velocity = V{5 * dir, -1}
+    self.LastThrowDirection = dir
+    item:Throw()
+end
 return Player
