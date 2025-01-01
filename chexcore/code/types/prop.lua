@@ -73,7 +73,7 @@ function Prop:Draw(tx, ty, isForeground)
     -- if self.DrawInForeground and not isForeground then
     --     print(self)
     --     self:GetLayer():DelayDrawCall(Prop.Draw, self, tx, ty, true)
-    --     return
+    --     return 
     -- end
     
     local oldshader

@@ -88,8 +88,7 @@ function Layer:Draw(tx, ty)
     for child in self:EachChild() do
         if child.Visible then
             if child.DrawInForeground then
-                self:DelayDrawCall(child.ZIndex or 0, child.Draw, tx, ty, true)
-                
+                self:DelayDrawCall(child.ZIndex or 0, child.Draw, child, tx, ty, true)
             else
                 child:Draw(tx, ty)
             end
@@ -97,7 +96,8 @@ function Layer:Draw(tx, ty)
         elseif child.DrawChildren then
             -- i don't know if this will work
             if child.DrawInForeground then
-                self:DelayDrawCall(child.ZIndex or 0, child.DrawChildren, tx, ty)
+                
+                self:DelayDrawCall(child.ZIndex or 0, child.DrawChildren, child, tx, ty)
             else
                 child:DrawChildren(tx, ty)
             end
@@ -127,6 +127,7 @@ end
 -- a Prop can choose to delay its drawcall to be drawn after everything else in the Layer
 function Layer:DelayDrawCall(priority, drawFunc, ...)
     local args = {...}
+    
     self._delayedDrawcalls[priority] = self._delayedDrawcalls[priority] or {}
     local priorityTable = self._delayedDrawcalls[priority]
     priorityTable[#priorityTable+1] = drawFunc

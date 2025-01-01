@@ -31,7 +31,7 @@ function Shader.new(path)
             else
                 newShader.Code = path
             end
-            Shader._cache[path] = newShader
+            -- Shader._cache[path] = newShader
         end
         newShader._realShader = love.graphics.newShader(newShader.Code)
     end

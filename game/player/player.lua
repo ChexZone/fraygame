@@ -234,11 +234,13 @@ local Player = {
     NearbyHoldableItem = nil,
     HeldItem = nil,
     CaughtHeldItemMidairChain = 0,
+    CaughtLastHeldItemFromMidair = false,
     ThrewItemInAir = false,
     FramesSinceHoldingItem = -1,
     LastThrowDirection = 0,       -- -1 "left" or 1 "right" - the last direction an object was thrown at (resets on land)
     LastCatchDirecton = 0,        -- -1 "left" or 1 "right" - the last direction an object was caught from (resets on land)
     FramesSinceDroppedItem = -1,
+    FramesSinceThrownItem = -1,
     PickupAnimDebounce = 0,
     HeldItemAnimationFrameOffsets = {
         [68] = 1,
@@ -291,13 +293,15 @@ local Player = {
 local EMPTYVEC = V{0,0}
 
 -- the black outline shader
-Player.Shader = Shader.new("game/player/outline.glsl"):Send("step",{1/Player.CanvasSize.X,1/Player.CanvasSize.Y}) -- 1/ 24 (for tile size) / 12 (for tile count)
+Player.Shader = Shader.new("game/assets/shaders/outline.glsl"):Send("step",{1/Player.CanvasSize.X,1/Player.CanvasSize.Y}) -- 1/ 24 (for tile size) / 12 (for tile count)
 
 
 local Y_HITBOX_HEIGHT = 16
 local X_HITBOX_HEIGHT = 12
 local Y_HITBOX_HEIGHT_CROUCH = 8
 local X_HITBOX_HEIGHT_CROUCH = 6
+
+local balls = 0
 
 -- yHitbox is used to detect floors/ceilings
 local yHitboxBASE = Prop.new{
@@ -945,7 +949,7 @@ function Player:ValidateFloor()
                     if pushY ~= 0 then
                         local vx = self.Velocity.X
                         self:Dive()
-                        Chexcore._frameDelay =Chexcore._frameDelay + 0.03333333
+                        Chexcore._frameDelay = Chexcore._frameDelay + 0.03333333
                         self.DiveExpired = false
                         self.Velocity.Y = self.TerminalLedgeLungeVelocity
                         -- self.Velocity.X = self.Velocity.X * 1.3 --(math.abs(self.Velocity.X) + 1) * sign(self.Velocity.X)
@@ -1060,6 +1064,13 @@ function Player:ProcessInput(dt)
         self:GetLayer():GetParent().GuiLayer:GetChild("StatsGui").Visible = not self:GetLayer():GetParent().GuiLayer:GetChild("StatsGui").Visible
     end
 
+
+    if self.JustPressed["b"] then
+        self:GetParent():Adopt(Basketball.new():Properties{Position = self.Position+V{0,-15}, Collider = self:GetParent():GetChild("_type", "Tilemap")})
+        balls = balls + 1
+    end
+
+
     if self.JustPressed["PERFORMANCEMODETOGGLE"] then
         self:GetLayer():GetParent().PerformanceMode = not self:GetLayer():GetParent().PerformanceMode
     end
@@ -1114,10 +1125,20 @@ function Player:ProcessInput(dt)
                     self.FramesSinceDoubleJump = djFrames
                     self.ThrewItemInAir = true
                     self.Velocity.X = 0
-                    self.DiveExpired = true
-                    if self.CaughtHeldItemMidairChain > 0 and lastThrowDir == self.LastThrowDirection then
-                        self.Velocity.Y = oldYVel
+                    
+                    if self.CaughtHeldItemMidairChain > 0 then
+                        if lastThrowDir == self.LastThrowDirection then
+                            
+                            self.Velocity.Y = oldYVel
+                        end
+                        
+                        if self.CaughtHeldItemMidairChain then
+                            self.DiveExpired = true
+                        end
+                        
                     end
+                else
+                    self:PlaySFX("DoubleJump")
                 end
             end
         elseif self.NearbyHoldableItem and not input:IsDown("crouch") then
@@ -1802,6 +1823,10 @@ function Player:UpdateAnimation()
     
     -- squash and stretch
     if false then
+
+    elseif self.FramesSinceThrownItem > -1 and not self.Floor then
+        self.DrawScale.Y = yscale_doublejump[self.FramesSinceThrownItem+1] or 1
+        self.DrawScale.X = sign(self.DrawScale.X) * (xscale_doublejump[self.FramesSinceThrownItem+1] or 1)
     elseif self.ParryStatus > 0 then
         local prog = self.ParryWindow - self.ParryStatus + 1
         self.DrawScale.Y = yscale_wall_squish[prog] or 1
@@ -1895,8 +1920,29 @@ function Player:UpdateAnimation()
         self.Texture.Clock = self.Texture.Duration
     end
 
+    if self.FramesSinceThrownItem > -1 and self.FramesSinceThrownItem <= 12 and self.Floor then
+        if self.MoveDir == 0 then
+            -- just threw item on ground while idle
+            self.Texture:AddProperties{LeftBound = 101, RightBound = 104, Duration = 0.2, PlaybackScaling = 1, Loop = false}
+        else
+            -- just threw item on ground while moving
+            self.Texture:AddProperties{LeftBound = 91, RightBound = 92, Duration = 0.2, PlaybackScaling = 1, Loop = false}
+        end
+                
+        
+        if self.FramesSinceThrownItem == 0 then
+            self.Texture.Clock = 0
+            self.Texture.IsPlaying = true
+        end
+    elseif self.FramesSinceThrownItem > -1 and self.FramesSinceThrownItem <= 18 and not self.Floor then
+        -- just threw item in midair
+        self.Texture:AddProperties{LeftBound = 97, RightBound = 100, Duration = 0.3, PlaybackScaling = 1, Loop = false}
 
-    if self.FramesSinceDroppedItem < 12 and self.FramesSinceDroppedItem > -1 and not self.Floor then
+        if self.FramesSinceThrownItem == 0 then
+            self.Texture.Clock = 0
+            self.Texture.IsPlaying = true
+        end
+    elseif self.FramesSinceDroppedItem < 12 and self.FramesSinceDroppedItem > -1 and not self.Floor then
         -- just dropped item in midair
         self.Texture:AddProperties{LeftBound = 59, RightBound = 60, Duration = 0.2, PlaybackScaling = 1, Loop = false}
         if self.FramesSinceDroppedItem == 0 then
@@ -1904,6 +1950,7 @@ function Player:UpdateAnimation()
             self.Texture.IsPlaying = true
         end
     elseif self.FramesSinceHoldingItem > -1 and self.FramesSinceHoldingItem < 18 and self.PickupAnimDebounce == 0 then
+        
         if self.FramesSinceRoll == -1 then
 
             if self.Floor then
@@ -2134,10 +2181,15 @@ function Player:UpdateFrameValues()
 
     if self.HeldItem then
         self.FramesSinceDroppedItem = -1
+        self.FramesSinceThrownItem = -1
         self.FramesSinceHoldingItem = self.FramesSinceHoldingItem + 1
     else
         self.FramesSinceHoldingItem = -1
         self.FramesSinceDroppedItem = self.FramesSinceDroppedItem + 1
+
+        if self.FramesSinceThrownItem > -1 then
+            self.FramesSinceThrownItem = self.FramesSinceThrownItem + 1
+        end
     end
 
     
@@ -2889,8 +2941,8 @@ function Player:Draw(tx, ty)
                 hsx, hsy = self.HeldItem.Size[1] * (self.DrawScale[1]-1),
                            self.HeldItem.Size[2] * (self.DrawScale[2]-1)
             end
-            love.graphics.setColor(self.HeldItem.Color)
-            self.HeldItem.LinelessTexture:DrawToScreen(
+            love.graphics.setColor(self.HeldItem.Color);
+            (self.HeldItem.HeldTexture or self.HeldItem.Texture):DrawToScreen(
                 self.Canvas:GetWidth()/2,
                 self.Canvas:GetHeight()/2 + self.HeldItem.VerticalOffset + (self.HeldItemAnimationFrameOffsets[self.Texture.CurrentFrame] or 0),
                 self.HeldItem.Rotation,
@@ -2937,7 +2989,7 @@ function Player:Draw(tx, ty)
         self.AnchorPoint[1],
         self.AnchorPoint[2]
     )
-
+    
 
 
     if self.Shader then self.Shader:Deactivate() end
@@ -2970,25 +3022,36 @@ function Player:PickUpItem(item, dt)
         self:PlaySFX("PickUpItem")
         self.HeldItem = item
         item.Owner = self
+        local itemHadFloor = not item.Floor
         item.Floor = nil
+        
         self.FramesSinceHoldingItem = 0
-
+        
         if item.ExtendsHitbox then
             -- make sure there's no collision fuckery
-            self:UpdateHeldItem()
-            local pushX, pushY = item:RunCollision(true, dt)
-            if math.abs(pushX) > 3 or pushY ~= 0 then
-                if self.InputListener:JustPressed("action") then
-                    self:PlaySFX("GrabItemFail", 1, 0)
+
+            for i = 0, 5, 5 do
+                self:UpdateHeldItem()
+                item.Position.Y = item.Position.Y + i
+                local heldItemFloor = item.Floor
+                local pushX, pushY = item:RunCollision(true, dt)
+                if math.abs(pushX) > 3 or pushY ~= 0 then
+                    if self.InputListener:JustPressed("action") then
+                        self:PlaySFX("GrabItemFail", 1, 0)
+                    end
+                    self:PutDownItem()
+                    item.Position = origItemPosition
+                    item.Floor = heldItemFloor
+                    return
+                elseif pushX ~= 0 then -- we can handle a little bit of X pushing
+                    self.Position.X = self.Position.X + pushX
+                    Chexcore._frameDelay = Chexcore._frameDelay + 0.03333333
+                else
+                    Chexcore._frameDelay = Chexcore._frameDelay + 0.03333333
                 end
-                self:PutDownItem()
-                item.Position = origItemPosition
-                item.Floor = nil
-            elseif pushX ~= 0 then -- we can handle a little bit of X pushing
-                self.Position.X = self.Position.X + pushX
             end
         end
-        
+        self.CaughtLastHeldItemFromMidair = itemHadFloor
     end
 end
 
@@ -2999,14 +3062,22 @@ function Player:PutDownItem()
     self.FramesSinceHoldingItem = -1
     self.FramesSinceDroppedItem = 0
     self.HeldItem = nil
+
+    -- pause in midair if on the way down
+    if not self.Floor then
+        self.Velocity.Y = math.min(-1, self.Velocity.Y)
+    end
 end
 
 function Player:ThrowItem()
     local item = self.HeldItem
     self:PutDownItem()
+    self.FramesSinceThrownItem = 0
     local dir = self.MoveDir ~= 0 and self.MoveDir or sign(self.DrawScale.X)
-    item.Velocity = V{5 * dir, -1}
+    local itemYVel = self.Floor and (item.GROUNDED_THROW_HEIGHT or -1) or (item.MIDAIR_THROW_HEIGHT or -1)
+    item.Velocity = V{math.max(item.MinThrowSpeed or 3.5, (1.75 + math.abs(self.Velocity.X))) * dir, itemYVel}
+    print("THROW!",item.Velocity)
     self.LastThrowDirection = dir
-    item:Throw()
+    item:Throw(not not self.Floor)
 end
 return Player

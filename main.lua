@@ -74,7 +74,7 @@ function love.load()
     -- A scene will only be processed by Chexcore while it is "mounted"
     Chexcore.MountScene(scene)
 
-    
+
     -- print(player:ToString(true))
     -- You can unmount (or deactivate) a scene by using Chexcore.UnmountScene(scene)
 end

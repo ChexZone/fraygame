@@ -3,8 +3,9 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "",
+    "activeFile": "debug.tmx",
     "expandedProjectPaths": [
+        "."
     ],
     "fileStates": {
         "debug.tmx": {
@@ -12,11 +13,11 @@
                 5,
                 4
             ],
-            "scale": 2,
-            "selectedLayer": 3,
+            "scale": 4,
+            "selectedLayer": 1,
             "viewCenter": {
-                "x": 1388.25,
-                "y": 1825.75
+                "x": 1600.125,
+                "y": 2404
             }
         },
         "demo.tmx": {
@@ -26,11 +27,15 @@
             "scale": 1.5,
             "selectedLayer": 3,
             "viewCenter": {
-                "x": 670.3333333333333,
-                "y": 473
+                "x": 4000.333333333333,
+                "y": 4000
             }
         },
+        "tilemap.tsx": {
+            "scaleInDock": 1
+        },
         "tilemap2.tsx": {
+            "scaleInDock": 1.5,
             "scaleInEditor": 1
         }
     },
@@ -43,10 +48,14 @@
     "map.tileWidth": 16,
     "map.width": 200,
     "openFiles": [
+        "debug.tmx",
+        "demo.tmx"
     ],
     "project": "debug-zone.tiled-project",
     "property.type": "float",
     "recentFiles": [
+        "demo.tmx",
+        "debug.tmx",
         "tilemap2.tsx"
     ],
     "tileset.lastUsedFormat": "tsx",
