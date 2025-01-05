@@ -376,9 +376,9 @@ local print = function() end
 
 -- temp: holdable item
 
-for i = 1,1 do
-local holdable = scene:GetLayer("Gameplay"):Adopt(Basketball.new())
-    holdable.Collider = tilemap
-end
+-- for i = 1,1 do
+-- local holdable = scene:GetLayer("Gameplay"):Adopt(Basketball.new())
+--     holdable.Collider = tilemap
+-- end
 
 return scene

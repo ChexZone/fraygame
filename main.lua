@@ -15,12 +15,16 @@ function love.load()
     Chexcore:AddType(require"game.player.gameScene")
     Chexcore:AddType(require"game.player.gameCamera")
     local scene = require"game.scenes.debug.init"
+    
     local player = Player.new():Nest(scene:GetLayer("Gameplay"))
+    -- local player2 = Player.new():Nest(scene:GetLayer("Gameplay"))
+
     scene.Camera.Focus = player
     
     local spawn = scene:GetDescendant("PlayerSpawn")
     if spawn then
         player.Position = spawn.Position
+        -- player2.Position = spawn.Position + V{50,0}
     end
     scene.Camera.Position = player.Position
     scene.FrameLimit = 5

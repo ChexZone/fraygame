@@ -38,6 +38,19 @@ local Tilemap = {
 
         Slab = {
             Bottom = {CollisionInset = 12}
+        },
+
+        SpringTop = {
+            Bottom = {Passthrough = true}, 
+            Left = {Passthrough = true}, 
+            Right = {Passthrough = true},
+            Top = {
+                Passthrough = true,
+                IsSpring = true,
+                SpringPower = 8,
+                ForceJumpHeldFrames = 60,
+                RequiresActionReleased = false,
+            },
         }
     },
 
@@ -70,6 +83,8 @@ local Tilemap = {
         [401] = "SemisolidBottom",
         [402] = "SemisolidBottom",
         [403] = "SemisolidBottom",
+
+        [214] = "SpringTop",
     },
 
     -- internal properties

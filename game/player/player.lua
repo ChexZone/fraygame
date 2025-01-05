@@ -78,7 +78,8 @@ local Player = {
     LastParryFace = "none",             -- which wall side was last parried off of
     DoubleJumpFrameLength = 12,         -- how many frames a double jump takes
     DoubleJumpPower = 3,                -- the base initial upward momentum of a double jump
-    DiveCancelPower = 2.25,                -- the base initial upward momentum of a dive cancel (a double jump out of a dive)
+    DiveCancelPower = 1.2,                -- the base initial upward momentum of a dive cancel (a double jump out of a dive)
+    DiveCancelGravity = 0.12,            --
     DoubleJumpRequiredHeightFromGround = 5, -- number of pixels off the ground the player must be to be eligible to double jump
     DoubleJumpStoredSpeed = 0,          -- how fast the player was moving horizontally when they double jumped
     LastDoubleJumpWasDiveCancel = false, -- was the last double jump a dive cancel?
@@ -186,9 +187,11 @@ local Player = {
     JumpBuffer = 0,                     -- how many jump frames are currently remaining
     DJMomentumCancelOpportunity = 6,    -- how many frames after a double jump the player can release either direction and cancel momentum
     ActionFrames = 5,                   -- how many frames after an action input can still result in action
-    ActionBuffer = 0,                   -- how many action frames are currently remaining
-
-    
+    ActionBuffer = 0,                   -- how many action frames are currently remaining until action is no longe pressed
+    BounceDebounce = 8,                 -- minimum number of frames between bounces
+    FramesAfterBounceBeforeCanDoubleJump = 16,  -- it's in the name
+    FramesSinceBounce = -1,             -- how many frames since bouncing off a spring object (resets to -1 on land)
+    ForceJumpHeldFrames = 0,            -- set this value to something greater than 0 to simulate holding jump
 
     -- vars
     XHitbox = nil,                      -- the player's hitbox for walls
@@ -233,6 +236,7 @@ local Player = {
     -- TEMPORARY
     NearbyHoldableItem = nil,
     HeldItem = nil,
+    LastHeldItem = nil,         -- doesn't reset after dropping
     CaughtHeldItemMidairChain = 0,
     CaughtLastHeldItemFromMidair = false,
     ThrewItemInAir = false,
@@ -333,88 +337,94 @@ function Player.new()
     newPlayer.Size = Player.Size:Clone()
     newPlayer.Canvas = Canvas.new(Player.CanvasSize())
     newPlayer.TailPoints = {}
-    newPlayer.TouchEvents = {} 
+    newPlayer.TouchEvents = {}
+    newPlayer.JustPressed = {}
+    newPlayer.DrawScale = V{1,1}
 
     newPlayer.LastSFX_ID = {}
     newPlayer.SFX = {
         Jump = {
-            Sound.new("game/assets/sounds/jump1.wav", "static"):Set("Volume", 0.5),
-            Sound.new("game/assets/sounds/jump2.wav", "static"):Set("Volume", 0.5)
+            Sound.new("game/assets/sounds/jump1.wav", "static"):Set("Volume", 2.0),
+            Sound.new("game/assets/sounds/jump2.wav", "static"):Set("Volume", 2.0)
         },
         DoubleJump = {
-            Sound.new("game/assets/sounds/double_jump1.wav", "static"):Set("Volume", 0.5),
-            Sound.new("game/assets/sounds/double_jump2.wav", "static"):Set("Volume", 0.5),
-            Sound.new("game/assets/sounds/double_jump3.wav", "static"):Set("Volume", 0.5),
-            Sound.new("game/assets/sounds/double_jump4.wav", "static"):Set("Volume", 0.5),
+            Sound.new("game/assets/sounds/double_jump1.wav", "static"):Set("Volume", 2.0),
+            Sound.new("game/assets/sounds/double_jump2.wav", "static"):Set("Volume", 2.0),
+            Sound.new("game/assets/sounds/double_jump3.wav", "static"):Set("Volume", 2.0),
+            Sound.new("game/assets/sounds/double_jump4.wav", "static"):Set("Volume", 2.0),
         },
         DiveCancel = {
-            Sound.new("game/assets/sounds/backflip1.wav", "static"):Set("Volume", 0.4),
-            Sound.new("game/assets/sounds/backflip2.wav", "static"):Set("Volume", 0.4),
+            Sound.new("game/assets/sounds/backflip1.wav", "static"):Set("Volume", 1.6),
+            Sound.new("game/assets/sounds/backflip2.wav", "static"):Set("Volume", 1.6),
         },
         Dive = {
-            Sound.new("game/assets/sounds/dive1.wav", "static"):Set("Volume", 0.4),
+            Sound.new("game/assets/sounds/dive1.wav", "static"):Set("Volume", 1.6),
         },
         DiveSqueak = {
-            Sound.new("game/assets/sounds/squeak_dive.wav", "static"):Set("Volume", 0.05),
+            Sound.new("game/assets/sounds/squeak_dive.wav", "static"):Set("Volume", 0.2),
         },
         LedgeLunge = {
-            Sound.new("game/assets/sounds/ledgelunge1.wav", "static"):Set("Volume", 0.4),
+            Sound.new("game/assets/sounds/ledgelunge1.wav", "static"):Set("Volume", 1.6),
         },
         Parry = {
-            Sound.new("game/assets/sounds/parry3.wav", "static"):Set("Volume", 0.25),
-            Sound.new("game/assets/sounds/parry4.wav", "static"):Set("Volume", 0.25),
+            Sound.new("game/assets/sounds/parry3.wav", "static"):Set("Volume", 1.0),
+            Sound.new("game/assets/sounds/parry4.wav", "static"):Set("Volume", 1.0),
         },
         Parry2 = {
-            Sound.new("game/assets/sounds/parry1.wav", "static"):Set("Volume", 0.025),
-            Sound.new("game/assets/sounds/parry2.wav", "static"):Set("Volume", 0.025),
+            Sound.new("game/assets/sounds/parry1.wav", "static"):Set("Volume", 0.1),
+            Sound.new("game/assets/sounds/parry2.wav", "static"):Set("Volume", 0.1),
         },
         FailParry = {
-            Sound.new("game/assets/sounds/parry_fail1.wav", "static"):Set("Volume", 0.2),
-            Sound.new("game/assets/sounds/parry_fail2.wav", "static"):Set("Volume", 0.2),
-            Sound.new("game/assets/sounds/parry_fail3.wav", "static"):Set("Volume", 0.2),
+            Sound.new("game/assets/sounds/parry_fail1.wav", "static"):Set("Volume", 0.8),
+            Sound.new("game/assets/sounds/parry_fail2.wav", "static"):Set("Volume", 0.8),
+            Sound.new("game/assets/sounds/parry_fail3.wav", "static"):Set("Volume", 0.8),
         },
         FailParrySqueak = {
-            Sound.new("game/assets/sounds/squeak_ow.wav", "static"):Set("Volume", 0.3),
+            Sound.new("game/assets/sounds/squeak_ow.wav", "static"):Set("Volume", 1.2),
         },
         Bonk = {
-            Sound.new("game/assets/sounds/bonk1.wav", "static"):Set("Volume", 0.15),
+            Sound.new("game/assets/sounds/bonk1.wav", "static"):Set("Volume", 0.6),
         },
         WeakRoll = {
-            Sound.new("game/assets/sounds/roll_weak1.wav"):Set("Volume", 0.025)
+            Sound.new("game/assets/sounds/roll_weak1.wav"):Set("Volume", 0.1)
         },
         Roll = {
-            Sound.new("game/assets/sounds/roll1.wav"):Set("Volume", 0.035)
+            Sound.new("game/assets/sounds/roll1.wav"):Set("Volume", 0.14)
         },
         FastRoll = {
-            Sound.new("game/assets/sounds/roll_fast1.wav"):Set("Volume", 0.04)
+            Sound.new("game/assets/sounds/roll_fast1.wav"):Set("Volume", 0.16)
         },
         RollWhoosh = {
-            Sound.new("game/assets/sounds/roll_whoosh1.wav"):Set("Volume", 0.15)
+            Sound.new("game/assets/sounds/roll_whoosh1.wav"):Set("Volume", 0.6)
         },
         ShimmyWhoosh = {
-            Sound.new("game/assets/sounds/shimmy1.wav"):Set("Volume", 0.1)
+            Sound.new("game/assets/sounds/shimmy1.wav"):Set("Volume", 0.4)
         },
         PounceSqueak = {
-            Sound.new("game/assets/sounds/squeak_pounce.wav", "static"):Set("Volume", 0.03),
+            Sound.new("game/assets/sounds/squeak_pounce.wav", "static"):Set("Volume", 0.12),
         },
         UpwardDive = {
-            Sound.new("game/assets/sounds/upwarddive.wav", "static"):Set("Volume", 0.055)
+            Sound.new("game/assets/sounds/upwarddive.wav", "static"):Set("Volume", 0.22)
         },
-
+    
         PickUpItem = {
-            Sound.new("game/assets/sounds/item_pickup1.wav", "static"):Set("Volume", 0.05),
-            Sound.new("game/assets/sounds/item_pickup2.wav", "static"):Set("Volume", 0.05)
+            Sound.new("game/assets/sounds/item_pickup1.wav", "static"):Set("Volume", 0.2),
+            Sound.new("game/assets/sounds/item_pickup2.wav", "static"):Set("Volume", 0.2)
         },
-
+    
         CatchItem = {
-            Sound.new("game/assets/sounds/item_catch1.wav", "static"):Set("Volume", 0.1),
-            Sound.new("game/assets/sounds/item_catch2.wav", "static"):Set("Volume", 0.1),
-            Sound.new("game/assets/sounds/item_catch3.wav", "static"):Set("Volume", 0.1),
+            Sound.new("game/assets/sounds/item_catch1.wav", "static"):Set("Volume", 0.4),
+            Sound.new("game/assets/sounds/item_catch2.wav", "static"):Set("Volume", 0.4),
+            Sound.new("game/assets/sounds/item_catch3.wav", "static"):Set("Volume", 0.4),
         },
-
+    
         GrabItemFail = {
-            Sound.new("game/assets/sounds/grab_fail.wav", "static"):Set("Volume", 0.05),
+            Sound.new("game/assets/sounds/grab_fail.wav", "static"):Set("Volume", 0.2),
         },
+    
+        Boing = {
+            Sound.new("game/assets/sounds/boing1.wav", "static"):Set("Volume", 0.04),
+        }
     }
 
     newPlayer.SFX.Jump[1].Test = true
@@ -704,8 +714,10 @@ function Player:Unclip(forTesting)
                 self.Velocity.Y = math.max(0, -self.Velocity.Y)
                 self.DiveBlock = self.DiveBlock + 10
             else
+                if self.FramesSinceDoubleJump == -1 then
+                    self.Velocity.Y = math.max(0, self.Velocity.Y)
+                end
                 
-                self.Velocity.Y = math.max(0, self.Velocity.Y)
             end
         end
     end
@@ -745,13 +757,13 @@ function Player:UnclipY(forTesting)
                     -- print(pushY)
     
                     -- -4 IS ARBITRARY!! IDK IF IT WILL CAUSE PROBLEMS!!!!!!!!!!
-                    if not forTesting and pushX == 0 and pushY >= -4 then 
+                    if not forTesting and pushX == 0 and pushY >= -4 then
                         
                         if collider ~= self.HeldItem then
                             self:ConnectToFloor(solid)
                         elseif self.HeldItem and self.HeldItem.CanBeOverhang and face == "bottom" then
                             self.ShouldCheckForHeldItemOverhang = true
-                            self.Velocity.Y = 0
+                            -- self.Velocity.Y = 0
                         else
                             pushY = 0
                             --self.Position.X = self.Position.X - 1
@@ -830,12 +842,12 @@ function Player:UnclipX(forTesting)
     for _, collider in ipairs(xColliders) do
         for solid, hDist, vDist, tileID in collider:CollisionPass(self._parent, true) do
             local face = Prop.GetHitFace(hDist,vDist)
-    
+            local surfaceInfo = solid:GetSurfaceInfo(tileID)
+
             
             if (solid ~= self.YHitbox and solid ~= self.XHitbox and solid ~= self.HeldItem) and not solid.Passthrough then
     
     
-                local surfaceInfo = solid:GetSurfaceInfo(tileID)
     
     
                 if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
@@ -847,6 +859,24 @@ function Player:UnclipX(forTesting)
             
             if solid.IsHoldable then
                 self.NearbyHoldableItem = solid
+            end
+
+            if surfaceInfo.Top.IsSpring and
+                self.Velocity.Y > 0 and
+                self.HeldItem ~= solid and
+                not (surfaceInfo.Top.RequiresActionReleased and self.InputListener:IsDown("action")) and
+                (solid:IsA("Tilemap") or (self.YHitbox:GetEdge("bottom") < solid:GetEdge("bottom") and self.YHitbox:GetEdge("bottom") > solid:GetEdge("top"))) and
+                (self.FramesSinceBounce == -1 or self.FramesSinceBounce >= self.BounceDebounce) and
+                (self.LastHeldItem ~= solid or self.FramesSinceDroppedItem > 12) then
+                    self:ResetJumpStamina()
+                    self:Jump(true)
+                    self.Velocity.Y = -(surfaceInfo.Top.SpringPower or self.JumpPower)
+                    self:PlaySFX("DoubleJump")
+                    self:PlaySFX("Boing", 0.7, 1)
+                    self.FramesSinceBounce = 0
+                    self.ForceJumpHeldFrames = surfaceInfo.Top.ForceJumpHeldFrames or 6
+                    -- if self.MoveDir ~= 0 then self.DrawScale.X = math.abs(self.DrawScale.X) * self.MoveDir end
+                    if solid.ActivateSpring then solid:ActivateSpring(tileID) end
             end
         end
     
@@ -1010,6 +1040,7 @@ function Player:ValidateFloor()
 
         if hit then
             self.Velocity.Y = 0
+            
             self.IgnoreGravityThisFrame = true
         end
         
@@ -1191,11 +1222,13 @@ function Player:ProcessInput(dt)
             self.JumpBuffer = self.JumpFrames
         end
 
+
+
         if self.JumpBuffer > 0 and not blockJump then
             if (self.Floor or self.CoyoteBuffer > 0) then
                 self:Jump()
                 
-            elseif self.FramesSinceDoubleJump == -1 and not self.HeldItem and (self.FramesSincePounce == -1 or self.FramesSincePounce > self.TimeAfterPounceCanDoubleJump) and (self.FramesSinceDive == -1 or math.abs(self.Velocity.X) >= self.DiveCancelSpeedThreshold)  then
+            elseif self.FramesSinceDoubleJump == -1 and not self.HeldItem and (self.FramesSincePounce == -1 or self.FramesSincePounce > self.TimeAfterPounceCanDoubleJump) and (self.FramesSinceDive == -1 or math.abs(self.Velocity.X) >= self.DiveCancelSpeedThreshold) and (self.FramesSinceBounce == -1 or self.FramesSinceBounce >= self.FramesAfterBounceBeforeCanDoubleJump) then
                 self:DoubleJump()
             end
         end
@@ -1251,7 +1284,7 @@ function Player:ProcessInput(dt)
             self.Velocity.X = 0
         end
     end
-
+    
     -- print(self.MoveDir)
 end
 
@@ -1285,14 +1318,14 @@ function Player:PlaySFX(name, pitch, variance)
     self.SFX[name][no]:Play()
 end
 
-function Player:Jump()
+function Player:Jump(noSFX)
     self.JumpBuffer = 0
     self.FramesSinceDive = -1
     self.DiveExpired = false
     self.Velocity.Y = -self.JumpPower
     
     ---- SFX ----
-    self:PlaySFX("Jump")
+    if not noSFX then self:PlaySFX("Jump") end
     -------------
 
     if self.FramesSinceLastLunge <= self.CoyoteFrames and not self.Floor then
@@ -1384,7 +1417,7 @@ function Player:Jump()
     self:DisconnectFromFloor()
 end
 
-function Player:DoubleJump(force)
+function Player:DoubleJump(ignoreRejection)
     self:GrowHitbox()
 
     local pos = self.Position:Clone()
@@ -1423,12 +1456,12 @@ function Player:DoubleJump(force)
     end
 
     if self.DiveWasLunge then
-        if (not force) and self.FramesSinceDive > -1 and self.FramesSinceDive < self.FramesAfterLungeCanCancel then
+        if (not ignoreRejection) and self.FramesSinceDive > -1 and self.FramesSinceDive < self.FramesAfterLungeCanCancel then
             -- don't let them dive cancel right after lunging
             return
         end
     else
-        if (not force) and self.FramesSinceDive > -1 and self.FramesSinceDive < self.FramesAfterDiveCanCancel then
+        if (not ignoreRejection) and self.FramesSinceDive > -1 and self.FramesSinceDive < self.FramesAfterDiveCanCancel then
             -- don't let them dive cancel right after diving
             -- self.JumpBuffer = 0
             return
@@ -1589,14 +1622,18 @@ function Player:Dive()
         measuredVelocityY = -2.5
         self.LastDiveWasParryDive = true
         isParryDive = true
+        
     else
         self.LastDiveWasParryDive = false
     end
     
+
+
     self.DrawScale.X = faceDirection
     self.Velocity.X = faceDirection * math.max(self.DivePower, math.abs(self.Velocity.X))
     self.Velocity.Y = math.min(self.DiveUpwardVelocity, measuredVelocityY + self.DiveUpwardVelocity) --math.min(-3.5, self.Velocity.Y - 3.5)
-    -- self.WeakDiveHangStatus = 3
+
+    
     if self.FramesSinceDoubleJump > -1 then
         self.Velocity.Y = math.min(self.WeakDiveUpwardVelocity, measuredVelocityY + self.WeakDiveUpwardVelocity)
         self.DiveHangStatus = self.WeakDiveHangTime
@@ -1604,7 +1641,13 @@ function Player:Dive()
         self.DiveHangStatus = self.DiveHangTime
     end
 
+    if measuredVelocityY < -1 then
+        isParryDive = true
+        self.DiveHangStatus = 0
+    end
+
     if isParryDive then
+        print("NOOO")
         self.DiveHangStatus = 0
         self.Velocity.Y = math.min(self.ParryDiveUpwardVelocity, measuredVelocityY + self.ParryDiveUpwardVelocity)
         self.Position.Y = self.Position.Y - 1 -- a  couple more pixels of height, just in case
@@ -1824,7 +1867,11 @@ function Player:UpdateAnimation()
     -- squash and stretch
     if false then
 
-    elseif self.FramesSinceThrownItem > -1 and not self.Floor then
+    elseif self.FramesSinceBounce > -1 and self.FramesSinceBounce < #yscale_jump then
+        -- just bounced
+        self.DrawScale.Y = yscale_jump[self.FramesSinceJump+1]
+        self.DrawScale.X = sign(self.DrawScale.X) * xscale_jump[self.FramesSinceJump+1]
+    elseif self.FramesSinceThrownItem > -1 and self.FramesSinceThrownItem < #xscale_doublejump and not self.Floor then
         self.DrawScale.Y = yscale_doublejump[self.FramesSinceThrownItem+1] or 1
         self.DrawScale.X = sign(self.DrawScale.X) * (xscale_doublejump[self.FramesSinceThrownItem+1] or 1)
     elseif self.ParryStatus > 0 then
@@ -1908,7 +1955,7 @@ function Player:UpdateAnimation()
     -- check what anim state to put pounce in
     if self.FramesSincePounce > -1 and not self.PounceAnimCancelled then
         
-        if math.abs(self.Velocity.X) < self.MinPouncePower/2 then
+        if math.abs(self.Velocity.X) <= self.RunSpeed + 0.5 then
             self.PounceAnimCancelled = true
             self.Texture.Clock = 0
             self.Texture.IsPlaying = true
@@ -2001,8 +2048,10 @@ function Player:UpdateAnimation()
         end
     elseif not self.Floor and self.FramesSincePounce > -1 and self.FramesSinceDoubleJump == -1 then
         -- just pounced
-
-        if self.PounceAnimCancelled then
+        if self.HeldItem then
+            print("fuckk")
+            self.Texture:AddProperties{LeftBound = 79, RightBound = 80, Duration = 0.4, PlaybackScaling = 1, Loop = false}
+        elseif self.PounceAnimCancelled then
             self.Texture:AddProperties{LeftBound = 49, RightBound = 52, Duration = 0.3, PlaybackScaling = 1, Loop = false}
             self.Texture.PlaybackScaling = math.clamp(1/ (math.abs(self.Velocity.X) / 2) / 2.5, 0.2, 1.4)
             if  self.MoveDir == -sign(self.Velocity.X) then
@@ -2192,6 +2241,9 @@ function Player:UpdateFrameValues()
         end
     end
 
+    if self.ForceJumpHeldFrames > 0 then
+        self.ForceJumpHeldFrames = self.ForceJumpHeldFrames - 1
+    end
     
     if self.FramesOnGroundSinceLedgeLunge > -1 then
         if self.Floor then
@@ -2212,6 +2264,13 @@ function Player:UpdateFrameValues()
         self.ThrewItemInAir = false
         self.LastThrowDirection = 0
         self.LastCatchDirecton = 0
+
+        -- spring stuff
+        self.FramesSinceBounce = -1
+    else
+        if self.FramesSinceBounce > -1 then
+            self.FramesSinceBounce = self.FramesSinceBounce + 1
+        end
     end
 
     if self.FramesSinceRoll > -1 then
@@ -2369,33 +2428,46 @@ function Player:UpdatePhysics()
         self.Velocity.Y = self.Velocity.Y + self.ParryGravity
     elseif self.FramesSinceDive > -1 then
         -- the player has low dive gravity
+        
         if self.DiveHangStatus > 0 then
+            
             -- getting initial airtime in the weak dive state
             self.Velocity.Y = self.Velocity.Y + 0
         else
-            if self.FramesSinceDive >= self.DiveCoyoteFrames then
+            
+            if self.FramesSinceDive >= self.DiveCoyoteFrames or self.LastDiveWasParryDive then
                 if self.LastDiveWasParryDive then
                     self.Velocity.Y = self.Velocity.Y + self.ParryDiveGravity
                 else
                     self.Velocity.Y = self.Velocity.Y + self.DiveGravity
-                end 
+                end
+                -- print(self.LastDiveWasParryDive)
             end
         end
         
     elseif self.HangStatus > 0 and self.Velocity.Y >= 0 then
         -- the player is owed hang time
-
+        
         self.Velocity.Y = 0
-    elseif self.FramesSinceDoubleJump > -1 or (self.CaughtHeldItemMidairChain > 0) or self.ThrewItemInAir then
+    elseif self.FramesSinceDoubleJump > -1 or ((self.CaughtHeldItemMidairChain > 0 or self.ThrewItemInAir)) then
         -- the player is in the air from a double jump
         if self.Velocity.Y < 0 then
             -- player is in the upward arc
             
-            self.Velocity.Y = self.Velocity.Y + self.AfterDoubleJumpGravity
+
+            if self.LastDoubleJumpWasDiveCancel then
+                -- less gravity for a dive cancel
+                self.Velocity.Y = self.Velocity.Y + self.DiveCancelGravity
+            else
+                -- regular double jump gravity
+                self.Velocity.Y = self.Velocity.Y + self.AfterDoubleJumpGravity
+            end
+            
             if self.Velocity.Y > 0 then
 
                 -- print("e")
                 -- give the player a couple grace frames
+                
                 self.Velocity.Y = 0
                 self.HangStatus = self.DoubleJumpHangTime+1 -- + 1 because the update function decreases it                
             end
@@ -2407,24 +2479,26 @@ function Player:UpdatePhysics()
         
     elseif self.FramesSinceJump > -1 then
         -- the player is in the air from a jump
-        if self.InputListener:IsDown("jump") then
+        if (self.InputListener:IsDown("jump") or self.ForceJumpHeldFrames > 0) then
             
-
+            
             -- check if player has been holding jump long enough to cancel run speed
             if self.FramesSinceHoldingJump >= self.JumpFramesBeforeRunCancel then
                 self.CantRunUntilGrounded = true
             end
 
             -- the player is still holding jump and should get maximum height
+            
             if self.Velocity.Y < 0 then
-
+                
                 -- player is moving upwards
                 self.Velocity.Y = self.Velocity.Y + self.JumpGravity
-
+                
                 if self.Velocity.Y > 0 then
 
                     -- give the player a couple grace frames
                     self.Velocity.Y = 0
+                    
                     self.HangStatus = self.HangTime+1 -- + 1 because the update function decreases it
                 end
             else
@@ -2460,14 +2534,17 @@ function Player:UpdatePhysics()
                     -- give the player a couple grace frames
 
                     -- in this case, only give hang time if the jump was beyond a threshold of frames long
-                    if self.FramesSinceJump >= self.HangTimeActivationTime then
-                        -- jump was high enough to deserve full hang time
-                        self.Velocity.Y = 0
-                        self.HangStatus = self.HangTime+1 -- + 1 because the update function decreases it
-                    elseif self.FramesSinceJump >= self.HalfHangTimeActivationTime then
-                        -- jump deserves some hang time, but not as much
-                        self.Velocity.Y = 0
-                        self.HangStatus = self.HalfHangTime+1 -- + 1 because the update function decreases it
+                    if self.FramesSinceDoubleJump == -1 then
+                        if self.FramesSinceJump >= self.HangTimeActivationTime then
+                            -- jump was high enough to deserve full hang time
+                            self.Velocity.Y = 0
+                            
+                            self.HangStatus = self.HangTime+1 -- + 1 because the update function decreases it
+                        elseif self.FramesSinceJump >= self.HalfHangTimeActivationTime then
+                            -- jump deserves some hang time, but not as much
+                            self.Velocity.Y = 0
+                            self.HangStatus = self.HalfHangTime+1 -- + 1 because the update function decreases it
+                        end 
                     end
                 end
             else
@@ -3000,6 +3077,19 @@ function Player:Draw(tx, ty)
     end
 end
 
+function Player:ResetJumpStamina()
+    self.ThrewItemInAir = false
+    self.DiveExpired = false
+    self.LastParryWall = nil
+    self.WallBumpDirection = "none"
+    self.FramesSinceDive = -1
+    self.FramesSinceJump = -1
+    self.FramesSinceDoubleJump = -1
+    self.FramesSinceParry = -1
+    self.FramesSincePounce = -1
+    self.CaughtHeldItemMidairChain = 0
+end
+
 function Player:Respawn(pos)
     pos = pos or self.LastSafePosition
     
@@ -3021,6 +3111,7 @@ function Player:PickUpItem(item, dt)
     if item.PickupDebounce == 0 then
         self:PlaySFX("PickUpItem")
         self.HeldItem = item
+        self.LastHeldItem = item
         item.Owner = self
         local itemHadFloor = not item.Floor
         item.Floor = nil
@@ -3076,6 +3167,7 @@ function Player:ThrowItem()
     local dir = self.MoveDir ~= 0 and self.MoveDir or sign(self.DrawScale.X)
     local itemYVel = self.Floor and (item.GROUNDED_THROW_HEIGHT or -1) or (item.MIDAIR_THROW_HEIGHT or -1)
     item.Velocity = V{math.max(item.MinThrowSpeed or 3.5, (1.75 + math.abs(self.Velocity.X))) * dir, itemYVel}
+    -- item.Position.X = item.Position.X - 10* dir
     print("THROW!",item.Velocity)
     self.LastThrowDirection = dir
     item:Throw(not not self.Floor)

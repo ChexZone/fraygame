@@ -221,10 +221,10 @@ function Prop:CollisionInfo(other)
     local sp, op = self.Position, other.Position
     local sap, oap = self.AnchorPoint, other.AnchorPoint
     local ss, os = (self.CollisionSize or self.Size), (other.CollisionSize or other.Size)
-    local sLeftEdge  = floor(sp[1] + selfSurfaceInfo.Left.CollisionInset - ss[1] * sap[1])
-    local sRightEdge = floor(sp[1] - selfSurfaceInfo.Right.CollisionInset + ss[1] * (1 - sap[1]))
-    local sTopEdge  = floor(sp[2] + selfSurfaceInfo.Top.CollisionInset - ss[2] * sap[2])
-    local sBottomEdge = floor(sp[2] - selfSurfaceInfo.Bottom.CollisionInset + ss[2] * (1 - sap[2]))
+    local sLeftEdge  = floor(sp[1] + ((selfSurfaceInfo.Left or Prop._surfaceInfo.Left).CollisionInset or 0) - ss[1] * sap[1])
+    local sRightEdge = floor(sp[1] - ((selfSurfaceInfo.Right or Prop._surfaceInfo.Right).CollisionInset or 0) + ss[1] * (1 - sap[1]))
+    local sTopEdge  = floor(sp[2] + ((selfSurfaceInfo.Top or Prop._surfaceInfo.Top).CollisionInset or 0) - ss[2] * sap[2])
+    local sBottomEdge = floor(sp[2] - ((selfSurfaceInfo.Bottom or Prop._surfaceInfo.Bottom).CollisionInset or 0) + ss[2] * (1 - sap[2]))
     local oLeftEdge  = floor(op[1] - os[1] * oap[1])
     local oRightEdge = floor(op[1] + os[1] * (1 - oap[1]))
     local oTopEdge  = floor(op[2] - os[2] * oap[2])
@@ -441,7 +441,12 @@ function Prop:DistanceFromPoint(p)
 end
 
 function Prop:GetSurfaceInfo()
-    return self._surfaceInfo
+    return {
+        Top = self._surfaceInfo.Top or Prop._surfaceInfo.Top,
+        Bottom = self._surfaceInfo.Bottom or Prop._surfaceInfo.Bottom,
+        Left = self._surfaceInfo.Left or Prop._surfaceInfo.Left,
+        Right = self._surfaceInfo.Right or Prop._surfaceInfo.Right,
+    }
 end
 
 return Prop

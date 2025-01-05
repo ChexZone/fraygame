@@ -4,14 +4,27 @@ local Basketball = {
     _super = "Prop", _global = true
 }
 
+local print = function ()
+    
+end
+
 function Basketball.new()
     local newBall = Prop.new{
         Name = "Holdable",
-        LinesTexture = Texture.new("game/assets/images/basketball-lines.png"),
-        BaseTexture = Texture.new("game/assets/images/basketball-base.png"),
-        HeldTexture = Texture.new("game/assets/images/basketball-held.png"),
+        
+        LinesTexture = Texture.new("game/assets/images/soccer-ball.png"),
+        BaseTexture = Texture.new("game/assets/images/soccer-ball.png"),
+        HeldTexture = Texture.new("game/assets/images/soccer-ball.png"),
         DrawOverChildren = true,
         DrawInForeground = true,
+        
+        _surfaceInfo = {
+            Top = {
+                IsSpring = true,
+                SpringPower = 4.5,
+                RequiresActionReleased = true,
+            }
+        },
 
         Size = V{14, 14},
         CollisionSize = V{24,24},
@@ -42,6 +55,7 @@ function Basketball.new()
         Gravity = 0.15,
         MinThrowSpeed = 3.5,
         TerminalVelocity = V{5, 3.5},
+        
         PickupDebounce = 0,
         FRAMES_BETWEEN_DROP_AND_REGRAB = 10,
         X_DECELERATION_GROUND = 0.035,
@@ -51,6 +65,7 @@ function Basketball.new()
         ExtendsHitbox = true,
         CanBeOverhang = false,
         SquashWithPlayer = true,
+        LastHitDirection = "none",
         VerticalOffset = -12,
         RotVelocity = 0,
         LastDrawnPos = V{0,0},
@@ -58,44 +73,74 @@ function Basketball.new()
         Floor = nil,
     
         SFX = {
-            Bounce = Sound.new("game/assets/sounds/basketball_1.wav", "static"):Set("Volume", 0.1)
+            Bounce = Sound.new("game/assets/sounds/basketball_1.wav", "static"):Set("Volume", 0.5)
         },
     
         Draw = function (self, tx, ty)
             if (not self.Owner) or self.Owner.FramesSinceHoldingItem < 2 then
-                local drawPos = self.Position
+                local drawPosX, drawPosY = self.Position()
                 if self.Owner and self.Owner.FramesSinceHoldingItem == 1 then
-                    drawPos = self.LastDrawnPos
+                    drawPosX, drawPosY = self.LastDrawnPos()
                 end
-                -- -- self:GetChild("DrawBase").Position = self.Position
-                self.Texture:Activate()
+                
+                -- STEP 1: Draw the rotated ball to Canvas #1
+                self.HelperCanvas:Activate()
                 love.graphics.clear()
                 love.graphics.setColor(1,1,1,1)
-                local sx = self.Size[1] * (self.InternalDrawScale[1]-1)
-                local sy = self.Size[2] * (self.InternalDrawScale[2]-1)
+
 
                 self.BaseTexture:DrawToScreen(
-                    self.Size[1]/2+1, self.Size[2]/2+1,
+                    self.Size[1]/2, self.Size[2]/2,
+                    0,
+                    self.Size[1],
+                    self.Size[2],
+                    0.5, 0.5
+                )
+
+                self.LinesTexture:DrawToScreen(
+                    self.Size[1]/2, self.Size[2]/2,
+                    self.InternalRotation,
+                    self.Size[1],
+                    self.Size[2],
+                    0.5, 0.5
+                )
+                self.HelperCanvas:Deactivate()
+
+                -- STEP 2: Draw Canvas #1 to Canvas #2, applying DrawScale
+                self.Texture:Activate()
+                love.graphics.clear()
+                local sx = self.Size[1] * (self.InternalDrawScale[1]-1)
+                local sy = self.Size[2] * (self.InternalDrawScale[2]-1)
+                
+                self.HelperCanvas:DrawToScreen(
+                    self.Size[1]/2+1, self.Size[2]/2+1, 
                     0,
                     self.Size[1] + sx,
                     self.Size[2] + sy,
                     0.5, 0.5
                 )
-
-                self.LinesTexture:DrawToScreen(
-                    self.Size[1]/2+1, self.Size[2]/2+1,
-                    self.InternalRotation,
-                    self.Size[1] + sx,
-                    self.Size[2] + sy,
-                    0.5, 0.5
-                )
                 self.Texture:Deactivate()
-                -- self.Texture:Deactivate()
+
+
                 if self.Shader then self.Shader:Activate() end
 
+
+                drawPosX = drawPosX + sx/2*(self.LastHitDirection == "right" and -1 or 1)
+                drawPosY = drawPosY + sy/2*(self.LastHitDirection == "bottom" and -1 or 1)
+
+                -- if self.LastHitDirection == "left" then
+                --     drawPosX = drawPosX + sx/2
+                -- elseif self.LastHitDirection == "right" then
+                --     drawPosX = drawPosX - sx/2
+                -- elseif self.LastHitDirection == "top" then
+                --     drawPosY = drawPosY + sy/2
+                -- elseif self.LastHitDirection == "bottom" then
+                --     drawPosY = drawPosY + sy/2
+                -- end
+
                 self.Texture:DrawToScreen(
-                    math.floor(drawPos[1] - tx+0.5),
-                    math.floor(drawPos[2] - ty),
+                    math.floor(drawPosX - tx+0.5),
+                    math.floor(drawPosY - ty),
                     0,
                     self.Texture:GetWidth(),
                     self.Texture:GetHeight(),
@@ -104,7 +149,7 @@ function Basketball.new()
                 )
                 
                 -- Prop.Draw(self, tx+0.5, ty-1, isForeground)
-                if self.Shader then self.Shader:Deactivate() end                
+                if self.Shader then self.Shader:Deactivate() end
             end
             self.LastDrawnPos = self.Position
         end,
@@ -237,7 +282,8 @@ function Basketball.new()
                         if math.abs(pushX) > 4 then pushX = 0 end
                         if math.abs(pushY) > 4 then pushY = 0 end
                         if pushY ~= 0 and math.abs(pushY) <= 4 and (pushX == 0) and self.DebounceY == 0 then
-                            
+                            -- hit a floor/ceiling
+                            self.LastHitDirection = face
                             self.DebounceY = self.Y_BOUNCE_DELAY
                             self.Position.Y = self.Position.Y + pushY + (1 * sign(pushY))
                             self.RotVelocity = self.RotVelocity + sign(self.Velocity.X)/20
@@ -262,6 +308,7 @@ function Basketball.new()
                         print(tpx, tpy, self.Velocity)
                         if pushX ~= 0 and math.abs(pushX) < 4 and (pushY == 0) and self.DebounceX == 0 then
                             print("X CASE", pushX, pushY)
+                            self.LastHitDirection = face
                             self.InternalDrawScale.X = math.clamp(1 - math.abs(self.Velocity.X)/4, 0.3, 1)
                             self.DebounceX = self.X_BOUNCE_DELAY
                             self.Position.X = self.Position.X + pushX + (1 * sign(pushX))
@@ -297,16 +344,20 @@ function Basketball.new()
             end
     
             if movedAlready and not ignoreSound then
-                self.SFX.Bounce:SetVolume(math.clamp(self.Velocity:Magnitude()/8, 0.1, 0.3)/10)
-                self.SFX.Bounce:Stop()
-                self.SFX.Bounce:SetPitch(1 + math.random(-5,5)/45 * 0.5)
-                self.SFX.Bounce:Play()
+                self:PlayBounceSFX()
             end
     
             
             return realPushX, realPushY
         end,
     
+        PlayBounceSFX = function(self)
+            self.SFX.Bounce:SetVolume(math.clamp(self.Velocity:Magnitude()/8, 0.1, 0.3)/2)
+            self.SFX.Bounce:Stop()
+            self.SFX.Bounce:SetPitch(1 + math.random(-5,5)/45 * 0.5)
+            self.SFX.Bounce:Play()
+        end,
+
         ValidateFloor = function (self, expensive)
             self.Position.Y = self.Position.Y + 2
             local foundFloor
@@ -329,9 +380,22 @@ function Basketball.new()
                 self.Floor = nil
             end
             self.Position.Y = self.Position.Y - 2
+        end,
+
+        ActivateSpring = function (self)
+            -- something bounced off; squash
+            self.LastHitDirection = "bottom"
+            self.InternalDrawScale.Y = 0.3
+
+            if not self.Floor then
+                self.Velocity.Y = self.Velocity.Y + 3
+            end
+
+            self:PlayBounceSFX()
         end
     }
     newBall.Texture = Canvas.new((newBall.Size+V{2,2})())
+    newBall.HelperCanvas = Canvas.new((newBall.Size)())
     newBall.Shader = Shader.new("game/assets/shaders/outline.glsl"):Send("step",{1/(newBall.Size.X+2),1/(newBall.Size.Y+2)}) -- 1/ 24 (for tile size) / 12 (for tile count)
 
     return newBall
