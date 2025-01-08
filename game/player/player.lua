@@ -864,7 +864,7 @@ function Player:UnclipX(forTesting)
             if surfaceInfo.Top.IsSpring and
                 self.Velocity.Y > 0 and
                 self.HeldItem ~= solid and
-                not (surfaceInfo.Top.RequiresActionReleased and self.InputListener:IsDown("action")) and
+                (not (surfaceInfo.Top.RequiresActionReleased and self.InputListener:IsDown("action")) or (self.InputListener:IsDown("action") and self.InputListener:IsDown("crouch"))) and
                 (solid:IsA("Tilemap") or (self.YHitbox:GetEdge("bottom") < solid:GetEdge("bottom") and self.YHitbox:GetEdge("bottom") > solid:GetEdge("top"))) and
                 (self.FramesSinceBounce == -1 or self.FramesSinceBounce >= self.BounceDebounce) and
                 (self.LastHeldItem ~= solid or self.FramesSinceDroppedItem > 12) then
@@ -1095,6 +1095,9 @@ function Player:ProcessInput(dt)
         self:GetLayer():GetParent().GuiLayer:GetChild("StatsGui").Visible = not self:GetLayer():GetParent().GuiLayer:GetChild("StatsGui").Visible
     end
 
+    if self.JustPressed["f11"] or ((input:IsDown("lalt") or input:IsDown("ralt")) and input:JustPressed("return")) then
+        love.window.setFullscreen( not love.window.getFullscreen(), "desktop" )
+    end
 
     if self.JustPressed["b"] then
         self:GetParent():Adopt(Basketball.new():Properties{Position = self.Position+V{0,-15}, Collider = self:GetParent():GetChild("_type", "Tilemap")})
@@ -1209,7 +1212,10 @@ function Player:ProcessInput(dt)
 
     if not self.DiveExpired and  self.ActionBuffer > 0 and (not self.Floor and self.CoyoteBuffer == 0) and self.FramesSinceDive == -1 and (self.FramesSinceJump == -1 or self.FramesSinceJump > 4) and self.FramesSinceRoll == -1 and (self.FramesSincePounce == -1 or self.PounceAnimCancelled or self.FramesSinceDoubleJump > -1 or self.InputListener:IsDown("crouch")) then
         -- dive
-        self:Dive()
+
+        if not (self.MoveDir == 0 and input:IsDown("crouch")) then -- we don't let the dive action happen if holding neutral and crouch
+            self:Dive()
+        end
     elseif (self.ActionBuffer > 0 or self.LungeBuffer > 0) and (self.Floor or self.CoyoteBuffer > 0 or (self.FramesSinceJump > -1 and self.FramesSinceJump < self.RollWindowPastJump)) and ((self.CrouchTime > self.CrouchShimmyDelay and (self.FramesSinceRoll == -1 or self.FramesSinceRoll >= self.ShimmyLength)) or self.FramesSinceRoll == -1) then
         -- roll
         blockJump = self:Roll()
@@ -1603,7 +1609,7 @@ function Player:BumpWall()
 end
 
 function Player:Dive()
-    
+
     self:ShrinkHitbox()
     local oldX = self.Velocity.X
     self.ActionBuffer = 0
@@ -1647,7 +1653,6 @@ function Player:Dive()
     end
 
     if isParryDive then
-        print("NOOO")
         self.DiveHangStatus = 0
         self.Velocity.Y = math.min(self.ParryDiveUpwardVelocity, measuredVelocityY + self.ParryDiveUpwardVelocity)
         self.Position.Y = self.Position.Y - 1 -- a  couple more pixels of height, just in case
@@ -1656,6 +1661,8 @@ function Player:Dive()
     if self.InputListener:IsDown("crouch") then
         -- lunge
         
+
+
         local extraLungeVelocity = self.LedgeLungeCharge*4
         self.Velocity.Y = self.LungeDownwardVelocity + extraLungeVelocity
         self.LastLungeDownwardVelocity = self.Velocity.Y
@@ -1773,6 +1780,16 @@ function Player:Roll()
         self:PlaySFX("RollWhoosh", pitch)
         self:PlayDynamicDashSound()
     end
+
+
+    -- special case: rolling while against a wall (kind of a "ground parry")
+
+    if self.Wall then
+        self.Velocity.X = -self.Velocity.X/1.5
+        self:PlaySFX("Parry")
+        -- self.DrawScale.X = -self.DrawScale.X
+    end
+
 
     return blockJump
 end
@@ -2021,6 +2038,21 @@ function Player:UpdateAnimation()
             -- player rolled into the object; cancel pickup animation
             self.PickupAnimDebounce = 30
         end
+
+    elseif self.Wall and self.Floor and self.FramesSinceHoldingItem == -1 then 
+        -- if self.Floor then
+            -- standing on floor against a wall
+            if self.MoveDir == 0 then
+                -- idle
+                self.Texture:AddProperties{LeftBound = 109, RightBound = 112, Duration = 1, PlaybackScaling = 1, Loop = true, IsPlaying = true}
+            else
+                -- moving
+                self.Texture:AddProperties{LeftBound = 113, RightBound = 118, Duration = 1.4, PlaybackScaling = 1, Loop = true, IsPlaying = true}
+            end
+        -- end
+        
+    
+    
     elseif self.ParryStatus > 0 then
         self.Texture:AddProperties{LeftBound = 21, RightBound = 24, Duration = 0.3, PlaybackScaling = 1, Loop = false}
         if not self.Texture.IsPlaying then
