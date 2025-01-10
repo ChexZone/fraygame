@@ -181,7 +181,7 @@ end
 local fps = 0
 Chexcore.FrameLimit = 500
 local frameTime = 0
-local mode = "web"
+-- local mode = "web"
 
 local start_time = 0
 
