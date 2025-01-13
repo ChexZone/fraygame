@@ -24,12 +24,12 @@ local Tilemap = {
         ]]
 
         OnePixelHorizontalInset = {Left = {CollisionInset = 1}, Right = {CollisionInset = 1}},
-        OnePixelVerticalInset = {Top = {CollisionInset = 1}, Bottom = {CollisionInset = 1}},
+        OnePixelVerticalInset = {Top = {CollisionInset = 1, Material = "Metal"}, Bottom = {CollisionInset = 1}},
 
         FourPixelHorizontalInset = {Left = {CollisionInset = 4}, Right = {CollisionInset = 4}},
         FourPixelVerticalInset = {Top = {CollisionInset = 4}, Bottom = {CollisionInset = 4}},
 
-        SemisolidTop = {Bottom = {Passthrough = true}, Left = {Passthrough = true}, Right = {Passthrough = true}},
+        SemisolidTop = {Bottom = {Passthrough = true}, Left = {Passthrough = true}, Right = {Passthrough = true}, Top = {Material = "Glass"}},
         SemisolidRight = {Bottom = {Passthrough = true}, Left = {Passthrough = true}, Top = {Passthrough = true}},
         SemisolidLeft = {Bottom = {Passthrough = true}, Right = {Passthrough = true}, Top = {Passthrough = true}},
         SemisolidBottom = {Left = {Passthrough = true}, Right = {Passthrough = true}, Top = {Passthrough = true}},
@@ -51,6 +51,18 @@ local Tilemap = {
                 ForceJumpHeldFrames = 60,
                 RequiresActionReleased = false,
             },
+        },
+
+        Grass = {
+            Top = {Material = "Grass"}
+        },
+
+        Glass = {
+            Top = {Material = "Glass"}
+        },
+
+        Metal = {
+            Top = {Material = "Metal"}, Left = {Material = "Metal"}, Right = {Material = "Metal"}, 
         }
     },
 
@@ -85,6 +97,15 @@ local Tilemap = {
         [403] = "SemisolidBottom",
 
         [214] = "SpringTop",
+
+        [7] = "Grass", [8] = "Grass", [9] = "Grass",
+
+        [289] = "Metal", [290] = "Metal",
+        [321] = "Metal", [322] = "Metal",
+        [353] = "Metal", [354] = "Metal",
+        -- [385] = "Metal", [386] = "Metal",
+
+        [266] = "Glass"
     },
 
     -- internal properties
@@ -411,6 +432,20 @@ local function getInfo(self, other, ss)
     return success, sLeftEdge,sRightEdge,sTopEdge,sBottomEdge, oLeftEdge,oRightEdge,oTopEdge,oBottomEdge
 end
 
+local function getSelfInfo(self, ss)
+
+    local sp = self.Position
+    local sap = self.AnchorPoint
+    local sLeftEdge  = floor(sp[1] - ss[1] * sap[1])
+    local sRightEdge = floor(sp[1] + ss[1] * (1 - sap[1]))
+    local sTopEdge  = floor(sp[2] - ss[2] * sap[2])
+    local sBottomEdge = floor(sp[2] + ss[2] * (1 - sap[2]))
+
+
+
+    return sLeftEdge,sRightEdge,sTopEdge,sBottomEdge
+end
+
 
 function Tilemap:CollisionInfo(other, preference)
     local tilemapSize = self.Size*self.TileSize*self.Scale
@@ -474,7 +509,8 @@ function Tilemap:CollisionInfo(other, preference)
 
 
                             if hit then
-                                hitInfo[#hitInfo+1] = {hDist, vDist, tileID}
+                                -- local tileNo = 
+                                hitInfo[#hitInfo+1] = {hDist, vDist, tileID, (x + (y-1)*self.Size[1]), layerID}
                             end
                         end
                     end
@@ -486,6 +522,55 @@ function Tilemap:CollisionInfo(other, preference)
     end
 end
 
+local ceil = math.ceil
+function Tilemap:GetTileCoordinatesFromIndex(i)
+    local y = ceil(i / self.Size.X)
+    local x = (i - 1) % self.Size.X + 1
+    return x, y
+end
+
+-- Tilemap:GetEdge(edge): same as Prop:GetEdge(edge)
+-- Tilemap:GetEdge(x, y, tileLayer): Gets the edge of a specific tile 
+local Prop = Prop
+function Tilemap:GetEdge(edge, x, y, layerID)
+    if not (x or y or layerID) then
+        -- Tilemap:GetEdge(edge)
+        return Prop.GetEdge(self, edge)
+    end
+    if not layerID then
+        -- Tilemap:GetEdge(edge, tileNo, tileLayer)
+        layerID = y
+        x, y = self:GetTileCoordinatesFromIndex(x)
+    end
+
+    -- Tilemap:GetEdge(edge, x, y, tileLayer)
+    local camTilemapDist = self:GetLayer():GetParent().Camera.Position - self:GetPoint(0,0)
+    local tilemapSize = self.Size*self.TileSize*self.Scale
+    local sLeftEdge,_,sTopEdge,_ = getSelfInfo(self, tilemapSize)
+    local parallaxX = self.LayerParallax[layerID] and self.LayerParallax[layerID][1] or 1
+    local parallaxY = self.LayerParallax[layerID] and self.LayerParallax[layerID][2] or 1
+
+    local offsetX = self.LayerOffset[layerID] and self.LayerOffset[layerID][1] or 0
+    local offsetY = self.LayerOffset[layerID] and self.LayerOffset[layerID][2] or 0
+    local realLeftEdge = sLeftEdge + (camTilemapDist.X) * (1 - parallaxX) + offsetX
+    local realTopEdge = sTopEdge + (camTilemapDist.Y) * (1 - parallaxY) + offsetY
+
+
+    local realTileX = tilemapSize[1]/self.Size[1]
+    local realTileY = tilemapSize[2]/self.Size[2]
+
+    local tileID = self:GetTile(layerID, x, y)
+    local tileSurface = self.SurfaceInfo[self.TileSurfaceMapping[tileID]] or self._surfaceInfo
+    local boxLeft = realLeftEdge + realTileX * (x-1)     + ((tileSurface.Left or self._surfaceInfo.Left).CollisionInset or 0)
+    local boxRight = realLeftEdge + realTileX * (x)      - ((tileSurface.Right or self._surfaceInfo.Right).CollisionInset or 0)
+    local boxTop = realTopEdge + realTileY * (y-1)       + ((tileSurface.Top or self._surfaceInfo.Top).CollisionInset or 0)
+    local boxBottom = realTopEdge + realTileY * (y)      - ((tileSurface.Bottom or self._surfaceInfo.Bottom).CollisionInset or 0)
+
+    return edge == "top" and boxTop
+        or edge == "left" and boxLeft
+        or edge == "right" and boxRight
+        or edge == "bottom" and boxBottom
+end
 
 function Tilemap.import(tiledPath, atlasPath, properties)
     tiledPath = tiledPath or "game.scenes.testzone.tilemap"

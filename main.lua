@@ -12,6 +12,7 @@ function love.load()
     -- Load the Chexcore example Scene!
     
     Chexcore:AddType(require"game.player.player")
+    Chexcore:AddType(require"game.objects.basketball")
     Chexcore:AddType(require"game.player.gameScene")
     Chexcore:AddType(require"game.player.gameCamera")
     local scene = require"game.scenes.debug.init"

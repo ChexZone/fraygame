@@ -7,7 +7,7 @@ local Player = {
     Color = Constant.COLOR["ORANGE"]:Set("S",0.1,  "V",1),
     TailColor = V{196,223,238}/255,
     -- DiveExpiredColor = V{0.8,0.8,0.9,1},    -- color to multiply player by when the dive is expired
-    DiveExpiredColor = Constant.COLOR.PURPLE:Lerp(Constant.COLOR.WHITE, 0.7),
+    DiveExpiredColor = Constant.COLOR.PURPLE:Lerp(Constant.COLOR.WHITE, 0.5),
     DiveExpiredGoalColor = V{0.75, 0.8, 0.9, 1},
     Visible = true,
     Solid = false,
@@ -201,10 +201,15 @@ local Player = {
     YHitbox = nil,                      -- the player's hitbox for ceilings/floors
 
     Floor = nil,                        -- the current Prop acting as the "floor"
+    FloorTileNo = nil,                  -- if the Floor is a Tilemap, record the tile number
+    FloorTileLayer = nil,               -- if the Floor is a Tilemap, record the tile layer
     Wall = nil,                         -- the current Prop acting as the "wall" the player is against
+    WallTileNo = nil,                   -- if the Wall is a Tilemap, record the tile number
+    WallTileLayer = nil,                -- if the Wall is a Tilemap, record the tile layer
     WallDirection = "none",             -- direction the player is leaning into the wall
     WallBumpDirection = "none",         -- the direction of the last wall the player dove into
     FloorPos = nil,                     -- the last recorded floor position (for deltas)
+    WallPos = nil,
     FloorDelta = nil,                   -- the movement of the floor over the past frame (calculated near the start of the update cycle)
     FloorLeftEdge = nil,                -- last recorded left edge of the floor (not tilemaps)
     FloorRightEdge = nil,               -- last recorded right edge of the floor (not tilemaps)
@@ -231,6 +236,11 @@ local Player = {
     FramesAgainstWallBeforeDirectionChange = 8,    -- amount of frames against a wall in midair before changing directions
     WallSlideSpeed = 1.5,
     WallSlideDecelerationSpeed = 0.3,
+
+    PlayingWallSFX = false,             -- whether the wall slide sound is being played currently
+    WallSFXVolume = 0,
+    WallSFXMaxVolume = 0.15,
+
 
     -- other stuff
     Canvas = nil,                       -- rendering the player is hard
@@ -296,71 +306,16 @@ local Player = {
         -- [41] = 12, [42] = 12, [43] = 12, [44] = 12
     },
 
-
-    -- internal properties
-    _usingPerformanceMode = false,  -- the GameScene controls whether PerformanceMode is on. Player just listens. 
-    _updateStep = false,    -- internally used for performance mode handling
-    _super = "Prop",
-    _global = true
-}
-local EMPTYVEC = V{0,0}
-
--- the black outline shader
-Player.Shader = Shader.new("game/assets/shaders/outline.glsl"):Send("step",{1/Player.CanvasSize.X,1/Player.CanvasSize.Y}) -- 1/ 24 (for tile size) / 12 (for tile count)
-
-
-local Y_HITBOX_HEIGHT = 16
-local X_HITBOX_HEIGHT = 12
-local Y_HITBOX_HEIGHT_CROUCH = 8
-local X_HITBOX_HEIGHT_CROUCH = 6
-
-local balls = 0
-
--- yHitbox is used to detect floors/ceilings
-local yHitboxBASE = Prop.new{
-    Name = "yHitbox",
-    Texture = Texture.new("chexcore/assets/images/square.png"),
-    Size = V{8,Y_HITBOX_HEIGHT},
-    Visible = false,
-    Color = V{1,0,0,0.4},
-    Solid = true,
-    AnchorPoint = V{0.5,1}
-}
--- xHitbox is used to detect walls
-local xHitboxBASE = Prop.new{
-    Name = "xHitbox",
-    Texture = Texture.new("chexcore/assets/images/square.png"),
-    Size = V{8,X_HITBOX_HEIGHT},
-    Visible = false,
-    Color = V{0,0,1,0.4},
-    Solid = true,
-    AnchorPoint = V{0.5,1}
-}
-
-function Player.new()
-    local newPlayer = setmetatable({}, Player)
-    newPlayer.Texture = Animation.new("chexcore/assets/images/test/player-sprite.png", 12, 12):AddProperties{Duration = .72, LeftBound = 5, RightBound = 10}
-    newPlayer.YHitbox = newPlayer:Adopt(yHitboxBASE:Clone())
-    newPlayer.XHitbox = newPlayer:Adopt(xHitboxBASE:Clone())
-    newPlayer.Position = Player.Position:Clone()
-    newPlayer.Size = Player.Size:Clone()
-    newPlayer.Canvas = Canvas.new(Player.CanvasSize())
-    newPlayer.TailPoints = {}
-    newPlayer.TouchEvents = {}
-    newPlayer.JustPressed = {}
-    newPlayer.DrawScale = V{1,1}
-
-    newPlayer.LastSFX_ID = {}
-    newPlayer.SFX = {
+    SFX = {
         Jump = {
             Sound.new("game/assets/sounds/jump1.wav", "static"):Set("Volume", 2.0),
             Sound.new("game/assets/sounds/jump2.wav", "static"):Set("Volume", 2.0)
         },
         DoubleJump = {
-            Sound.new("game/assets/sounds/double_jump1.wav", "static"):Set("Volume", 2.0),
-            Sound.new("game/assets/sounds/double_jump2.wav", "static"):Set("Volume", 2.0),
-            Sound.new("game/assets/sounds/double_jump3.wav", "static"):Set("Volume", 2.0),
-            Sound.new("game/assets/sounds/double_jump4.wav", "static"):Set("Volume", 2.0),
+            Sound.new("game/assets/sounds/double_jump1.wav", "static"):Set("Volume", 0.25),
+            Sound.new("game/assets/sounds/double_jump2.wav", "static"):Set("Volume", 0.25),
+            Sound.new("game/assets/sounds/double_jump3.wav", "static"):Set("Volume", 0.25),
+            Sound.new("game/assets/sounds/double_jump4.wav", "static"):Set("Volume", 0.25),
         },
         DiveCancel = {
             Sound.new("game/assets/sounds/backflip1.wav", "static"):Set("Volume", 1.6),
@@ -404,13 +359,18 @@ function Player.new()
             Sound.new("game/assets/sounds/roll_fast1.wav"):Set("Volume", 0.16)
         },
         RollWhoosh = {
-            Sound.new("game/assets/sounds/roll_whoosh2.wav"):Set("Volume", 0.8)
+            Sound.new("game/assets/sounds/roll_whoosh2.wav"):Set("Volume", 0.75)
         },
         ShimmyWhoosh = {
-            Sound.new("game/assets/sounds/shimmy1.wav"):Set("Volume", 0.4)
+            Sound.new("game/assets/sounds/shimmy1.wav"):Set("Volume", 0.25)
         },
         PounceSqueak = {
             Sound.new("game/assets/sounds/squeak_pounce.wav", "static"):Set("Volume", 0.12),
+        },
+        PushWallSqueak = {
+            Sound.new("game/assets/sounds/push-wall-01.wav", "static"):Set("Volume", 1),
+            -- Sound.new("game/assets/sounds/push-wall-02.wav", "static"):Set("Volume", 1),
+            Sound.new("game/assets/sounds/push-wall-03.wav", "static"):Set("Volume", 1),
         },
         UpwardDive = {
             Sound.new("game/assets/sounds/upwarddive.wav", "static"):Set("Volume", 0.22)
@@ -433,8 +393,143 @@ function Player.new()
     
         Boing = {
             Sound.new("game/assets/sounds/boing1.wav", "static"):Set("Volume", 0.04),
+        },
+
+        StaminaRefill = {
+            Sound.new("game/assets/sounds/stamina_refill.wav", "static"):Set("Volume", 0.025),
+        },
+
+        WallSlide = {
+            Sound.new("game/assets/sounds/wall_slide1.wav", "static"):Set("Volume", 0.1):Set("Loop", true),
+        },
+
+        WallKick = {
+            Sound.new("game/assets/sounds/wallkick_1.wav", "static"):Set("Volume", 0.4),
+            Sound.new("game/assets/sounds/wallkick_2.wav", "static"):Set("Volume", 0.4),
+        },
+
+        Footstep = {
+            Sound.new("game/assets/sounds/footstep/default/footstep-01.wav", "static"):Set("Volume", 0.075),
+            Sound.new("game/assets/sounds/footstep/default/footstep-02.wav", "static"):Set("Volume", 0.075),
+            Sound.new("game/assets/sounds/footstep/default/footstep-03.wav", "static"):Set("Volume", 0.075),
+            Sound.new("game/assets/sounds/footstep/default/footstep-04.wav", "static"):Set("Volume", 0.075),
+            Sound.new("game/assets/sounds/footstep/default/footstep-05.wav", "static"):Set("Volume", 0.075),
+            Sound.new("game/assets/sounds/footstep/default/footstep-06.wav", "static"):Set("Volume", 0.075),
+            Sound.new("game/assets/sounds/footstep/default/footstep-07.wav", "static"):Set("Volume", 0.075),
+            Sound.new("game/assets/sounds/footstep/default/footstep-08.wav", "static"):Set("Volume", 0.075),
+        },
+
+        FootstepGlass = {
+            Sound.new("game/assets/sounds/footstep/glass/footstep-01.wav", "static"):Set("Volume", 0.065),
+            Sound.new("game/assets/sounds/footstep/glass/footstep-02.wav", "static"):Set("Volume", 0.065),
+            Sound.new("game/assets/sounds/footstep/glass/footstep-03.wav", "static"):Set("Volume", 0.065),
+            Sound.new("game/assets/sounds/footstep/glass/footstep-04.wav", "static"):Set("Volume", 0.065),
+            Sound.new("game/assets/sounds/footstep/glass/footstep-05.wav", "static"):Set("Volume", 0.065),
+            Sound.new("game/assets/sounds/footstep/glass/footstep-06.wav", "static"):Set("Volume", 0.065),
+            Sound.new("game/assets/sounds/footstep/glass/footstep-07.wav", "static"):Set("Volume", 0.065),
+            Sound.new("game/assets/sounds/footstep/glass/footstep-08.wav", "static"):Set("Volume", 0.065),
+        },
+
+        FootstepGrass = {
+            Sound.new("game/assets/sounds/footstep/grass/footstep-01.wav", "static"):Set("Volume", 0.05),
+            Sound.new("game/assets/sounds/footstep/grass/footstep-02.wav", "static"):Set("Volume", 0.05),
+            Sound.new("game/assets/sounds/footstep/grass/footstep-03.wav", "static"):Set("Volume", 0.05),
+            Sound.new("game/assets/sounds/footstep/grass/footstep-04.wav", "static"):Set("Volume", 0.05),
+            Sound.new("game/assets/sounds/footstep/grass/footstep-05.wav", "static"):Set("Volume", 0.05),
+        },
+        FootstepMetal = {
+            Sound.new("game/assets/sounds/footstep/metal/footstep-01.wav", "static"):Set("Volume", 0.035),
+            Sound.new("game/assets/sounds/footstep/metal/footstep-02.wav", "static"):Set("Volume", 0.035),
+            Sound.new("game/assets/sounds/footstep/metal/footstep-03.wav", "static"):Set("Volume", 0.035),
+            Sound.new("game/assets/sounds/footstep/metal/footstep-04.wav", "static"):Set("Volume", 0.035),
         }
-    }
+    },
+
+    -- internal properties
+    _usingPerformanceMode = false,  -- the GameScene controls whether PerformanceMode is on. Player just listens. 
+    _updateStep = false,    -- internally used for performance mode handling
+    _super = "Prop",
+    _global = true
+}
+local EMPTYVEC = V{0,0}
+
+-- the black outline shader
+Player.Shader = Shader.new("game/assets/shaders/outline.glsl"):Send("step",{1/Player.CanvasSize.X,1/Player.CanvasSize.Y}) -- 1/ 24 (for tile size) / 12 (for tile count)
+
+
+local Y_HITBOX_HEIGHT = 16
+local X_HITBOX_HEIGHT = 12
+local Y_HITBOX_HEIGHT_CROUCH = 8
+local X_HITBOX_HEIGHT_CROUCH = 6
+
+local balls = 0
+
+-- yHitbox is used to detect floors/ceilings
+local yHitboxBASE = Prop.new{
+    Name = "yHitbox",
+    Texture = Texture.new("chexcore/assets/images/square.png"),
+    Size = V{8,Y_HITBOX_HEIGHT},
+    Visible = false,
+    Color = V{1,0,0,0.4},
+    Solid = true,
+    AnchorPoint = V{0.5,1}
+}
+-- xHitbox is used to detect walls
+local xHitboxBASE = Prop.new{
+    Name = "xHitbox",
+    Texture = Texture.new("chexcore/assets/images/square.png"),
+    Size = V{8,X_HITBOX_HEIGHT},
+    Visible = false,
+    Color = V{0,0,1,0.4},
+    Solid = true,
+    AnchorPoint = V{0.5,1}
+}
+
+function Player.new()
+    local newPlayer = setmetatable({}, Player)
+    
+    newPlayer.Texture = Animation.new("chexcore/assets/images/test/player-sprite.png", 12, 12):AddProperties{Duration = .72, LeftBound = 5, RightBound = 10}
+    
+    -- set animation callbacks
+    newPlayer.Texture:AddCallback({
+        6, 9, -- walking footsteps
+        86, 89, -- walking w/ held item
+        
+    }, function (frameNo)
+        newPlayer:PlayQuietFootstepSound()
+        
+        
+    end)
+
+    newPlayer.Texture:AddCallback({
+        113, 116 -- pushing against wall
+    }, function()
+        newPlayer:PlayCustomFootstepSound(nil, 0.5, nil, 0.35)
+        if newPlayer.FramesSinceAgainstWall > 40 then
+            newPlayer:PlaySFX("PushWallSqueak", 1.5, 0, 0.05)
+        end
+    end)
+
+    newPlayer.Texture:AddCallback({
+        62, 65, -- running footsteps
+        68, 71, -- running w/ held itemd
+    }, function ()
+        newPlayer:PlayLoudFootstepSound()
+
+    end)
+    
+    newPlayer.SweatTexture = Animation.new("chexcore/assets/images/test/player_sweat_drops.png", 1, 4):AddProperties{Duration = 0.5, LeftBound = 1, RightBound = 4}
+    newPlayer.YHitbox = newPlayer:Adopt(yHitboxBASE:Clone())
+    newPlayer.XHitbox = newPlayer:Adopt(xHitboxBASE:Clone())
+    newPlayer.Position = Player.Position:Clone()
+    newPlayer.Size = Player.Size:Clone()
+    newPlayer.Canvas = Canvas.new(Player.CanvasSize())
+    newPlayer.TailPoints = {}
+    newPlayer.TouchEvents = {}
+    newPlayer.JustPressed = {}
+    newPlayer.DrawScale = V{1,1}
+
+    newPlayer.LastSFX_ID = {}
 
     newPlayer.SFX.Jump[1].Test = true
 
@@ -500,6 +595,38 @@ function Player.new()
         ParticleSize = V{8, 8},
         LoopAnim = false,
         ParticleTexture = Animation.new("chexcore/assets/images/test/player/dust_forward_land.png", 1, 4):Properties{Duration = 0.5},
+        ParticleLifeTime = 0.5,
+        Color = V{0,0,0,0},
+        ParticleColor = newPlayer.TrailColor,
+        Update = function (self, dt)
+    end}:Nest(newPlayer)
+
+    Particles.new{
+        Name = "WallSlideDust",
+        AnchorPoint = V{0.5, 0.5},
+        ParticleAnchorPoint = V{0.5, 0.5},
+        Texture = Texture.new("chexcore/assets/images/empty.png"),
+        RelativePosition = false,
+        Size = V{8,8},
+        ParticleSize = V{8, 8},
+        LoopAnim = false,
+        ParticleTexture = Animation.new("chexcore/assets/images/test/player/dust_wall_slide.png", 1, 4):Properties{Duration = 0.5},
+        ParticleLifeTime = 0.5,
+        Color = V{0,0,0,0},
+        ParticleColor = newPlayer.TrailColor,
+        Update = function (self, dt)
+    end}:Nest(newPlayer)
+
+    Particles.new{
+        Name = "WallKickDust",
+        AnchorPoint = V{0.5, 0.5},
+        ParticleAnchorPoint = V{0.5, 0.5},
+        Texture = Texture.new("chexcore/assets/images/empty.png"),
+        RelativePosition = false,
+        Size = V{8,8},
+        ParticleSize = V{8, 8},
+        LoopAnim = false,
+        ParticleTexture = Animation.new("chexcore/assets/images/test/player/dust_wall_kick.png", 1, 5):Properties{Duration = 0.3},
         ParticleLifeTime = 0.5,
         Color = V{0,0,0,0},
         ParticleColor = newPlayer.TrailColor,
@@ -590,8 +717,12 @@ end
 function Player:DisconnectFromFloor()
     self.Floor = nil
     self.FloorPos = nil
+    self.FloorTileNo = nil
+    self.FloorTileLayer = nil
+
     self.FloorLeftEdge, self.FloorRightEdge = nil, nil
     self.DistanceAlongFloor = nil
+    self.FloorSurfaceInfo = nil
     
     if self.LedgeLungeStairCount == 0 then
         self.LedgeLungeChain = 0
@@ -610,17 +741,33 @@ end
 function Player:DisconnectFromWall()
     self.Wall = nil
     self.FramesSinceDepartedWall = 0
+    self.WallTileNo = nil
+    self.WallTileLayer = nil
     self.WallDirection = "none"
 end
 
-function Player:ConnectToFloor(floor)
+function Player:ConnectToFloor(floor, surfaceInfo, tileNo, tileLayer)
     -- print("EHEGH")
     
     -- if true then return flase end
     if not self.Floor then
         -- just landed
+        self:PlayRegainStaminaSound()
         self.VelocityBeforeHittingGround = self.Velocity.Y
         self.FramesSinceGrounded = 0
+        self.FloorSurfaceInfo = surfaceInfo.Top
+        self.LastFloorSurfaceInfo = surfaceInfo.Top
+        print("TILENO", tileNo, tileLayer)
+        self.FloorTileNo = tileNo
+        self.FloorTileLayer = tileLayer
+        
+        self:PlayLoudFootstepSound(1)
+        if not self.Wall then
+            Timer.Schedule(math.random(1,(self.FramesSinceDive > -1 and 2 or 3))/60, function ()
+                (self.PlayLoudFootstepSound)(self, 1)
+            end)
+        end
+
 
         if self.FramesOnGroundSinceLedgeLunge > -1 then
             self.OnGroundAfterLedgeLunge = true
@@ -633,14 +780,15 @@ function Player:ConnectToFloor(floor)
     self.LastFloorPos = floor.Position:Clone()
     self.FloorLeftEdge = floor:GetEdge("left")
     self.FloorRightEdge = floor:GetEdge("right")
-    
 
     self.Position.Y = math.floor(self.Position.Y)
     self.DistanceAlongFloor = (self.Position.X - self.FloorLeftEdge) + (self.FloorRightEdge - self.FloorLeftEdge)
     -- self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Loop = true}
+
+    
 end
 
-function Player:ConnectToWall(wall, direction)
+function Player:ConnectToWall(wall, direction, surfaceInfo, tileNo, tileLayer)
     
     if not self.Wall then
         -- just touched wall
@@ -648,6 +796,22 @@ function Player:ConnectToWall(wall, direction)
     end
     self.Wall = wall
     self.WallDirection = direction
+    self.WallPos = wall.Position:Clone()
+    self.LastWallPos = wall.Position:Clone()
+
+    -- collect wall material info
+    self.WallSurfaceInfo = surfaceInfo[direction=="left" and "Left" or "Right"]
+    self.LastWallSurfaceInfo = self.WallSurfaceInfo
+    self.WallTileNo = tileNo
+    self.WallTileLayer = tileLayer
+
+
+    if self.FramesSinceDive == -1 and math.abs(self.Velocity.X) > self.WalkSpeed then
+        self:PlayCustomFootstepSound(self:GetWallMaterial(), 0.75, 0, 0.4)
+    end
+
+    -- housekeeping
+    self.FramesSincePounce = -1
 
     -- self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Loop = true}
 end
@@ -668,19 +832,22 @@ function Player:AlignHitboxes()
 end
 
 function Player:FollowFloor()
+    -- print("FLOOR:", self.Floor, self.FloorTileNo, self.FloorTileLayer)
+    -- print("WALL:", self.Wall, self.WallTileNo, self.WallTileLayer, self.Wall and self.Wall:GetTileCoordinatesFromIndex(self.WallTileNo))
+
     if self.Floor then
         if self.FloorPos and self.FloorPos ~= self.Floor.Position then
-            if not self.Floor:IsA("Tilemap") then
+            -- if not self.Floor:IsA("Tilemap") then
                 self.FloorDelta = self.FloorPos - self.Floor.Position
 
                 self.Position = (self.Position - self.FloorDelta)
                 
-                self:SetEdge("bottom", self.Floor:GetEdge("top"))
-            else
-                self.FloorDelta = self.FloorPos - self.Floor.Position
-                self.Position = (self.Position - self.FloorDelta)
-                self.Velocity.Y = 0
-            end
+                self:SetEdge("bottom", self.Floor:GetEdge("top", self.FloorTileNo, self.FloorTileLayer))
+            -- else
+            --     self.FloorDelta = self.FloorPos - self.Floor.Position
+            --     self.Position = (self.Position - self.FloorDelta)
+            --     self.Velocity.Y = 0
+            -- end
         end
 
         self.FloorPos = self.Floor.Position:Clone()
@@ -688,6 +855,52 @@ function Player:FollowFloor()
         self.PreviousFloorHeight = self:GetEdge("bottom")
     elseif self.LastFloor then
         self.LastFloorDelta = self.LastFloorPos - self.LastFloor.Position
+    end
+end
+
+function Player:FollowWall()
+    -- print("FLOOR:", self.Floor, self.FloorTileNo, self.FloorTileLayer)
+    -- print("WALL:", self.Wall, self.WallTileNo, self.WallTileLayer, self.Wall and self.Wall:GetTileCoordinatesFromIndex(self.WallTileNo))
+    -- if true then return end
+    if self.Wall then
+        local wallSign = (self.WallDirection=="left"and-1 or 1)
+        if self.WallPos and (self.FramesSinceParry == -1 or self.FramesSinceParry > 5) and (self:GetBodyOrientation() == wallSign or self.MoveDir == wallSign)  --[[and self.WallPos ~= self.Wall.Position]] then
+            -- if not self.Floor:IsA("Tilemap") then
+            self:AlignHitboxes()
+                self.WallDelta = self.WallPos - self.Wall.Position
+
+                -- self.Position.X = self.Position.X - self.WallDelta.X*2
+
+                if not self.Floor then
+                    self.Position.Y = self.Position.Y - self.WallDelta.Y
+                end
+                -- self.Position = (self.Position - self.WallDelta) --+ V{2*(self.WallDirection=="left" and -1 or 1),0}
+                
+                print("E", self.Wall:GetEdge("right", self.WallTileNo, self.WallTileLayer))
+                if self.WallDirection == "left" then
+                    self.YHitbox:SetEdge("left", self.Wall:GetEdge("right", self.WallTileNo, self.WallTileLayer))
+                elseif self.WallDirection == "right" then
+                    self.YHitbox:SetEdge("right", self.Wall:GetEdge("left", self.WallTileNo, self.WallTileLayer))
+                end
+
+                self.Position = self.YHitbox.Position --+ V{2 * sign(self.WallDelta.X),0}
+                
+                -- self.Position.X = self.Position.X  - self.WallDelta.X/4
+
+                self.Velocity.X = 0
+                -- print(self.Floor, self.Floor:GetEdge("top", self.FloorTileNo, self.FloorTileLayer))
+            -- else
+            --     self.FloorDelta = self.FloorPos - self.Floor.Position
+            --     self.Position = (self.Position - self.FloorDelta)
+            --     self.Velocity.Y = 0
+            -- end
+        end
+
+        self.WallPos = self.Wall.Position:Clone()
+        
+        -- self.PreviousFloorHeight = self:GetEdge("bottom")
+    -- elseif self.LastFloor then
+    --     self.LastFloorDelta = self.LastFloorPos - self.LastFloor.Position
     end
 end
 
@@ -746,8 +959,9 @@ function Player:UnclipY(forTesting)
     local activeCollider
 
     for _, collider in ipairs(yColliders) do
-        for solid, hDist, vDist, tileID in collider:CollisionPass(self._parent, true) do
+        for solid, hDist, vDist, tileID, tileNo, tileLayer in collider:CollisionPass(self._parent, true) do
             
+
             local face = Prop.GetHitFace(hDist,vDist)
             -- we check the "sign" of the direction to make sure the player is "moving into" the object before clipping back
             local faceSign = face == "bottom" and 1 or face == "top" and -1 or 0
@@ -770,7 +984,7 @@ function Player:UnclipY(forTesting)
                     if not forTesting and pushX == 0 and pushY >= -4 then
                         
                         if collider ~= self.HeldItem then
-                            self:ConnectToFloor(solid)
+                            self:ConnectToFloor(solid, surfaceInfo, tileNo, tileLayer)
                         elseif self.HeldItem and self.HeldItem.CanBeOverhang and face == "bottom" then
                             self.ShouldCheckForHeldItemOverhang = true
                             -- self.Velocity.Y = 0
@@ -850,20 +1064,20 @@ function Player:UnclipX(forTesting)
     local activeCollider
 
     for _, collider in ipairs(xColliders) do
-        for solid, hDist, vDist, tileID in collider:CollisionPass(self._parent, true) do
+        for solid, hDist, vDist, tileID, tileNo, tileLayer in collider:CollisionPass(self._parent, true) do
+            
             local face = Prop.GetHitFace(hDist,vDist)
             local surfaceInfo = solid:GetSurfaceInfo(tileID)
-
+            
             
             if (solid ~= self.YHitbox and solid ~= self.XHitbox and solid ~= self.HeldItem) and not solid.Passthrough then
-    
     
     
     
                 if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
                     pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
                     self:AlignHitboxes()
-                    self:ConnectToWall(solid, face)
+                    self:ConnectToWall(solid, face, surfaceInfo, tileNo, tileLayer)
                 end
             end
             
@@ -926,11 +1140,15 @@ function Player:ValidateFloor()
         self.Velocity.Y = 0
         local hit --, hDist, vDist = self.Floor:CollisionInfo(self.YHitbox)
 
-        for solid, hDist, vDist, tileID in self.YHitbox:CollisionPass(self.Floor, true, false, true) do
+        for solid, hDist, vDist, tileID, tileNo, tileLayer in self.YHitbox:CollisionPass(self.Floor, true, false, true) do
             local surfaceInfo = solid:GetSurfaceInfo(tileID)
             local face = Prop.GetHitFace(hDist,vDist)
             if self.Velocity.Y >= 0 and not surfaceInfo.Top.Passthrough and face == "bottom" then
                 hit = solid
+                self.FloorSurfaceInfo = surfaceInfo.Top
+                self.LastFloorSurfaceInfo = surfaceInfo.Top
+                self.FloorTileNo = tileNo
+                self.FloorTileLayer = tileLayer
                 break
             end
         end
@@ -1061,22 +1279,31 @@ function Player:ValidateFloor()
 end
 
 function Player:ValidateWall()
+    
     if self.Wall then
         -- check if we've collided with the current floor or not
         self:AlignHitboxes()
-        local dir = (self.MoveDir ~= 0 and self.MoveDir) or (self.WallDirection == "left" and -1 or 1)
+        local dir = ((self.FramesSinceDive > -1 ) and self:GetBodyOrientation()) -- if diving, refer to body orientation only
+            or (self.MoveDir ~= 0 and self.MoveDir)                           -- if holding a direction, refer to held direction
+            or (self.WallDirection == "left" and -1 or 1)                     -- if idle, refer to direction of supposed wall
         local hit
 
         for _, collider in ipairs((self.HeldItem and self.HeldItem.ExtendsHitbox) and {self.XHitbox, self.HeldItem} or {self.XHitbox}) do
+            -- print("DELTA", )
             collider.Position.X = collider.Position.X + dir
             -- hit = hit or self.Wall:CollisionInfo(collider)
             
-            for solid, hDist, vDist, tileID in collider:CollisionPass(self.Wall, true, false, true) do
+            for solid, hDist, vDist, tileID, tileNo, tileLayer in collider:CollisionPass(self.Wall, true, false, true) do
                 if solid then
                     local surfaceInfo = solid:GetSurfaceInfo(tileID)
                     local face = Prop.GetHitFace(hDist,vDist)
-                    if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
+                    
+                    if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) or ((face=="left" or face=="right") and self.FramesSinceDive > -1) then
                         hit = solid
+                        self.WallSurfaceInfo = surfaceInfo[face=="left" and "Left" or "Right"]
+                        self.LastWallSurfaceInfo = self.WallSurfaceInfo
+                        self.WallTileNo = tileNo
+                        self.WallTileLayer = tileLayer
                     end
                 end
             end
@@ -1084,10 +1311,13 @@ function Player:ValidateWall()
         end
         
         if not hit then
+            -- print("nuh uh")
             self:DisconnectFromWall()
         else
+            -- print("YUH")
             self.Velocity.X = 0
         end
+        -- print("S2")
     end
     self:UpdateHeldItem()
     self:AlignHitboxes()
@@ -1238,13 +1468,6 @@ function Player:ProcessInput(dt)
             self.JumpBuffer = self.JumpFrames
         end
 
-        local i = 0
-        for _, _ in pairs(Player) do
-            i = i + 1
-        end
-
-        print(i)
-
         if self.JumpBuffer > 0 and not blockJump then
             if (self.Floor or self.CoyoteBuffer > 0) then
                 self:Jump()
@@ -1253,7 +1476,17 @@ function Player:ProcessInput(dt)
             elseif not self.HeldItem and (self.FramesSincePounce == -1 or self.FramesSincePounce > self.TimeAfterPounceCanDoubleJump) and (self.FramesSinceDive == -1 or math.abs(self.Velocity.X) >= self.DiveCancelSpeedThreshold) and (self.FramesSinceBounce == -1 or self.FramesSinceBounce >= self.FramesAfterBounceBeforeCanDoubleJump) then
                 
                 local wallDir = self.WallDirection=="left" and -1 or 1
-                if ((self.Wall or (self.FramesSinceDepartedWall > -1 and self.FramesSinceDepartedWall < 20)) and (self.Velocity.Y >= self.WallSlideSpeed or self.FramesSinceDoubleJump > -1 or self.FramesSinceWallKick > -1)) and (wallDir==-1 and self.FramesSinceHoldingLeft or self.FramesSinceHoldingRight) < 30 and self:GetBodyOrientation() == wallDir and ((self.FramesSinceWallKick == -1 or self.FramesSinceWallKick < 10) or (self.FramesSinceWallKick > -1 and self.Wall)) then
+                --                                                                                                                                                                                                                                                                                                      LESS TIME WITHOUT USED DOUBLEJUMP V    V MORE TIME AFTER USED DOUBLEJUMP                                 
+                if (
+                    (self.Wall or (self.FramesSinceDepartedWall > -1 and self.FramesSinceDepartedWall < 20)) and 
+                    (self.Velocity.Y >= self.WallSlideSpeed or self.FramesSinceDoubleJump > -1 or self.FramesSinceWallKick > -1)
+                ) and
+                    (wallDir==-1 and self.FramesSinceHoldingLeft or self.FramesSinceHoldingRight) < (self.FramesSinceDoubleJump == -1 and 15 or 30)
+                and
+                    self:GetBodyOrientation() == wallDir 
+                and (
+                    (self.FramesSinceWallKick == -1 or self.FramesSinceWallKick < 10) or (self.FramesSinceWallKick > -1 and self.Wall)
+                ) then
                     self:WallKick()
                 elseif self.FramesSinceDoubleJump == -1 then
                     self:DoubleJump()
@@ -1335,7 +1568,7 @@ function Player:PlayDynamicDashSound(speed, delay)
         Timer.Schedule(delay, function() self:PlaySFX("WeakRoll", pitch) end)
     end
 end
-function Player:PlaySFX(name, pitch, variance)
+function Player:PlaySFX(name, pitch, variance, volume)
     pitch = pitch or 1
     variance = variance or 1
     local no = math.random(1, #self.SFX[name])
@@ -1347,15 +1580,79 @@ function Player:PlaySFX(name, pitch, variance)
     end
     self.LastSFX_ID[name] = no
     
-    self.SFX[name][no]:Stop()
+    local soundToPlay = self.SFX[name][no]
+
+    soundToPlay:Stop()
     
-    self.SFX[name][no]:SetPitch(pitch + math.random(-5,5)/45 * variance)
-    self.SFX[name][no]:Play()
+    soundToPlay:SetPitch(pitch + math.random(-5,5)/45 * variance)
+
+    if volume or soundToPlay.BaseVolume then
+        soundToPlay.BaseVolume = soundToPlay.BaseVolume or soundToPlay.Volume
+        soundToPlay:SetVolume(soundToPlay.BaseVolume * (volume or 1))
+    end
+
+    soundToPlay:Play()
 end
 
 function Player:StopSFX(name)
     for _, sound in ipairs(self.SFX[name]) do
         sound:Stop()
+    end
+end
+
+function Player:PlayWallSlideSound()
+    self:PlaySFX("WallSlide", 1, 0)
+    self.PlayingWallSFX = true
+end
+
+function Player:PlayRegainStaminaSound()
+    if self.FramesSinceDoubleJump > -1 or self.FramesSinceDive > -1 then
+        self:PlaySFX("StaminaRefill", 2)
+    end
+end
+
+function Player:GetFloorMaterial()
+    if self.FloorSurfaceInfo then
+        return self.FloorSurfaceInfo.Material or "None"
+    else
+        return "None"
+    end
+end
+
+function Player:GetWallMaterial()
+    if self.WallSurfaceInfo then
+        return self.WallSurfaceInfo.Material or "None"
+    else
+        return "None"
+    end
+end
+
+function Player:PlayQuietFootstepSound()
+    local bank = ("Footstep"..self:GetFloorMaterial())
+    self:PlaySFX(self.SFX[bank] and bank or "Footstep", 0.7, 0, 0.5*2)
+end
+
+function Player:PlayLoudFootstepSound()
+    local bank = ("Footstep"..self:GetFloorMaterial())
+    self:PlaySFX(self.SFX[bank] and bank or "Footstep", 1, 0, 1*2)
+end
+
+-- bank can be "Glass" or "Metal" etc
+-- pitch is the pitch multiplier
+-- pitchVariance = 0 represents no variance
+-- volume is volume multiplier
+function Player:PlayCustomFootstepSound(bank, pitch, pitchVariance, volume)
+    bank = ("Footstep"..(bank or self:GetFloorMaterial()))
+    self:PlaySFX(self.SFX[bank] and bank or "Footstep", pitch or 1, pitchVariance or 0, (volume or 1)*2)
+end
+
+function Player:StopWallSlideSound()
+    self.WallSFXVolume = math.lerp(self.WallSFXVolume, 0, 0.2)
+    self.SFX.WallSlide[1]:SetVolume(self.WallSFXVolume)
+
+    if self.WallSFXVolume <= 0.05 then
+        self:StopSFX("WallSlide")
+        self.PlayingWallSFX = false
     end
 end
 
@@ -1464,12 +1761,20 @@ end
 function Player:WallKick()
     self:GrowHitbox()
     local wallDir = self.WallDirection == "left" and -1 or 1
-    self.Velocity.Y = 0
-    self.Velocity.X = 6 * -wallDir
+    self.Velocity.Y = math.min(self.Velocity.Y, 0)
+    self.Velocity.X = 5 * -wallDir
     self.JumpBuffer = 0
+    
+    self:PlayCustomFootstepSound(self:GetWallMaterial(), 0.8, nil, 1)
     self:SetBodyOrientation(-wallDir)
     self:DisconnectFromWall()
-
+    self.WallSurfaceInfo = nil
+    self:PlaySFX("Jump")
+    self:PlaySFX("WallKick")
+    self:GetChild("WallKickDust"):Emit{
+        Position = self.Position - V{wallDir*4,5},
+        Size = V{16*wallDir, 16}
+    }
     self.FramesSinceWallKick = 0
 end
 
@@ -1575,6 +1880,11 @@ function Player:Parry()
     
     self:GrowHitbox()
 
+
+    -- play a footstep sound regardless
+    
+    self:PlayCustomFootstepSound(self:GetWallMaterial(), 1.25, nil, 2)
+
     -- can parry if:
     -- - you haven't parried yet this jump (LastParryFace is "none") OR
     -- - your parry direction is the opposite wall (ex. "left" to "right") OR
@@ -1621,6 +1931,11 @@ function Player:Parry()
     self.LastParryFace = self.WallBumpDirection
     self.FramesSinceParry = 0
 
+    
+    self:GetChild("WallKickDust"):Emit{
+        Position = self.Position - V{-wallDir*4,5},
+        Size = V{16*-wallDir, 16}
+    }
     self:PlaySFX("Parry")
     self:PlaySFX("Parry2")
 end
@@ -1823,16 +2138,14 @@ function Player:Roll()
     self.Texture.IsPlaying = true
 
     if movementPower == self.ShimmyPower and self.FramesSinceGrounded > 0 and not self.InputListener:IsDown("jump") then
-        self:PlaySFX("ShimmyWhoosh")
+        self:PlaySFX("ShimmyWhoosh", 1.2)
         
     else
-        print(self.LastRollPower, self.ShimmyPower)
 
         if self.LastRollPower == self.ShimmyPower then
             -- print("SHIMMY", )
             if not self.InLedgeLunge then self:PlaySFX("ShimmyWhoosh") else self:PlaySFX("ShimmyWhoosh", pitch) end
         else
-            print("roll?")
             self:PlaySFX("RollWhoosh", pitch)
         end
         -- if self.FramesSinceLastLunge > 2 then
@@ -1845,7 +2158,7 @@ function Player:Roll()
 
     -- special case: rolling while against a wall (kind of a "ground parry")
 
-    if self.Wall then
+    if self.Wall and self.MoveDir ~= -(self.WallDirection=="left" and -1 or 1) then
         self.Velocity.X = -self.Velocity.X/1.5
         self:PlaySFX("Parry")
         -- self.DrawScale.X = -self.DrawScale.X
@@ -1864,12 +2177,15 @@ function Player:StartCrouch()
     self.CrouchTime = 1
     self.TimeSinceCrouching = -1
     self.CrouchAnimBounds = bounds[math.random(#bounds)]
+    self:PlaySFX("DoubleJump", 1.5, 1, 0.2)
+    self:PlayCustomFootstepSound(nil, 1.5, 0, 0.4)
     self:ShrinkHitbox()
 end
 
 function Player:EndCrouch()
     self.CrouchTime = 0
     self.TimeSinceCrouching = 0
+    self:PlaySFX("DoubleJump", 1.3, 1, 0.125)
     self:GrowHitbox()
 end
 
@@ -2032,6 +2348,7 @@ function Player:UpdateAnimation()
     end 
 
     
+    
 
     -- print(self:GetScene()._children)
     -- check what anim state to put pounce in
@@ -2125,7 +2442,7 @@ function Player:UpdateAnimation()
 
         -- end
         
-    elseif self.Wall and sign(self.DrawScale.X) == (self.WallDirection == "left" and -1 or 1) and sign(self.DrawScale.X) == self.MoveDir and self.FramesSinceHoldingItem == -1 then
+    elseif self.Wall and self.ParryStatus == 0 and self.CrouchTime == 0 and sign(self.DrawScale.X) == (self.WallDirection == "left" and -1 or 1) and sign(self.DrawScale.X) == self.MoveDir and self.FramesSinceHoldingItem == -1 then
          -- in the air against wall
          self.Texture.IsPlaying = false
          self.Texture.Clock = 0
@@ -2145,6 +2462,7 @@ function Player:UpdateAnimation()
          end
     
     elseif self.ParryStatus > 0 then
+        
         self.Texture:AddProperties{LeftBound = 21, RightBound = 24, Duration = 0.3, PlaybackScaling = 1, Loop = false}
         if not self.Texture.IsPlaying then
             self.ShouldRestartJumpAnim = true
@@ -2188,6 +2506,7 @@ function Player:UpdateAnimation()
         self.CrouchEndBuffer = self.CrouchEndBuffer - 1
         self.Texture:AddProperties{LeftBound = 35, RightBound = 36, Duration = 4/60, PlaybackScaling = 1, Loop = false}
     elseif self.CrouchTime > 0 and self.Floor then
+            
             -- is crouching
             if not self.InputListener:IsDown("crouch") then
                 -- crouch just ended - we'll use this animation instead
@@ -2243,16 +2562,16 @@ function Player:UpdateAnimation()
             elseif math.abs(self.Velocity.X) >= self.RunSpeed then
                 if self.HeldItem then
                     -- holding an object (arms up)
-                    self.Texture:AddProperties{LeftBound = 67, RightBound = 71, Duration = 0.72, PlaybackScaling = 0.95 + math.abs(self.Velocity.X)*0.15, IsPlaying = true, Loop = true}
+                    self.Texture:AddProperties{LeftBound = 67, RightBound = 72, Duration = 0.72, PlaybackScaling = 1 + math.abs(self.Velocity.X)*0.15, IsPlaying = true, Loop = true}
                 else
-                    self.Texture:AddProperties{LeftBound = 61, RightBound = 66, Duration = 0.72, PlaybackScaling = 0.95 + math.abs(self.Velocity.X)*0.15, IsPlaying = true, Loop = true}
+                    self.Texture:AddProperties{LeftBound = 61, RightBound = 66, Duration = 0.72, PlaybackScaling = 1 + math.abs(self.Velocity.X)*0.18, IsPlaying = true, Loop = true}
                 end
             else
                 if self.HeldItem then
                     -- holding an object (arms up)
                     self.Texture:AddProperties{LeftBound = 85, RightBound = 90, Duration = 0.72, PlaybackScaling = 1 + math.abs(self.Velocity.X)*0.25, IsPlaying = true, Loop = true}
                 else
-                    self.Texture:AddProperties{LeftBound = 5, RightBound = 10, Duration = 0.72, PlaybackScaling = 1 + math.abs(self.Velocity.X)*0.25, IsPlaying = true, Loop = true}
+                    self.Texture:AddProperties{LeftBound = 5, RightBound = 10, Duration = 0.72, PlaybackScaling = 1 + math.abs(self.Velocity.X)*0.375, IsPlaying = true, Loop = true}
                 end
             end
         end
@@ -2266,6 +2585,7 @@ function Player:UpdateAnimation()
                 -- holding an object (arms up)
                 self.Texture:AddProperties{LeftBound = 77, RightBound = 80, Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
             else
+                
                 self.Texture:AddProperties{LeftBound = 13, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
             end
         elseif self.FramesSinceJump == -1 and self.FramesSinceDoubleJump == -1 then
@@ -2288,6 +2608,7 @@ function Player:UpdateAnimation()
                 -- holding an object (arms up)
                 self.Texture:AddProperties{LeftBound = 77, RightBound = 80, Duration = 0.4, PlaybackScaling = 1, Loop = false, IsPlaying = true}
             else
+                
                 self.Texture:AddProperties{LeftBound = 13, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false, IsPlaying = true}
             end
         end
@@ -2395,10 +2716,55 @@ function Player:UpdateFrameValues()
 
         -- spring stuff
         self.FramesSinceBounce = -1
+
+        if self.PlayingWallSFX then
+            self:StopWallSlideSound()
+        end
     else
         if self.FramesSinceBounce > -1 then
             self.FramesSinceBounce = self.FramesSinceBounce + 1
         end
+    end
+
+    -- wall kick sfx/particles stuff
+    if self.Wall and self.MoveDir == (self.WallDirection=="left" and -1 or 1) then
+        if self.PlayingWallSFX then
+            self.SFX.WallSlide[1]:SetVolume(self.WallSFXVolume)
+            local wallDir = self.WallDirection=="left" and -1 or 1
+            if math.abs(self.Velocity.Y) < 1 then
+                self.WallSFXVolume = math.lerp(self.WallSFXVolume, 0, 0.2)
+            else
+                self.WallSFXVolume = math.lerp(self.WallSFXVolume, self.WallSFXMaxVolume, 0.0575)
+
+                local frequency = math.clamp(math.floor(8-math.abs(self.Velocity.Y*2)), 1, 8)
+            
+                if self.FramesSinceAgainstWall % frequency == frequency-1 then
+                    self:GetChild("WallSlideDust"):Emit{
+                        Position = self.Position - V{wallDir*4,5},
+                        Size = V{16*wallDir, 16}
+                    }
+                end
+            end
+            
+            if self.Velocity.Y > 0 then
+                self.SFX.WallSlide[1]:SetPitch(1)
+            elseif self.Velocity.Y < 0 then
+                self.SFX.WallSlide[1]:SetPitch(1.5)
+            end
+            
+        elseif not self.PlayingWallSFX and not self.Floor then
+            self:PlayWallSlideSound()
+        end
+    else
+        -- no wall
+        if self.PlayingWallSFX then
+            self:StopWallSlideSound()
+        end
+    end
+
+    if not self.PlayingWallSFX then
+        self.WallSFXVolume = 0
+        self.SFX.WallSlide[1]:SetVolume(self.WallSFXVolume)
     end
 
     if self.FramesSinceWallKick > -1 then
@@ -2831,9 +3197,12 @@ function Player:UpdatePhysics()
         -- check for parrying
         local facingWall = (self.WallDirection == "left" and sign(self.DrawScale.X) == -1)
                         or (self.WallDirection == "right" and sign(self.DrawScale.X) == 1)
+
+        
         if self.Wall and facingWall then
             -- if self.MoveDir == (self.WallDirection == "left" and -1 or self.WallDirection == "right" and 1 or 0) then
                 self:BumpWall()
+                
                 self:Parry()
                 self.ParryStatus = self.ParryWindow
             -- end
@@ -2976,12 +3345,12 @@ function Player:UpdateTail()
         return
     end
     local tp = self.TailPoints
-    if #tp < self.TailLength or (tp[1] ~= self.Position) then
+    -- if (tp[1] ~= self.Position) or #tp < self.TailLength then
         insert(tp, 1, self.Position:Clone())
         if tp[self.TailLength+1] then
             tp[self.TailLength+1] = nil
         end
-    end
+    -- end
 end
 
 ------------------------ MAIN UPDATE LOOP -----------------------------
@@ -3005,6 +3374,8 @@ function Player:Update(engine_dt)
     -- if we're on a moving floor let's move with it
     self:FollowFloor()
 
+
+
     -- listen for inputs here
     self:ProcessInput(engine_dt)
 
@@ -3020,9 +3391,12 @@ function Player:Update(engine_dt)
     
     -- confirm the floor remains the floor
     self:ValidateFloor()
-    -- , and the wall
-    self:ValidateWall()
 
+        -- same with wall
+        self:FollowWall()
+
+        -- validate the wall early
+        self:ValidateWall()
 
     -- set the proper animation state
     self:UpdateAnimation()
@@ -3126,7 +3500,8 @@ function Player:Draw(tx, ty)
         local sy = self.Size[2] * (self.DrawScale[2]-1)
 
         local shouldDrawTail = (self.CrouchTime == 0 or not self.Floor) and
-                               (self.ParryStatus == 0)
+                               (self.ParryStatus == 0) and
+                               (not self.Floor or self.Velocity:Magnitude() > 1.7)
 
         -- if not (self.Floor and self.Velocity.X == 0) then
         if shouldDrawTail then
@@ -3181,6 +3556,26 @@ function Player:Draw(tx, ty)
             )
         end
 
+        -- draw sweat drops if double jumped
+        
+        local shouldDrawSweat = self.FramesSinceDoubleJump >= 15 --or self.SweatTexture.CurrentFrame == 1
+        
+        if shouldDrawSweat then
+            love.graphics.setColor(1,1,1)
+            if self.FramesSinceDoubleJump == 15 then
+                self.SweatTexture.Clock = 0
+                self.SweatTexture.IsPlaying = true
+            end
+            self.SweatTexture:DrawToScreen(
+                self.Canvas:GetWidth()/2-(1*self:GetBodyOrientation()),
+                self.Canvas:GetHeight()/2-2,
+                self.Rotation,
+                self.Size[1] + sx,
+                self.Size[2] + sy,
+                0.5, 0.5
+            )
+        end
+
         love.graphics.setColor(self.Color * self.DiveExpiredGoalColor)
         self.Texture:DrawToScreen(
             self.Canvas:GetWidth()/2,
@@ -3230,6 +3625,10 @@ function Player:Draw(tx, ty)
 end
 
 function Player:ResetJumpStamina()
+
+
+    self:PlayRegainStaminaSound()
+
     self.ThrewItemInAir = false
     self.DiveExpired = false
     self.LastParryWall = nil
@@ -3240,6 +3639,8 @@ function Player:ResetJumpStamina()
     self.FramesSinceParry = -1
     self.FramesSincePounce = -1
     self.CaughtHeldItemMidairChain = 0
+
+    
 end
 
 function Player:Respawn(pos)

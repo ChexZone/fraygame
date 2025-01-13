@@ -280,6 +280,7 @@ local collisionInfo = Prop.CollisionInfo
 
 function Prop.GetHitFace(hDist, vDist, usingItWrong)
     if usingItWrong then
+        print("Make sure to use Prop.GetHitFace() and not Prop:GetHitFace()!!")
         hDist, vDist = vDist, usingItWrong
     end
 
@@ -325,7 +326,7 @@ function Prop:CollisionPass(container, deep, preference, isSingleObject)
         end
     end
 
-    local hit, hDir, vDir, ex
+    local hit, hDir, vDir, ex, ex2, ex3
     local i = 1
     local queue, queuePos, queueOwner
     return function ()
@@ -334,16 +335,15 @@ function Prop:CollisionPass(container, deep, preference, isSingleObject)
             
             queuePos = queuePos + 1
             if queue[queuePos] then
-                return queueOwner, queue[queuePos][1], queue[queuePos][2], queue[queuePos][3]
+                return queueOwner, queue[queuePos][1], queue[queuePos][2], queue[queuePos][3], queue[queuePos][4], queue[queuePos][5]
             else
                 queue = nil; queuePos = nil; queueOwner = nil
             end
         end
-
         
         repeat
             if container[i].CollisionInfo then
-                hit, hDir, vDir, ex = container[i]:CollisionInfo(self, preference)
+                hit, hDir, vDir, ex, ex2, ex3 = container[i]:CollisionInfo(self, preference)
             end
             i = i + 1
             
@@ -355,9 +355,10 @@ function Prop:CollisionPass(container, deep, preference, isSingleObject)
             queuePos = 1
             queueOwner = container[i-1]
             
-            return queueOwner, queue[1][1], queue[1][2], queue[1][3]
+            return queueOwner, queue[1][1], queue[1][2], queue[1][3], queue[1][4], queue[1][5]
         elseif hit then
-            return container[i-1], hDir, vDir, ex
+            
+            return container[i-1], hDir, vDir, ex, ex2, ex3
         else
             return nil
         end

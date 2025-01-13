@@ -25,6 +25,10 @@ local set_fields = {
 
     Volume = function (self, v)
         self:SetVolume(v)
+    end,
+
+    Loop = function (self, l)
+        self:SetLoop(l)
     end
 }
 local get_fields = {
@@ -63,6 +67,10 @@ end
 function Sound:SetVolume(vol)
     rawset(self, "Volume", vol)
     self._source:setVolume(vol)
+end
+function Sound:SetLoop(loop)
+    rawset(self, "Loop", loop)
+    self._source:setLooping(loop)
 end
 
 return Sound

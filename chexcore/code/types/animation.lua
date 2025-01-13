@@ -11,10 +11,13 @@ local Animation = {
     Loop = true,
     IsPlaying = true,
 
+
+
     -- internal properties
     _cache = setmetatable({}, {__mode = "k"}), -- cache has weak keys
     _quadSize = V{0,0}, -- the amount of pixels in the spritesheet
     _quadSizeFrames = V{0, 0}, -- the amount of frames in the spritesheet
+    _frameCallbacks = nil,  -- set when calling Animation:AddCallback() for the first time
     _frames = nil,
     _texture = nil,
     _super = "Object",      -- Supertype
@@ -36,6 +39,7 @@ function Animation.new(spritesheetPath, rows, cols)
 
     newAnimation._texture = Texture.new(spritesheetPath)
     newAnimation._frames = {}
+    -- newAnimation._frameCallbacks = {}
 
     local sx = newAnimation._texture:GetWidth()
     local sy = newAnimation._texture:GetHeight()
@@ -67,6 +71,7 @@ end
 local floor = math.floor
 function Animation:DrawToScreen(...)
     -- render the Texture
+    
     local range = self.RightBound - self.LeftBound + 1
     local prog = self:GetProgress()
     if prog < 1 then
@@ -106,6 +111,55 @@ function Animation:Update(dt)
             self.Clock = self.Clock - dt
         end
     end
+
+
+    if self._frameCallbacks then
+        local range = self.RightBound - self.LeftBound + 1
+        local prog = self:GetProgress()
+        local cframe = self.CurrentFrame
+        if prog < 1 then
+            self.CurrentFrame = self.LeftBound + floor(range * prog)
+        else -- special case for progress == 1
+            self.CurrentFrame = self.RightBound
+        end
+
+        if cframe ~= self.CurrentFrame then
+            if self._frameCallbacks[self.CurrentFrame] then
+                self._frameCallbacks[self.CurrentFrame](self.CurrentFrame)
+            end
+        end
+    end
+
+
+    -- if self._frameCallbacks then
+    --     local range = self.RightBound - self.LeftBound + 1
+    --     local prog = self:GetProgress()
+    --     local newFrame
+    --     if prog < 1 then
+    --         newFrame = self.LeftBound + floor(range * prog)
+    --     else -- special case for progress == 1
+    --         newFrame = self.RightBound
+    --     end
+    --     print(newFrame, self.CurrentFrame, self)
+    --     if newFrame ~= self.CurrentFrame then
+            
+    --     end
+    -- end
+
+end
+
+function Animation:AddCallback(frameNo, callback)
+    print("FRAMENO",frameNo)
+    self._frameCallbacks = self._frameCallbacks or {}
+
+    if type(frameNo) == "number" then
+        self._frameCallbacks[frameNo] = callback
+    else
+        for _, v in ipairs(frameNo) do
+            self._frameCallbacks[v] = callback
+        end
+    end
+    
 end
 
 function Animation:GetSize()
