@@ -1722,6 +1722,7 @@ function Player:Jump(noSFX)
     
 
     -- pounce handling
+    print(self.LastRollPower == self.ShimmyPower)
     if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
         print(self.LedgeLungeStairCount, self.LedgeLungeCharge)
         local heightBoost = math.min((self.LedgeLungeCharge*0.5 + self.LedgeLungeChain*0.25), 3)--math.max((self.LedgeLungeCharge - 6), 0) / 4
@@ -1750,7 +1751,7 @@ function Player:Jump(noSFX)
         }
         self:ShrinkHitbox()
     else
-
+        
         -- regular jump
         self:GetChild("JumpDust"):Emit{Position = self.Position, }
 
@@ -2140,7 +2141,7 @@ function Player:Roll()
     self.ActionBuffer = 0
     self.LungeBuffer = 0
     local holdingCrouch = self:IsHoldingCrouch()
-    local justLunged = self.FramesSinceDive <= 10
+    local justLunged = self.FramesSinceDive <= 30
     local movementPower = ((self.CrouchTime > self.CrouchShimmyDelay or self.TimeSinceCrouching < 10) and holdingCrouch) and self.ShimmyPower or self.RollPower
     
     -- special case for if player just recently lunged to the ground
