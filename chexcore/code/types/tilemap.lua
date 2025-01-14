@@ -63,6 +63,19 @@ local Tilemap = {
 
         Metal = {
             Top = {Material = "Metal"}, Left = {Material = "Metal"}, Right = {Material = "Metal"}, 
+        },
+
+        HalfTileTop = {
+            Bottom = {
+                CollisionInset = 8
+            }
+        },
+
+        MiniTile = {
+            Top = {CollisionInset = 4},
+            Bottom = {CollisionInset = 4},
+            Left = {CollisionInset = 4},
+            Right = {CollisionInset = 4},
         }
     },
 
@@ -105,7 +118,12 @@ local Tilemap = {
         [353] = "Metal", [354] = "Metal",
         -- [385] = "Metal", [386] = "Metal",
 
-        [266] = "Glass"
+        [266] = "Glass",
+
+        [23] = "HalfTileTop", [55] = "HalfTileTop", 
+        [142] = "HalfTileTop", [173] = "HalfTileTop", 
+
+        [234] = "MiniTile"
     },
 
     -- internal properties

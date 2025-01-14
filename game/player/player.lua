@@ -219,6 +219,7 @@ local Player = {
     -- input vars
     JustPressed = {},                   -- all inputs from the previous frame
     FramesSinceJump = -1,               -- will be -1 if the player is on the ground, or they fell off something without jumping
+    FramesSinceAirborne = -1,           -- will be -1 if player is on the ground
     FramesSinceHoldingJump = -1,        -- similar to above, but resets to -1 once the jump button has been released
     FramesSinceDoubleJump = -1,         -- will be -1 if the player is grounded, or in the air and hasn't double jumped
     FramesSinceParry = -1,              -- will be -1 if the player.. isn't parrying
@@ -710,6 +711,7 @@ function Player:Decelerate(amt)
     self.Velocity.X = self.Velocity.X - amt * sign(self.Velocity.X)
     if math.abs(self.Velocity.X) < amt then
         self.Velocity.X = 0
+        
     end
 end
 
@@ -723,14 +725,13 @@ function Player:DisconnectFromFloor()
     self.FloorLeftEdge, self.FloorRightEdge = nil, nil
     self.DistanceAlongFloor = nil
     self.FloorSurfaceInfo = nil
+    self.FramesSinceAirborne = 0
+    -- if self.LedgeLungeStairCount == 0 then
+        
+    --     self.LedgeLungeChain = 0
+    -- end
     
-    if self.LedgeLungeStairCount == 0 then
-        self.LedgeLungeChain = 0
-    end
 
-    if not self.InLedgeLunge then
-        self.LedgeLungeStairCount = 0
-    end
     -- print("FUCK",)
 
     self.OnGroundAfterLedgeLunge = false
@@ -749,6 +750,7 @@ end
 function Player:ConnectToFloor(floor, surfaceInfo, tileNo, tileLayer)
     -- print("EHEGH")
     
+    -- print(self.LedgeLungeChain, self.OnGroundAfterLedgeLunge)
     -- if true then return flase end
     if not self.Floor then
         -- just landed
@@ -757,7 +759,6 @@ function Player:ConnectToFloor(floor, surfaceInfo, tileNo, tileLayer)
         self.FramesSinceGrounded = 0
         self.FloorSurfaceInfo = surfaceInfo.Top
         self.LastFloorSurfaceInfo = surfaceInfo.Top
-        print("TILENO", tileNo, tileLayer)
         self.FloorTileNo = tileNo
         self.FloorTileLayer = tileLayer
         
@@ -829,6 +830,7 @@ function Player:AlignHitboxes()
     xHitbox.Position.Y = self.Position.Y - 2
     yHitbox.Position.X = self.Position.X
     yHitbox.Position.Y = self.Position.Y
+
 end
 
 function Player:FollowFloor()
@@ -838,8 +840,11 @@ function Player:FollowFloor()
     if self.Floor then
         if self.FloorPos and self.FloorPos ~= self.Floor.Position then
             -- if not self.Floor:IsA("Tilemap") then
+
+
                 self.FloorDelta = self.FloorPos - self.Floor.Position
 
+                -- print(self.FramesSinceJump)
                 self.Position = (self.Position - self.FloorDelta)
                 
                 self:SetEdge("bottom", self.Floor:GetEdge("top", self.FloorTileNo, self.FloorTileLayer))
@@ -855,6 +860,8 @@ function Player:FollowFloor()
         self.PreviousFloorHeight = self:GetEdge("bottom")
     elseif self.LastFloor then
         self.LastFloorDelta = self.LastFloorPos - self.LastFloor.Position
+
+
     end
 end
 
@@ -864,11 +871,10 @@ function Player:FollowWall()
     -- if true then return end
     if self.Wall then
         local wallSign = (self.WallDirection=="left"and-1 or 1)
-        if self.WallPos and (self.FramesSinceParry == -1 or self.FramesSinceParry > 5) and (self:GetBodyOrientation() == wallSign or self.MoveDir == wallSign)  --[[and self.WallPos ~= self.Wall.Position]] then
+        if self.WallPos and ((self.FramesSinceParry == -1 or self.FramesSinceParry > 5) and (self.FramesSinceRoll == -1)) and (self:GetBodyOrientation() == wallSign or self.MoveDir == wallSign)  --[[and self.WallPos ~= self.Wall.Position]] then
             -- if not self.Floor:IsA("Tilemap") then
             self:AlignHitboxes()
                 self.WallDelta = self.WallPos - self.Wall.Position
-
                 -- self.Position.X = self.Position.X - self.WallDelta.X*2
 
                 if not self.Floor then
@@ -876,7 +882,6 @@ function Player:FollowWall()
                 end
                 -- self.Position = (self.Position - self.WallDelta) --+ V{2*(self.WallDirection=="left" and -1 or 1),0}
                 
-                print("E", self.Wall:GetEdge("right", self.WallTileNo, self.WallTileLayer))
                 if self.WallDirection == "left" then
                     self.YHitbox:SetEdge("left", self.Wall:GetEdge("right", self.WallTileNo, self.WallTileLayer))
                 elseif self.WallDirection == "right" then
@@ -888,6 +893,7 @@ function Player:FollowWall()
                 -- self.Position.X = self.Position.X  - self.WallDelta.X/4
 
                 self.Velocity.X = 0
+                
                 -- print(self.Floor, self.Floor:GetEdge("top", self.FloorTileNo, self.FloorTileLayer))
             -- else
             --     self.FloorDelta = self.FloorPos - self.Floor.Position
@@ -950,7 +956,7 @@ function Player:Unclip(forTesting)
     return pushX, pushY
 end
 
-function Player:UnclipY(forTesting)
+function Player:UnclipY(forTesting, returnFirstHit)
     -- make sure hitboxes are aligned first!!!
     self:AlignHitboxes()
     pushY = 0
@@ -962,17 +968,32 @@ function Player:UnclipY(forTesting)
         for solid, hDist, vDist, tileID, tileNo, tileLayer in collider:CollisionPass(self._parent, true) do
             
 
+
             local face = Prop.GetHitFace(hDist,vDist)
             -- we check the "sign" of the direction to make sure the player is "moving into" the object before clipping back
             local faceSign = face == "bottom" and 1 or face == "top" and -1 or 0
-            if (solid ~= self.YHitbox and solid ~= self.XHitbox and solid ~= self.HeldItem) and (faceSign == sign(self.Velocity.Y +0.01) or face == "none") and not solid.Passthrough then
+            if (solid ~= self.YHitbox and solid ~= self.XHitbox and solid ~= self.HeldItem) and (faceSign == sign(self.Velocity.Y +0.01) or face == "none" or returnFirstHit) and not solid.Passthrough then
+                
+
+
                 local surfaceInfo = solid:GetSurfaceInfo(tileID)
                 -- self.Velocity.Y = 0
                 
                 -- if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
                 
-                if self.Velocity.Y >= 0 and not surfaceInfo.Top.Passthrough and face == "bottom" and not (collider == self.HeldItem and not collider.CanBeOverhang) then
-                    
+                -- if _G.PRINTME then
+                --     print(solid, hDist, vDist, face)
+                --     print("------------------------------------")
+                -- end
+                if returnFirstHit and (face == "none" or (face == "bottom" and not surfaceInfo.Bottom.Passthrough) or (face == "top" and not surfaceInfo.Top.Passthrough) or (face == "right" and not surfaceInfo.Right.Passthrough) or (face == "left" and not surfaceInfo.Left.Passthrough)) then
+                    -- if _G.PRINTME then
+                    --     print(solid, hDist, vDist)
+                    -- end
+                    return solid
+                end
+                
+                if (self.Velocity.Y >= 0) and not surfaceInfo.Top.Passthrough and face == "bottom" and not (collider == self.HeldItem and not collider.CanBeOverhang) then
+
                     pushY = math.abs(pushY) > math.abs(vDist or 0) and pushY or (vDist or 0)
                     if not self.Floor then
                         -- just landed
@@ -994,6 +1015,7 @@ function Player:UnclipY(forTesting)
                         end
                     end
                 elseif self.Velocity.Y <= 0 and not surfaceInfo.Bottom.Passthrough and face == "top" then
+
                     pushY = math.abs(pushY) > math.abs(vDist or 0) and pushY or (vDist or 0)
                     hitCeiling = true
                 end
@@ -1007,8 +1029,9 @@ function Player:UnclipY(forTesting)
             end
     
             
-
+            
             if not self.TouchEvents[solid] and not solid:IsA("Tilemap") then
+                print("ENTERING", solid)
                 self.TouchEvents[solid] = true
                 if solid.OnTouchEnter then solid:OnTouchEnter(self) end
                 if solid.OnTouchStay then solid:OnTouchStay(self) end
@@ -1069,14 +1092,16 @@ function Player:UnclipX(forTesting)
             local face = Prop.GetHitFace(hDist,vDist)
             local surfaceInfo = solid:GetSurfaceInfo(tileID)
             
+            -- print(solid, self.XHitbox.Size.Y)
             
             if (solid ~= self.YHitbox and solid ~= self.XHitbox and solid ~= self.HeldItem) and not solid.Passthrough then
     
-    
-    
+                
+                
                 if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
                     pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
                     self:AlignHitboxes()
+                    
                     self:ConnectToWall(solid, face, surfaceInfo, tileNo, tileLayer)
                 end
             end
@@ -1195,7 +1220,7 @@ function Player:ValidateFloor()
                 -- set up coyote frames
                 self.CoyoteBuffer = self.CoyoteFrames
     
-                if self.FramesSinceLastLunge < self.LedgeLungeWindow and self.InputListener:IsDown("crouch") and self.InputListener:IsDown("action") then
+                if self.FramesSinceLastLunge < self.LedgeLungeWindow and self:IsHoldingCrouch() and self.InputListener:IsDown("action") then
                     
                     -- next step: only ledge lunge when there's a tile below the player
                     local oldPosY = self.Position.Y
@@ -1236,7 +1261,7 @@ function Player:ValidateFloor()
                         self.Position.Y = oldPosY + 6
                     else
                         self.Position.Y = oldPosY
-                        self.LedgeLungeStairCount = 0
+                        -- self.LedgeLungeStairCount = 0
                     end
 
                     
@@ -1364,6 +1389,7 @@ function Player:ProcessInput(dt)
     -- crouch input
     if self.CrouchTime == 0 and self.InputListener:IsDown("crouch") and (self.FramesSinceRoll == -1 or self.FramesSinceRoll == 12) then
         if self.Floor then
+            
             self:StartCrouch()       
         end
         
@@ -1556,6 +1582,11 @@ function Player:ProcessInput(dt)
     -- print(self.MoveDir)
 end
 
+function Player:IsHoldingCrouch()
+    
+    return self.InputListener:IsDown("crouch") or self.BlockCrouchEnd
+end
+
 function Player:PlayDynamicDashSound(speed, delay)
     speed = speed or math.abs(self.Velocity.X)
     delay = delay or 0.15
@@ -1605,8 +1636,8 @@ function Player:PlayWallSlideSound()
     self.PlayingWallSFX = true
 end
 
-function Player:PlayRegainStaminaSound()
-    if self.FramesSinceDoubleJump > -1 or self.FramesSinceDive > -1 then
+function Player:PlayRegainStaminaSound(force)
+    if self.FramesSinceDoubleJump > -1 or self.FramesSinceDive > -1 or force then
         self:PlaySFX("StaminaRefill", 2)
     end
 end
@@ -1657,6 +1688,18 @@ function Player:StopWallSlideSound()
 end
 
 function Player:Jump(noSFX)
+
+
+    -- check to make sure we can jump
+    if self.CrouchTime > 0 then
+        local holdingCrouch = self:IsHoldingCrouch()
+        local success = self:EndCrouch()
+        if not success then
+            return false
+        end
+        self:ShrinkHitbox()
+    end
+
     self.JumpBuffer = 0
     self.FramesSinceDive = -1
     self.DiveExpired = false
@@ -1664,7 +1707,7 @@ function Player:Jump(noSFX)
     
     ---- SFX ----
     
-    if not noSFX and 
+    if not noSFX and
         (math.clamp(self.FramesSinceRoll, 1, 11) ~= self.FramesSinceRoll or self.LastRollPower == self.ShimmyPower) 
     then self:PlaySFX("Jump") end
     -------------
@@ -1680,7 +1723,8 @@ function Player:Jump(noSFX)
 
     -- pounce handling
     if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
-        local heightBoost = math.min((self.LedgeLungeCharge*0.75 + self.LedgeLungeChain*0.25), 3)--math.max((self.LedgeLungeCharge - 6), 0) / 4
+        print(self.LedgeLungeStairCount, self.LedgeLungeCharge)
+        local heightBoost = math.min((self.LedgeLungeCharge*0.5 + self.LedgeLungeChain*0.25), 3)--math.max((self.LedgeLungeCharge - 6), 0) / 4
         self.LedgeLungeCharge = math.max(self.LedgeLungeCharge - self.LedgeLungePounceDepletionRate, 0)
         self.Velocity.X = sign(self.Velocity.X) * (math.min(math.max(self.MinPouncePower, math.abs(self.Velocity.X)), self.MaxPouncePower))
         self:PlayDynamicDashSound(nil, 0)
@@ -1704,11 +1748,15 @@ function Player:Jump(noSFX)
             Size = V{kickoffdust.ParticleSize.X * sign(self.DrawScale.X), kickoffdust.ParticleSize.Y}, 
             Velocity = math.abs(self.Velocity.X) < 1 and V{0, 0} or V{-sign(self.DrawScale.X) * 35, 0}
         }
-
+        self:ShrinkHitbox()
     else
 
         -- regular jump
         self:GetChild("JumpDust"):Emit{Position = self.Position, }
+
+        if self:IsHoldingCrouch() then
+            self:GrowHitbox()
+        end
     end
 
     -- apply ledge lunge charge
@@ -1716,13 +1764,20 @@ function Player:Jump(noSFX)
     self.Velocity.X = self.Velocity.X + (self.LedgeLungeCharge*0.5) * sign(self.Velocity.X)
 
     if self.LedgeLungeStairCount == 0 and self.LedgeLungeChain > 0 then
-        print("CHAINED")
+        print("CHAINED", self.LedgeLungeStairCount)
+        -- print()
         self.Velocity.X = self.Velocity.X + sign(self.Velocity.X) * self.LedgeLungeChain*0.4
+        self.LedgeLungeChain = 0
     end
 
     self.FramesSinceJump = 0
     self.FramesSinceHoldingJump = 0
     
+    if self.FloorDelta then
+        -- player tends to "overshoot" when jumping
+        self.Position = (self.Position + self.FloorDelta)
+    end
+
     self.FloorPositionAtJump = self.LastFloor and self.LastFloor.Position:Clone() or V{0,0}
 
     if self.LastFloor.LockPlayerVelocity then
@@ -1884,6 +1939,8 @@ function Player:Parry()
     -- play a footstep sound regardless
     
     self:PlayCustomFootstepSound(self:GetWallMaterial(), 1.25, nil, 2)
+    
+
 
     -- can parry if:
     -- - you haven't parried yet this jump (LastParryFace is "none") OR
@@ -1903,6 +1960,10 @@ function Player:Parry()
         self:PlaySFX("Bonk")
         return
     end
+
+    Timer.Schedule(0.1, function()
+        self:PlayRegainStaminaSound(true)
+    end)
 
     self.JumpBuffer = 0
     self:GetChild("DoubleJumpDust"):Emit{Position = self:GetPoint(0.5,0.5), Rotation = math.random(0,3)*math.rad(90)}
@@ -1941,9 +2002,10 @@ function Player:Parry()
 end
 
 function Player:BumpWall()
+    
     self:GrowHitbox()
 
-    self.JumpBuffer = 0    
+    self.JumpBuffer = 0
     -- local parrySpeed = ((self.WallDirection == "right" and self.MoveDir == 1) or (self.WallDirection == "left" and self.MoveDir == -1)) and 1 -- player is moving towards wall
     --     or self.MoveDir == 0 and 2.5    -- player is neutral
     --     or 3.25     -- player is holding against dive direction
@@ -1961,9 +2023,9 @@ function Player:BumpWall()
     -- self.FramesSinceDoubleJump = -1
     self.FramesSinceDoubleJump = math.max(0, self.FramesSinceDoubleJump)
 
-    -- 
+    
     if self.Wall then
-        self.LastFloor = self.Wall
+        self.LastFloor = self.Wall --> NOT a typo (i think)
         if self.Wall.LockPlayerVelocity then
             self.AerialMovementLockedToFloorPos = true
         else
@@ -2077,15 +2139,15 @@ end
 function Player:Roll()
     self.ActionBuffer = 0
     self.LungeBuffer = 0
-    local holdingCrouch = self.InputListener:IsDown("crouch")
+    local holdingCrouch = self:IsHoldingCrouch()
     local justLunged = self.FramesSinceDive <= 10
     local movementPower = ((self.CrouchTime > self.CrouchShimmyDelay or self.TimeSinceCrouching < 10) and holdingCrouch) and self.ShimmyPower or self.RollPower
-
+    
     -- special case for if player just recently lunged to the ground
     if justLunged and holdingCrouch then
         movementPower = self.ShimmyPower
     end
-
+    
 
     self.LastRollPower = movementPower
 
@@ -2182,11 +2244,26 @@ function Player:StartCrouch()
     self:ShrinkHitbox()
 end
 
-function Player:EndCrouch()
-    self.CrouchTime = 0
-    self.TimeSinceCrouching = 0
-    self:PlaySFX("DoubleJump", 1.3, 1, 0.125)
-    self:GrowHitbox()
+function Player:EndCrouch() -- returns true if crouch could successfully end; false if there was a boundary in the way
+    local px, py = self.Position()
+    self:GrowHitbox(true)
+    self.BlockCrouchEnd = false
+    local solid = self:UnclipY(true, true)
+
+    if type(solid)=="table" then
+        self:ShrinkHitbox()
+        self.BlockCrouchEnd = true
+        self.Position.X = px; self.Position.Y = py
+        return false
+    else
+        self.CrouchTime = 0
+        self.TimeSinceCrouching = 0
+        self:PlaySFX("DoubleJump", 1.3, 1, 0.125)
+        return true
+    end
+    
+
+    
 end
 
 function Player:ShrinkHitbox()
@@ -2198,8 +2275,7 @@ function Player:ShrinkHitbox()
     self.IsCrouchedHitbox = true
 end
 
-function Player:GrowHitbox()
-    
+function Player:GrowHitbox(noUnclip)
     if not self.IsCrouchedHitbox then return end
 
     if not self.Floor then
@@ -2208,14 +2284,15 @@ function Player:GrowHitbox()
         
         self:AlignHitboxes()
 
-        self:Unclip()
+        if not noUnclip then self:Unclip() end
     end
 
     self.XHitbox.Size.Y = X_HITBOX_HEIGHT
     self.YHitbox.Size.Y = Y_HITBOX_HEIGHT
     
-    self:Unclip()
+    if not noUnclip then self:Unclip() end
     
+    self.BlockCrouchEnd = false
     self.IsCrouchedHitbox = false
 end
 
@@ -2255,9 +2332,10 @@ local yscale_wall_squish = {1.2, 1.1, 1.1, 1.1, 1.1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
 
 -- Animation picking
 function Player:UpdateAnimation()
-
+    
     -- print(self.Floor, self.Velocity)
 
+    
     
     -- squash and stretch
     if false then
@@ -2289,8 +2367,10 @@ function Player:UpdateAnimation()
         self.DrawScale.X = sign(self.DrawScale.X) * (xscale_pounce[self.FramesSincePounce+1] or 1)
     elseif self.Floor and self.CrouchTime > 0 and self.CrouchTime < #xscale_crouch then
         -- just crouched
+        
         self.DrawScale.Y = yscale_crouch[self.CrouchTime]
         self.DrawScale.X = sign(self.DrawScale.X) * xscale_crouch[self.CrouchTime]
+        
     elseif self.FramesSinceDoubleJump > -1 and self.FramesSinceDoubleJump < #yscale_doublejump then
         -- just double jumped
         self.DrawScale.Y = yscale_doublejump[self.FramesSinceDoubleJump+1]
@@ -2301,9 +2381,11 @@ function Player:UpdateAnimation()
         self.DrawScale.X = sign(self.DrawScale.X) * xscale_jump[self.FramesSinceJump+1]
     elseif self.FramesSinceRoll > -1 and self.FramesSinceRoll < #yscale_roll then
         -- just rolled
+        
         self.DrawScale.Y = yscale_roll[self.FramesSinceRoll+1]
         self.DrawScale.X = sign(self.DrawScale.X) * xscale_roll[self.FramesSinceRoll+1]
     elseif self.FramesSinceGrounded > -1 and self.FramesSinceGrounded < #yscale_land then
+        
         -- just landed on the ground
         if self.VelocityBeforeHittingGround >= self.TerminalVelocity then
             -- player was falling at terminal velocity (bigger visual impact)
@@ -2315,6 +2397,7 @@ function Player:UpdateAnimation()
             -- player was not falling (no visual impact)
             self.DrawScale.Y = 1
         end
+        
         self.DrawScale.X = sign(self.DrawScale.X)
     else
         self.DrawScale.X = sign(self.DrawScale.X)
@@ -2508,7 +2591,7 @@ function Player:UpdateAnimation()
     elseif self.CrouchTime > 0 and self.Floor then
             
             -- is crouching
-            if not self.InputListener:IsDown("crouch") then
+            if not self:IsHoldingCrouch() then
                 -- crouch just ended - we'll use this animation instead
                 self.CrouchEndBuffer = 4
                 self.Texture:AddProperties{LeftBound = 35, RightBound = 36, Duration = 4/60, PlaybackScaling = 1, Loop = false}
@@ -2618,9 +2701,10 @@ end
 function Player:UpdateFrameValues()
     if self.Floor then
         -- self.ShouldCheckForHeldItemOverhang = false
-        
+        -- print("RESET!")
         self.YPositionAtLedge = self.Position.Y
         self.InLedgeLunge = false
+        self.FramesSinceAirborne = -1
         self.AerialMovementLockedToFloorPos = false
         self.FramesSinceDoubleJump = -1
         self.CantRunUntilGrounded = false
@@ -2634,6 +2718,7 @@ function Player:UpdateFrameValues()
         self.FramesSinceParry = -1
     else -- no floor
         self.FramesSinceGrounded = -1
+        self.FramesSinceAirborne = self.FramesSinceAirborne + 1
         if self.FramesSinceJump > -1 then
             self.FramesSinceJump = self.FramesSinceJump + 1
         end
@@ -2645,6 +2730,16 @@ function Player:UpdateFrameValues()
         end
         if self.FramesSinceParry > -1 then
             self.FramesSinceParry = self.FramesSinceParry + 1
+        end
+
+        if self.FramesSinceDive == -1 then
+            
+            self.InLedgeLunge = false
+        end
+
+        if not self.InLedgeLunge and self.FramesSinceAirborne > 10 then
+            
+            self.LedgeLungeStairCount = 0
         end
     end
 
@@ -2700,6 +2795,7 @@ function Player:UpdateFrameValues()
                 self.OnGroundAfterLedgeLunge = false
                 self.FramesOnGroundSinceLedgeLunge = -1
                 self.WaitingForLedgeLunge = false
+                
                 self.LedgeLungeChain = 0
             end
         else
@@ -2775,9 +2871,12 @@ function Player:UpdateFrameValues()
         end
     end
 
+    
+
     if self.FramesSinceRoll > -1 then
         self.FramesSinceRoll = self.FramesSinceRoll + 1
         if not self.Floor then
+            
             self:GrowHitbox()
         end
         if self.FramesSinceRoll > self.RollLength then
@@ -2786,7 +2885,17 @@ function Player:UpdateFrameValues()
             
             if self.CrouchTime == 0 then
                 if self.FramesSincePounce == -1 then self.Texture.Clock = 0 end
-                self:GrowHitbox()
+                
+                if self.IsCrouchedHitbox then
+                    
+                    local s = self:EndCrouch()
+                    if not s then
+                        self:StartCrouch()
+                        -- self.CrouchTime = 1
+                        -- self.BlockCrouchEnd = true
+                    end
+                end
+                
             end
 
             -- self.Texture.IsPlaying = true
@@ -2879,8 +2988,12 @@ function Player:UpdateFrameValues()
     if self.CrouchTime > 0 and self.InputListener:IsDown("crouch") and self.Floor then
         self.CrouchTime = self.CrouchTime + 1
     elseif self.CrouchTime > 0 and (self.FramesSincePounce == -1 or self.PounceAnimCancelled) then
+
+        if self.BlockCrouchEnd then
+            self.CrouchTime = self.CrouchTime + 1
+        end
         self:EndCrouch()
-        
+
     end
 
     if self.TimeSinceCrouching > -1 then
@@ -2901,7 +3014,10 @@ function Player:UpdateFrameValues()
 
     -- safeguard to make sure hitbox isn't small for no reason
     if self.Floor and self.FramesSinceRoll == -1 and self.CrouchTime == 0 and self.IsCrouchedHitbox then
+        
         self:GrowHitbox()
+
+        local success
     end
 
     
@@ -3067,6 +3183,7 @@ function Player:UpdatePhysics()
     if self.RolledOutOfDive and self.Floor and self.MoveDir == -sign(self.Velocity.X) then
         -- players are allowed to cancel rolls that come from dives by inputting the other direction
         self.FramesSinceRoll = self.RollLength + 1
+        
         self.Velocity.X = 0
     end
 
@@ -3311,6 +3428,7 @@ function Player:UpdatePhysics()
     
     if math.abs(posBeforeMove[1] - posAfterMove[1]) < 1 and pushedX then
         self.Velocity.X = 0
+       
     end
 
 
