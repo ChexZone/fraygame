@@ -107,6 +107,7 @@ function GameCamera._globalUpdate(dt)
                 newPos.X = focusPoint.X
             end
 
+
             if math.abs(dist.Y) > maxDist.Y or math.abs(focusDist.Y) > camera.MaxDistanceFromFocus.Y  then
                 newPos.Y = camera.TrackingPosition.Y - maxDist.Y * sign(dist.Y)
                 camera.Reeling.Y = true

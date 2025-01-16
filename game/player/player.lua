@@ -90,6 +90,7 @@ local Player = {
     TimeAfterPounceCanDoubleJump = 5,   -- how many frames after a sideways pounce the player is allowed to double jump
     RollWindowPastJump = 3,             -- how many frames after jumping will an action input still result in a hold
     CrouchAnimBounds = V{40, 44},       -- the current bounds of the crouch animation (so it change)
+    JumpAnimBounds = V{13, 16},         -- the current bounds of the jump animation (it also change)
     CrouchShimmyDelay = 0,              -- how many frames after crouching will pressing the action button still do a roll?
     LastRollPower = 0,                  -- records the last RollPower used for the previous roll\
     ShimmyPower = 3,                   -- how much RollPower the player gets while crouching
@@ -171,6 +172,11 @@ local Player = {
     ConsecutiveLungesSpeedMult = 1.15,  -- how much the player's speed is multiplied by during a new pounce coming out of a downward lunge
     MoveDir = 0,                        -- 1 for left, -1 for right, 0 for neutral
     
+    SlidingStopAnimation = false,
+    SlidingStopReboundAnimFrames = 8,
+    SlidingStopMiniReboundAnimFrames = 3,
+    SlidingStopReboundAnimationState = -1,
+
 
     FramesSinceFlippedDirection = 0,   -- reset to 0 every time sign(DrawScale.X) changes
     LastFaceDirection = 0,             -- last recorded facing direction ( sign(DrawScale.X) )
@@ -518,6 +524,13 @@ function Player.new()
         newPlayer:PlayLoudFootstepSound()
 
     end)
+
+    newPlayer.Texture:AddCallback({61}, function()
+        newPlayer.LeapAnimSwitch = false
+    end)
+    newPlayer.Texture:AddCallback({64}, function()
+        newPlayer.LeapAnimSwitch = true
+    end)
     
     newPlayer.SweatTexture = Animation.new("chexcore/assets/images/test/player_sweat_drops.png", 1, 4):AddProperties{Duration = 0.5, LeftBound = 1, RightBound = 4}
     newPlayer.YHitbox = newPlayer:Adopt(yHitboxBASE:Clone())
@@ -551,14 +564,12 @@ function Player.new()
         ParticleColor = newPlayer.TrailColor,
         Update = function (self, dt)
             self.Position = self:GetParent().Positions
-            -- print(self:ToString(true))
             -- if math.random(1, 100) == 1 then
             --     self:Emit{
             --         Position = self.Position
             --     }
             -- end
 
-            -- print(self:GetParent():GetChildren())
     end}:Nest(newPlayer)
 
     Particles.new{
@@ -576,14 +587,12 @@ function Player.new()
         ParticleColor = newPlayer.TrailColor,
         Update = function (self, dt)
             self.Position = self:GetParent().Position
-            -- print(self:ToString(true))
             -- if math.random(1, 100) == 1 then
             --     self:Emit{
             --         Position = self.Position
             --     }
             -- end
 
-            -- print(self:GetParent():GetChildren())
     end}:Nest(newPlayer)
     
     Particles.new{
@@ -732,7 +741,6 @@ function Player:DisconnectFromFloor()
     -- end
     
 
-    -- print("FUCK",)
 
     self.OnGroundAfterLedgeLunge = false
     -- we actually don't do this until later; FloorDelta is set to nil once there are no more coyote frames (in UpdateFrameValues)
@@ -748,9 +756,7 @@ function Player:DisconnectFromWall()
 end
 
 function Player:ConnectToFloor(floor, surfaceInfo, tileNo, tileLayer)
-    -- print("EHEGH")
     
-    -- print(self.LedgeLungeChain, self.OnGroundAfterLedgeLunge)
     -- if true then return flase end
     if not self.Floor then
         -- just landed
@@ -834,8 +840,6 @@ function Player:AlignHitboxes()
 end
 
 function Player:FollowFloor()
-    -- print("FLOOR:", self.Floor, self.FloorTileNo, self.FloorTileLayer)
-    -- print("WALL:", self.Wall, self.WallTileNo, self.WallTileLayer, self.Wall and self.Wall:GetTileCoordinatesFromIndex(self.WallTileNo))
 
     if self.Floor then
         if self.FloorPos and self.FloorPos ~= self.Floor.Position then
@@ -844,7 +848,6 @@ function Player:FollowFloor()
 
                 self.FloorDelta = self.FloorPos - self.Floor.Position
 
-                -- print(self.FramesSinceJump)
                 self.Position = (self.Position - self.FloorDelta)
                 
                 self:SetEdge("bottom", self.Floor:GetEdge("top", self.FloorTileNo, self.FloorTileLayer))
@@ -866,8 +869,6 @@ function Player:FollowFloor()
 end
 
 function Player:FollowWall()
-    -- print("FLOOR:", self.Floor, self.FloorTileNo, self.FloorTileLayer)
-    -- print("WALL:", self.Wall, self.WallTileNo, self.WallTileLayer, self.Wall and self.Wall:GetTileCoordinatesFromIndex(self.WallTileNo))
     -- if true then return end
     if self.Wall then
         local wallSign = (self.WallDirection=="left"and-1 or 1)
@@ -894,7 +895,6 @@ function Player:FollowWall()
 
                 self.Velocity.X = 0
                 
-                -- print(self.Floor, self.Floor:GetEdge("top", self.FloorTileNo, self.FloorTileLayer))
             -- else
             --     self.FloorDelta = self.FloorPos - self.Floor.Position
             --     self.Position = (self.Position - self.FloorDelta)
@@ -977,18 +977,9 @@ function Player:UnclipY(forTesting, returnFirstHit)
 
 
                 local surfaceInfo = solid:GetSurfaceInfo(tileID)
-                -- self.Velocity.Y = 0
-                
-                -- if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
-                
-                -- if _G.PRINTME then
-                --     print(solid, hDist, vDist, face)
-                --     print("------------------------------------")
-                -- end
+
                 if returnFirstHit and (face == "none" or (face == "bottom" and not surfaceInfo.Bottom.Passthrough) or (face == "top" and not surfaceInfo.Top.Passthrough) or (face == "right" and not surfaceInfo.Right.Passthrough) or (face == "left" and not surfaceInfo.Left.Passthrough)) then
-                    -- if _G.PRINTME then
-                    --     print(solid, hDist, vDist)
-                    -- end
+
                     return solid
                 end
                 
@@ -999,7 +990,6 @@ function Player:UnclipY(forTesting, returnFirstHit)
                         -- just landed
                         justLanded = true
                     end
-                    -- print(pushY)
     
                     -- -4 IS ARBITRARY!! IDK IF IT WILL CAUSE PROBLEMS!!!!!!!!!!
                     if not forTesting and pushX == 0 and pushY >= -4 then
@@ -1024,14 +1014,14 @@ function Player:UnclipY(forTesting, returnFirstHit)
 
                 if pushY ~= 0  then
                     activeCollider = collider
-                    break
+                    -- we used to break here, but for detection of other options, we don't anymore
+                    -- break
                 end
             end
     
             
             
             if not self.TouchEvents[solid] and not solid:IsA("Tilemap") then
-                print("ENTERING", solid)
                 self.TouchEvents[solid] = true
                 if solid.OnTouchEnter then solid:OnTouchEnter(self) end
                 if solid.OnTouchStay then solid:OnTouchStay(self) end
@@ -1043,16 +1033,20 @@ function Player:UnclipY(forTesting, returnFirstHit)
     
 
     -- roll out of a fast dive
-    if justLanded and self.FramesSinceDive > -1 and math.abs(self.Velocity.X) > self.DiveLandRollThreshold and self.MoveDir == sign(self.Velocity.X) then
-        self.PreviousFloorHeight = self.Position.Y
-        self:Roll()
-        self.RolledOutOfDive = true
-        self.FramesSinceDive = -1
+    if justLanded and self.FramesSinceDive > -1 then
+        if math.abs(self.Velocity.X) > self.DiveLandRollThreshold and self.MoveDir == sign(self.Velocity.X) then
+            self.PreviousFloorHeight = self.Position.Y
+            self:Roll()
+            self.RolledOutOfDive = true
+            self.FramesSinceDive = -1
+        else
+            self:StartCrouch()
+            -- self:EndCrouch()
+        end
     end
 
     if not forTesting then
         -- try to "undo" if the player clipped too hard
-        -- print(pushY)
         
         if activeCollider and math.abs(pushY) > self.YHitbox.Size.Y/2 then
             print("FIXING Y")
@@ -1092,7 +1086,6 @@ function Player:UnclipX(forTesting)
             local face = Prop.GetHitFace(hDist,vDist)
             local surfaceInfo = solid:GetSurfaceInfo(tileID)
             
-            -- print(solid, self.XHitbox.Size.Y)
             
             if (solid ~= self.YHitbox and solid ~= self.XHitbox and solid ~= self.HeldItem) and not solid.Passthrough then
     
@@ -1136,8 +1129,6 @@ function Player:UnclipX(forTesting)
     end
 
     if not forTesting then
-        -- print(pushX, pushY)
-        -- print(self.Size.X/2)
         -- again, try to "undo" any extreme clipping
         if activeCollider and math.abs(pushX) > activeCollider.Size.X/2 then
             -- print("FIXING X")
@@ -1314,7 +1305,6 @@ function Player:ValidateWall()
         local hit
 
         for _, collider in ipairs((self.HeldItem and self.HeldItem.ExtendsHitbox) and {self.XHitbox, self.HeldItem} or {self.XHitbox}) do
-            -- print("DELTA", )
             collider.Position.X = collider.Position.X + dir
             -- hit = hit or self.Wall:CollisionInfo(collider)
             
@@ -1336,13 +1326,10 @@ function Player:ValidateWall()
         end
         
         if not hit then
-            -- print("nuh uh")
             self:DisconnectFromWall()
         else
-            -- print("YUH")
             self.Velocity.X = 0
         end
-        -- print("S2")
     end
     self:UpdateHeldItem()
     self:AlignHitboxes()
@@ -1579,7 +1566,6 @@ function Player:ProcessInput(dt)
         end
     end
     
-    -- print(self.MoveDir)
 end
 
 function Player:IsHoldingCrouch()
@@ -1722,9 +1708,7 @@ function Player:Jump(noSFX)
     
 
     -- pounce handling
-    print(self.LastRollPower == self.ShimmyPower)
     if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
-        print(self.LedgeLungeStairCount, self.LedgeLungeCharge)
         local heightBoost = math.min((self.LedgeLungeCharge*0.5 + self.LedgeLungeChain*0.25), 3)--math.max((self.LedgeLungeCharge - 6), 0) / 4
         self.LedgeLungeCharge = math.max(self.LedgeLungeCharge - self.LedgeLungePounceDepletionRate, 0)
         self.Velocity.X = sign(self.Velocity.X) * (math.min(math.max(self.MinPouncePower, math.abs(self.Velocity.X)), self.MaxPouncePower))
@@ -1737,11 +1721,7 @@ function Player:Jump(noSFX)
         self.FramesSinceRoll = -1
         self.PounceAnimCancelled = false
         self.PounceParticlePower = self.PounceParticlePower + 2.5
-        -- self:PlaySFX("Pounce")
-        -- if self.SFX.RollWhoosh[self.LastSFX_ID.RollWhoosh] then
-        --     print("FUCK")
-        --     self.SFX.RollWhoosh[self.LastSFX_ID.RollWhoosh]:Stop()
-        -- end
+
 
         local kickoffdust = self:GetChild("RollKickoffDust")
         kickoffdust:Emit{
@@ -1766,7 +1746,6 @@ function Player:Jump(noSFX)
 
     if self.LedgeLungeStairCount == 0 and self.LedgeLungeChain > 0 then
         print("CHAINED", self.LedgeLungeStairCount)
-        -- print()
         self.Velocity.X = self.Velocity.X + sign(self.Velocity.X) * self.LedgeLungeChain*0.4
         self.LedgeLungeChain = 0
     end
@@ -1809,6 +1788,13 @@ function Player:Jump(noSFX)
 
     if self.FramesSinceRoll > 0 then
         self.CantRunUntilGrounded = true
+    end
+
+    if math.abs(self.Velocity.X) >= self.RunSpeed and self.FramesSinceRoll == -1 then
+        self.JumpAnimBounds = self.LeapAnimSwitch and V{133, 136} or V{137, 139}
+        -- self.LeapAnimSwitch = not self.LeapAnimSwitch
+    else
+        self.JumpAnimBounds = V{13, 16}
     end
 
     self:DisconnectFromFloor()
@@ -1900,7 +1886,7 @@ function Player:DoubleJump(ignoreRejection)
     
     self.Texture.Clock = 0
 
-    
+    self.JumpAnimBounds = V{13, 16}
     self.DoubleJumpStoredSpeed = math.abs(self.Velocity.X)
     
     if self.FramesSinceDive > -1 then
@@ -2094,7 +2080,6 @@ function Player:Dive()
         local extraLungeVelocity = self.LedgeLungeCharge*4
         self.Velocity.Y = self.LungeDownwardVelocity + extraLungeVelocity
         self.LastLungeDownwardVelocity = self.Velocity.Y
-        -- print(extraLungeVelocity, self.Velocity.Y)
         
         if self.InputListener:JustPressed("action") then
             self.WaitingForLedgeLunge = true
@@ -2206,7 +2191,6 @@ function Player:Roll()
     else
 
         if self.LastRollPower == self.ShimmyPower then
-            -- print("SHIMMY", )
             if not self.InLedgeLunge then self:PlaySFX("ShimmyWhoosh") else self:PlaySFX("ShimmyWhoosh", pitch) end
         else
             self:PlaySFX("RollWhoosh", pitch)
@@ -2220,8 +2204,8 @@ function Player:Roll()
 
 
     -- special case: rolling while against a wall (kind of a "ground parry")
-
-    if self.Wall and self.MoveDir ~= -(self.WallDirection=="left" and -1 or 1) then
+    local wallSign = (self.WallDirection=="left" and -1 or 1)
+    if self.Wall and self.MoveDir ~= -wallSign and self:GetBodyOrientation() == wallSign then
         self.Velocity.X = -self.Velocity.X/1.5
         self:PlaySFX("Parry")
         -- self.DrawScale.X = -self.DrawScale.X
@@ -2334,7 +2318,6 @@ local yscale_wall_squish = {1.2, 1.1, 1.1, 1.1, 1.1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
 -- Animation picking
 function Player:UpdateAnimation()
     
-    -- print(self.Floor, self.Velocity)
 
     
     
@@ -2434,7 +2417,6 @@ function Player:UpdateAnimation()
     
     
 
-    -- print(self:GetScene()._children)
     -- check what anim state to put pounce in
     if self.FramesSincePounce > -1 and not self.PounceAnimCancelled then
         
@@ -2445,6 +2427,9 @@ function Player:UpdateAnimation()
         end
     end
 
+    if not self.Floor and math.abs(self.Velocity.X) < self.RunSpeed then
+        self.JumpAnimBounds = V{13, 16}
+    end
 
     if self.Texture.Clock ~= self.Texture.Clock then
         self.Texture.Clock = self.Texture.Duration
@@ -2625,13 +2610,25 @@ function Player:UpdateAnimation()
         end
     elseif self.Floor then
         -- player is grounded
+        
         if self.MoveDir == 0 then
             -- idle anim
             if self.HeldItem then
                 -- holding an object (arms up)
                 self.Texture:AddProperties{LeftBound = 73, RightBound = 76, Duration = 1, PlaybackScaling = 1, IsPlaying = true, Loop = true}
             else
-                self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Duration = 1, PlaybackScaling = 1, IsPlaying = true, Loop = true}
+                
+                if self.SlidingStopAnimation then
+                    -- sliding
+                    self.Texture:AddProperties{LeftBound = 128, RightBound = 130, Duration = 0.25, PlaybackScaling = math.abs(self.Velocity.X)/self.RunSpeed/1.5, IsPlaying = true, Loop = true}
+                elseif self.SlidingStopReboundAnimationState > -1 then
+                    if self.SlidingStopReboundAnimationState == self.SlidingStopReboundAnimFrames-1 then
+                        self.Texture.Clock = 0
+                    end
+                    self.Texture:AddProperties{LeftBound = 131, RightBound = 132, Duration = 0.2, Loop = false, IsPlaying = true}
+                else
+                    self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Duration = 1, PlaybackScaling = 1, IsPlaying = true, Loop = true}
+                end
             end
         else
             -- run anim
@@ -2648,6 +2645,13 @@ function Player:UpdateAnimation()
                     -- holding an object (arms up)
                     self.Texture:AddProperties{LeftBound = 67, RightBound = 72, Duration = 0.72, PlaybackScaling = 1 + math.abs(self.Velocity.X)*0.15, IsPlaying = true, Loop = true}
                 else
+                    if self.FramesSinceGrounded == 0 then
+                        if self.LeapAnimSwitch then
+                            self.Texture.Clock = 0
+                        else
+                            self.Texture.Clock = 0.36
+                        end
+                    end
                     self.Texture:AddProperties{LeftBound = 61, RightBound = 66, Duration = 0.72, PlaybackScaling = 1 + math.abs(self.Velocity.X)*0.18, IsPlaying = true, Loop = true}
                 end
             else
@@ -2669,8 +2673,12 @@ function Player:UpdateAnimation()
                 -- holding an object (arms up)
                 self.Texture:AddProperties{LeftBound = 77, RightBound = 80, Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
             else
-                
-                self.Texture:AddProperties{LeftBound = 13, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
+                if math.abs(self.Velocity.X) >= self.RunSpeed then
+                    print("E")
+                    self.Texture:AddProperties{LeftBound = 133, RightBound = 136, Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
+                else
+                    self.Texture:AddProperties{LeftBound = self.JumpAnimBounds[1], RightBound = self.JumpAnimBounds[2], Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
+                end
             end
         elseif self.FramesSinceJump == -1 and self.FramesSinceDoubleJump == -1 then
             -- just falling
@@ -2692,8 +2700,7 @@ function Player:UpdateAnimation()
                 -- holding an object (arms up)
                 self.Texture:AddProperties{LeftBound = 77, RightBound = 80, Duration = 0.4, PlaybackScaling = 1, Loop = false, IsPlaying = true}
             else
-                
-                self.Texture:AddProperties{LeftBound = 13, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false, IsPlaying = true}
+                self.Texture:AddProperties{LeftBound = self.JumpAnimBounds[1], RightBound = self.JumpAnimBounds[2], Duration = 0.4, PlaybackScaling = 1, Loop = false, IsPlaying = true}
             end
         end
     end
@@ -2702,7 +2709,6 @@ end
 function Player:UpdateFrameValues()
     if self.Floor then
         -- self.ShouldCheckForHeldItemOverhang = false
-        -- print("RESET!")
         self.YPositionAtLedge = self.Position.Y
         self.InLedgeLunge = false
         self.FramesSinceAirborne = -1
@@ -2744,6 +2750,15 @@ function Player:UpdateFrameValues()
         end
     end
 
+    -- print("EEF", self.Velocity.X, self.SlidingStopAnimation)
+    local slowedDownEnough = math.abs(self.Velocity.X) < 0.5
+    if self.SlidingStopAnimation and self.SlidingStopReboundAnimationState <= -1 and (slowedDownEnough or self.MoveDir == sign(self.Velocity.X)) then
+        self.SlidingStopAnimation = false
+        if slowedDownEnough then
+            self.SlidingStopReboundAnimationState = self.SlidingStopReboundAnimFrames
+            -- print("OOF", self.Velocity.X)
+        end
+    end
     
     if self.LungePitch ~= 1 then
         self.LungePitch = math.lerp(self.LungePitch, 1, self.LungePitchTweenSpeed/60)
@@ -2770,6 +2785,10 @@ function Player:UpdateFrameValues()
 
     if self.PickupAnimDebounce > 0 then
         self.PickupAnimDebounce = self.PickupAnimDebounce - 1
+    end
+
+    if self.SlidingStopReboundAnimationState > -1 then
+        self.SlidingStopReboundAnimationState = self.SlidingStopReboundAnimationState - 1
     end
 
     if self.HeldItem then
@@ -2921,7 +2940,6 @@ function Player:UpdateFrameValues()
     
     end
 
-    -- print(self.LedgeLungeCharge)
 
     if self.FramesSinceDive > -1 then
         self.FramesSinceDive = self.FramesSinceDive + 1
@@ -3066,7 +3084,6 @@ function Player:UpdatePhysics()
                 else
                     self.Velocity.Y = self.Velocity.Y + self.DiveGravity
                 end
-                -- print(self.LastDiveWasParryDive)
             end
         end
         
@@ -3090,7 +3107,6 @@ function Player:UpdatePhysics()
             
             if self.Velocity.Y > 0 then
 
-                -- print("e")
                 -- give the player a couple grace frames
                 
                 self.Velocity.Y = 0
@@ -3180,14 +3196,16 @@ function Player:UpdatePhysics()
     elseif not self.Floor then
         self.Velocity.Y = self.Velocity.Y + self.Gravity
     end
+   
     
     if self.RolledOutOfDive and self.Floor and self.MoveDir == -sign(self.Velocity.X) then
         -- players are allowed to cancel rolls that come from dives by inputting the other direction
-        self.FramesSinceRoll = self.RollLength + 1
+        -- self.FramesSinceRoll = self.RollLength + 1
         
         self.Velocity.X = 0
     end
 
+    
     
 
 
@@ -3199,9 +3217,16 @@ function Player:UpdatePhysics()
         -- player is moving faster than the maximum horizontal speed
         if self.Floor then
             -- player is running; slow down at ground speed
+
+            if sign(self.Velocity.X) ~= self.MoveDir then
+                if math.abs(self.Velocity.X) > 5 then
+                    self.SlidingStopAnimation = true
+                end
+            end
+           
+
             if self.MoveDir == 0 then
                 -- player is idle
-                
                 if math.abs(self.Velocity.X) >= self.RunSpeed then
                     self:Decelerate(self.RunIdleDeceleration)
                 else
@@ -3434,19 +3459,16 @@ function Player:UpdatePhysics()
 
 
 
-    -- print("----------------------------", pushedX, math.abs(xBeforeMove - xAfterMove))
 
     -- special edge case for "falling" just off the corner of an object
     -- this happens when the player doesn't move far enough down for the x hitbox to touch the collider and move the player to the side
     -- the solution I think is just to force the movement and pray it doesn't create any edge case collision bugs
-    -- print("PUSHEDY", pushedY)
     if pushedY and not self.HeldItem and self.Velocity.X == 0 and self.Acceleration.X == 0 and not self.Floor and math.abs(posAfterMove.Y - posBeforeMove.Y) < 1 then
         print("HANGING OFF LEDGE!!!")
         self.Position.Y = self.Position.Y + self.Velocity.Y
         self:Unclip()
     end
 
-    -- print(posBeforeMove - posAfterMove)
 
     self.VelocityLastFrame = self.Velocity -- other guys use this later
     self.Velocity = self.Velocity + self.Acceleration
@@ -3458,7 +3480,6 @@ end
 local insert = table.insert
 function Player:UpdateTail()
     local dist = (self.Position - self.LastPosition):Magnitude()
-    -- print(self.FramesSinceRespawn)
     if self.FramesSinceRespawn == 0 then
         self.TailPoints = {}
         return
@@ -3474,7 +3495,6 @@ end
 
 ------------------------ MAIN UPDATE LOOP -----------------------------
 function Player:Update(engine_dt)
-    -- print(self.Floor)
     self._usingPerformanceMode = self:GetLayer():GetParent().PerformanceMode
     -- also, engine_dt will be 1/60 in normal mode and 1/30 in performance mode
     
@@ -3840,7 +3860,6 @@ function Player:ThrowItem()
     local itemYVel = self.Floor and (item.GROUNDED_THROW_HEIGHT or -1) or (item.MIDAIR_THROW_HEIGHT or -1)
     item.Velocity = V{math.max(item.MinThrowSpeed or 3.5, (1.75 + math.abs(self.Velocity.X))) * dir, itemYVel}
     -- item.Position.X = item.Position.X - 10* dir
-    print("THROW!",item.Velocity)
     self.LastThrowDirection = dir
     item:Throw(not not self.Floor)
 end
