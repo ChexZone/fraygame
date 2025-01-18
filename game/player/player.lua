@@ -90,7 +90,9 @@ local Player = {
     TimeAfterPounceCanDoubleJump = 5,   -- how many frames after a sideways pounce the player is allowed to double jump
     RollWindowPastJump = 3,             -- how many frames after jumping will an action input still result in a hold
     CrouchAnimBounds = V{40, 44},       -- the current bounds of the crouch animation (so it change)
-    JumpAnimBounds = V{13, 16},         -- the current bounds of the jump animation (it also change)
+    JumpAnimBounds = V{13, 16, 0.4},         -- the current bounds of the jump animation (it also change)
+    SLOW_JUMP_ANIM_BOUNDS = V{13, 16, 0.4},
+    FAST_JUMP_ANIM_BOUNDS = {V{133, 136, 0.6}, V{137, 140, 0.6}},
     CrouchShimmyDelay = 0,              -- how many frames after crouching will pressing the action button still do a roll?
     LastRollPower = 0,                  -- records the last RollPower used for the previous roll\
     ShimmyPower = 3,                   -- how much RollPower the player gets while crouching
@@ -525,10 +527,11 @@ function Player.new()
 
     end)
 
-    newPlayer.Texture:AddCallback({61}, function()
+    
+    newPlayer.Texture:AddCallback({61}, function() -- running, back leg out
         newPlayer.LeapAnimSwitch = false
     end)
-    newPlayer.Texture:AddCallback({64}, function()
+    newPlayer.Texture:AddCallback({64}, function() -- running, front leg out
         newPlayer.LeapAnimSwitch = true
     end)
     
@@ -694,7 +697,7 @@ function Player.new()
         a = "move_left", gp_dpleft = "move_left", gp_lsleft = "move_left",
         d = "move_right", gp_dpright = "move_right", gp_lsright = "move_right",
         space = "jump", gp_a = "jump", gp_b= "jump",
-        lshift = "action", gp_x = "action", gp_y = "action", gp_leftshoulder = "action",
+        lshift = "action", gp_x = "action", gp_y = "action", gp_leftshoulder = "action", gp_rightshoulder = "action",
         e = "action",
         s = "crouch", gp_dpdown = "crouch", gp_lsdown = "crouch",
 
@@ -753,6 +756,14 @@ function Player:DisconnectFromWall()
     self.WallTileNo = nil
     self.WallTileLayer = nil
     self.WallDirection = "none"
+end
+
+function Player:GetFloorFriction()
+    return self.FloorSurfaceInfo and self.FloorSurfaceInfo.Friction or 1
+end
+
+function Player:FloorPreventsJumping()
+    return self.FloorSurfaceInfo and self.FloorSurfaceInfo.PreventJump
 end
 
 function Player:ConnectToFloor(floor, surfaceInfo, tileNo, tileLayer)
@@ -1482,7 +1493,7 @@ function Player:ProcessInput(dt)
         end
 
         if self.JumpBuffer > 0 and not blockJump then
-            if (self.Floor or self.CoyoteBuffer > 0) then
+            if (self.Floor or self.CoyoteBuffer > 0) and not self:FloorPreventsJumping() then
                 self:Jump()
                 
                 
@@ -1498,8 +1509,8 @@ function Player:ProcessInput(dt)
                 and
                     self:GetBodyOrientation() == wallDir 
                 and (
-                    (self.FramesSinceWallKick == -1 or self.FramesSinceWallKick < 10) or (self.FramesSinceWallKick > -1 and self.Wall)
-                ) then
+                    (self.FramesSinceWallKick == -1 or self.FramesSinceWallKick < 10) or ((self.FramesSinceWallKick > -1 or self.FramesSinceWallKick > 4) and self.Wall)
+                ) and self.FramesSinceWallKick then
                     self:WallKick()
                 elseif self.FramesSinceDoubleJump == -1 then
                     self:DoubleJump()
@@ -1542,8 +1553,10 @@ function Player:ProcessInput(dt)
         local accelSpeed = self.Floor and self.AccelerationSpeed or 
                             (self.FramesSinceDive > -1 and (self.LastDiveWasParryDive and self.ParryDiveAccelerationSpeed or self.DiveAccelerationSpeed)) or
                             (self.FramesSincePounce > -1 and self.PounceAccelerationSpeed or self.AirAccelerationSpeed)
+        
+        accelSpeed = accelSpeed * self:GetFloorFriction()
         self.Acceleration.X = self.MoveDir*accelSpeed
-
+        
         if self.FramesSinceDoubleJump > -1 and self.FramesSinceDoubleJump <= self.DJMomentumCancelOpportunity then
             if self.FramesSinceMoving == 0 and not self.LastDoubleJumpWasDiveCancel then
                 self.Velocity.X = self.DoubleJumpStoredSpeed * self.MoveDir
@@ -1791,10 +1804,12 @@ function Player:Jump(noSFX)
     end
 
     if math.abs(self.Velocity.X) >= self.RunSpeed and self.FramesSinceRoll == -1 then
-        self.JumpAnimBounds = self.LeapAnimSwitch and V{133, 136} or V{137, 139}
+        self.JumpAnimBounds = self.LeapAnimSwitch and self.FAST_JUMP_ANIM_BOUNDS[1] or  self.FAST_JUMP_ANIM_BOUNDS[2]
+        self.InFastJump = true
         -- self.LeapAnimSwitch = not self.LeapAnimSwitch
     else
-        self.JumpAnimBounds = V{13, 16}
+        self.InFastJump = false
+        self.JumpAnimBounds = self.SLOW_JUMP_ANIM_BOUNDS
     end
 
     self:DisconnectFromFloor()
@@ -1886,7 +1901,7 @@ function Player:DoubleJump(ignoreRejection)
     
     self.Texture.Clock = 0
 
-    self.JumpAnimBounds = V{13, 16}
+    self.JumpAnimBounds = self.SLOW_JUMP_ANIM_BOUNDS
     self.DoubleJumpStoredSpeed = math.abs(self.Velocity.X)
     
     if self.FramesSinceDive > -1 then
@@ -2427,8 +2442,11 @@ function Player:UpdateAnimation()
         end
     end
 
-    if not self.Floor and math.abs(self.Velocity.X) < self.RunSpeed then
-        self.JumpAnimBounds = V{13, 16}
+    if not self.Floor and self.InFastJump and math.abs(self.Velocity.X) < self.RunSpeed then
+        self.JumpAnimBounds = self.SLOW_JUMP_ANIM_BOUNDS
+        self.InFastJump = false
+        self.Texture.Clock = 0
+        self.Texture.IsPlaying = true
     end
 
     if self.Texture.Clock ~= self.Texture.Clock then
@@ -2677,7 +2695,7 @@ function Player:UpdateAnimation()
                     print("E")
                     self.Texture:AddProperties{LeftBound = 133, RightBound = 136, Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
                 else
-                    self.Texture:AddProperties{LeftBound = self.JumpAnimBounds[1], RightBound = self.JumpAnimBounds[2], Duration = 0.4, PlaybackScaling = 1, Loop = false, Clock = 0}
+                    self.Texture:AddProperties{LeftBound = self.JumpAnimBounds[1], RightBound = self.JumpAnimBounds[2], Duration = self.JumpAnimBounds[3], PlaybackScaling = 1, Loop = false, Clock = 0}
                 end
             end
         elseif self.FramesSinceJump == -1 and self.FramesSinceDoubleJump == -1 then
@@ -2700,7 +2718,7 @@ function Player:UpdateAnimation()
                 -- holding an object (arms up)
                 self.Texture:AddProperties{LeftBound = 77, RightBound = 80, Duration = 0.4, PlaybackScaling = 1, Loop = false, IsPlaying = true}
             else
-                self.Texture:AddProperties{LeftBound = self.JumpAnimBounds[1], RightBound = self.JumpAnimBounds[2], Duration = 0.4, PlaybackScaling = 1, Loop = false, IsPlaying = true}
+                self.Texture:AddProperties{LeftBound = self.JumpAnimBounds[1], RightBound = self.JumpAnimBounds[2], Duration = self.JumpAnimBounds[3], PlaybackScaling = 1, Loop = false, IsPlaying = true}
             end
         end
     end
@@ -2709,6 +2727,7 @@ end
 function Player:UpdateFrameValues()
     if self.Floor then
         -- self.ShouldCheckForHeldItemOverhang = false
+        self.InFastJump = false
         self.YPositionAtLedge = self.Position.Y
         self.InLedgeLunge = false
         self.FramesSinceAirborne = -1
@@ -3202,7 +3221,7 @@ function Player:UpdatePhysics()
         -- players are allowed to cancel rolls that come from dives by inputting the other direction
         -- self.FramesSinceRoll = self.RollLength + 1
         
-        self.Velocity.X = 0
+        -- self.Velocity.X = 0
     end
 
     
@@ -3213,13 +3232,16 @@ function Player:UpdatePhysics()
                         (((self.Floor or not self.CantRunUntilGrounded) and math.abs(self.Velocity.X) > self.RunSpeed) and self.RunSpeed or self.WalkSpeed)
     local decelGoal = math.abs(self.MoveDir) > 0 and horizSpeed or 0
     local speedOver = math.abs(self.Velocity.X) - decelGoal
+    
+    local decelAmt = 0
+    
     if speedOver > 0 then
         -- player is moving faster than the maximum horizontal speed
         if self.Floor then
             -- player is running; slow down at ground speed
 
             if sign(self.Velocity.X) ~= self.MoveDir then
-                if math.abs(self.Velocity.X) > 5 then
+                if math.abs(self.Velocity.X) > 4.5 then
                     self.SlidingStopAnimation = true
                 end
             end
@@ -3228,29 +3250,29 @@ function Player:UpdatePhysics()
             if self.MoveDir == 0 then
                 -- player is idle
                 if math.abs(self.Velocity.X) >= self.RunSpeed then
-                    self:Decelerate(self.RunIdleDeceleration)
+                    decelAmt = self.RunIdleDeceleration
                 else
-                    self:Decelerate(self.IdleDeceleration)
+                    decelAmt = self.IdleDeceleration
                 end
                 
             elseif sign(self.Velocity.X) == self.MoveDir then
                 -- player is moving "with" the direction of their momentum; don't slow down as much
                 if math.abs(self.Velocity.X) >= self.RunSpeed then
                     -- player is running
-                    self:Decelerate(self.RunForwardDeceleration)
+                    decelAmt = self.RunForwardDeceleration
                 else
                     -- player is walking
-                    self:Decelerate(self.ForwardDeceleration)
+                    decelAmt = self.ForwardDeceleration
                 end
                 
             else
                 -- player is against the direction of momentum; normal deceleration
                 if math.abs(self.Velocity.X) >= self.RunSpeed then
                     -- player is running
-                    self:Decelerate(self.RunBackwardDeceleration)
+                    decelAmt = self.RunBackwardDeceleration
                 else
                     -- player is walking
-                    self:Decelerate(self.BackwardDeceleration)
+                    decelAmt = self.BackwardDeceleration
                 end            
             end
         else
@@ -3262,25 +3284,25 @@ function Player:UpdatePhysics()
                     -- parry dive
                     if self.MoveDir == 0 then
                         -- player is idle
-                        self:Decelerate(self.ParryDiveIdleDeceleration)
+                        decelAmt = self.ParryDiveIdleDeceleration
                     elseif sign(self.Velocity.X) == self.MoveDir then
                         -- player is moving "with" the direction of their momentum; don't slow down as much
-                        self:Decelerate(self.ParryDiveIdleDeceleration)
+                        decelAmt = self.ParryDiveIdleDeceleration
                     else
                         -- player is against the direction of momentum; normal deceleration
-                        self:Decelerate(self.ParryDiveIdleDeceleration)
+                        decelAmt = self.ParryDiveIdleDeceleration
                     end
                 else
                     -- regular dive
                     if self.MoveDir == 0 then
                         -- player is idle
-                        self:Decelerate(self.DiveIdleDeceleration)
+                        decelAmt = self.DiveIdleDeceleration
                     elseif sign(self.Velocity.X) == self.MoveDir then
                         -- player is moving "with" the direction of their momentum; don't slow down as much
-                        self:Decelerate(self.DiveForwardDeceleration)
+                        decelAmt = self.DiveForwardDeceleration
                     else
                         -- player is against the direction of momentum; normal deceleration
-                        self:Decelerate(self.DiveBackwardDeceleration)
+                        decelAmt = self.DiveBackwardDeceleration
                     end
                 end
                 
@@ -3290,25 +3312,25 @@ function Player:UpdatePhysics()
                     -- charged pounce velocity
                     if self.MoveDir == 0 then
                         -- player is idle
-                        self:Decelerate(self.ChargedPounceIdleDeceleration)
+                        decelAmt = self.ChargedPounceIdleDeceleration
                     elseif sign(self.Velocity.X) == self.MoveDir then
                         -- player is moving "with" the direction of their momentum; don't slow down as much
-                        self:Decelerate(self.ChargedPounceForwardDeceleration)
+                        decelAmt = self.ChargedPounceForwardDeceleration
                     else
                         -- player is against the direction of momentum; normal deceleration
-                        self:Decelerate(self.ChargedPounceBackwardDeceleration)
+                        decelAmt = self.ChargedPounceBackwardDeceleration
                     end
                 else
                     -- pounce velocity
                     if self.MoveDir == 0 then
                         -- player is idle
-                        self:Decelerate(self.PounceIdleDeceleration)
+                        decelAmt = self.PounceIdleDeceleration
                     elseif sign(self.Velocity.X) == self.MoveDir then
                         -- player is moving "with" the direction of their momentum; don't slow down as much
-                        self:Decelerate(self.PounceForwardDeceleration)
+                        decelAmt = self.PounceForwardDeceleration
                     else
                         -- player is against the direction of momentum; normal deceleration
-                        self:Decelerate(self.PounceBackwardDeceleration)
+                        decelAmt = self.PounceBackwardDeceleration
                     end
                 end
                 
@@ -3316,24 +3338,28 @@ function Player:UpdatePhysics()
                 -- regular air velocity
                 if self.MoveDir == 0 then
                     -- player is idle
-                    self:Decelerate(self.AirIdleDeceleration)
+                    decelAmt = self.AirIdleDeceleration
                 elseif sign(self.Velocity.X) == self.MoveDir then
                     
                     -- player is moving "with" the direction of their momentum; don't slow down as much
-                    self:Decelerate(self.AirForwardDeceleration)
+                    decelAmt = self.AirForwardDeceleration
                 else
                     -- player is against the direction of momentum; normal deceleration
-                    self:Decelerate(self.AirBackwardDeceleration)
+                    decelAmt = self.AirBackwardDeceleration
                 end
             end
 
         end
+
+        self:Decelerate(decelAmt*self:GetFloorFriction())
+
         if math.abs(self.Velocity.X) < decelGoal then
             -- speed was fully "capped" and should be set as such
             self.Velocity.X = decelGoal * sign(self.Velocity.X)
         end
     end
 
+    
 
 
     if self.FramesSinceDive > -1 then

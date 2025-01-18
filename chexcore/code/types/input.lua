@@ -212,6 +212,7 @@ function love.gamepadpressed(joystick, button)
     local name = joystick:getName()
     local index = joystick:getConnectedIndex()
     sendInputDown("gp"..index, "gp_"..button)
+    
 end
 
 function love.gamepadreleased(joystick, button)

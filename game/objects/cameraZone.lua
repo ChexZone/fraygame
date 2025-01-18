@@ -36,12 +36,14 @@ local CameraZone = {
 
     ZoomSpeed = 5,
     
+    
+
     _super = "Prop", _global = true
 }
 
 function CameraZone.new()
     local cameraZone = Prop.new{
-        Solid = true, Visible = true, Passthrough = true,
+        Solid = true, Visible = false, Passthrough = true,
         Color = V{.8,.8,.8, 0},
         AnchorPoint = V{ 0,0 },
         Rotation = 0,

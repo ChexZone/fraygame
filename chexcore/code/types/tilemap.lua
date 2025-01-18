@@ -76,6 +76,12 @@ local Tilemap = {
             Bottom = {CollisionInset = 4},
             Left = {CollisionInset = 4},
             Right = {CollisionInset = 4},
+        },
+
+        Ice = {
+            Top = {Friction = 0.2, Material = "Glass", PreventJump = true},
+            Left = {Material = "Glass"},
+            Right = {Material = "Glass"},
         }
     },
 
@@ -88,6 +94,12 @@ local Tilemap = {
         ]]
         [386] = "OnePixelHorizontalInset",
         [385] = "OnePixelVerticalInset",
+
+        [358] = "Ice",
+        [359] = "Ice",
+        [361] = "Ice",
+        [362] = "Ice",
+        [363] = "Ice",
 
         [145] = "FourPixelHorizontalInset",
         [80] = "RightEdge",
@@ -264,7 +276,7 @@ function Tilemap:GenerateChunks()
                 self._drawChunks[layerID][#self._drawChunks[layerID]+1] = Canvas.new(
                     self._chunkSize * self.TileSize,
                     self._chunkSize * self.TileSize
-                                                                    )
+                ):Properties{AlphaMode = "premultiplied"}
             end
         end
     end
@@ -716,6 +728,8 @@ function Tilemap.import(tiledPath, atlasPath, properties)
                             -- newObj[k] = v
                         end
                         newObj._tilemapOriginPoint = V{newObj.Position.X/(newTilemap.TileSize*newTilemap._dimensions[1]), newObj.Position.Y/(newTilemap.TileSize*newTilemap._dimensions[2])}
+                    
+                        newObj.Visible = rawget(newObj, "Visible") or false
                     end
 
                     if objData.shape == "text" then

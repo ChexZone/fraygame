@@ -4,11 +4,10 @@ local Basketball = {
     _super = "Prop", _global = true
 }
 
-local print = function ()
-    
-end
+
 
 function Basketball.new()
+    
     local newBall = Prop.new{
         Name = "Holdable",
         
@@ -147,6 +146,7 @@ function Basketball.new()
                     self.AnchorPoint[1],
                     self.AnchorPoint[2]
                 )
+            
                 
                 -- Prop.Draw(self, tx+0.5, ty-1, isForeground)
                 if self.Shader then self.Shader:Deactivate() end
@@ -158,7 +158,7 @@ function Basketball.new()
         Update = function(self, dt)
     
             local frameInterval = dt > self._dtThreshold and 2 or 1
-    
+            
             if not self.Owner then
                 
                 if self.PickupDebounce > 0 then
@@ -210,9 +210,11 @@ function Basketball.new()
                         self.Velocity.Y = self.Velocity.Y + self.Gravity*60*dt
                     end
                 end
-    
+                
                 if self.Floor then -- apply ground deceleration
-                    self.Velocity.X = sign(self.Velocity.X) * math.max(math.abs(self.Velocity.X) - self.X_DECELERATION_GROUND*60*dt, 0)
+                    
+                print(self:GetFloorFriction())
+                    self.Velocity.X = sign(self.Velocity.X) * math.max(math.abs(self.Velocity.X) - self.X_DECELERATION_GROUND*60*dt*self:GetFloorFriction(), 0)
                 else -- apply air deceleration
                     self.Velocity.X = sign(self.Velocity.X) * math.max(math.abs(self.Velocity.X) - self.X_DECELERATION_AIR*60*dt, 0)
                 end
@@ -245,6 +247,11 @@ function Basketball.new()
                                                   or self.COYOTE_FRAMES_AFTER_AIRBORN_THROW
         end,
     
+        GetFloorFriction = function (self)
+            print(self.FloorSurfaceInfo)
+            return self.FloorSurfaceInfo and self.FloorSurfaceInfo.Friction or 1
+        end,
+
         RunCollision = function (self, expensive, dt)
             -- normal collision pass
             local pushX, pushY = 0, 0
@@ -289,11 +296,9 @@ function Basketball.new()
                             self.RotVelocity = self.RotVelocity + sign(self.Velocity.X)/20
                             movedAlready = true
                             if self.Velocity.Y > 0 and self.Velocity.Y < self.Y_MIN_BOUNCE_HEIGHT then
-                                print("Y CASE 1", pushX, pushY, dt)
                                 self.Velocity.Y = 0
                                 ignoreSound = true
                             elseif not self.Floor then
-                                print("Y CASE 2", self.Velocity:ToAngle())
                                 self.Velocity.Y = math.min(
                                     -(sign(self.Velocity.Y) * (math.abs(self.Velocity.Y) - self.Y_BOUNCE_HEIGHT_LOSS)),
                                     0
@@ -305,9 +310,7 @@ function Basketball.new()
                                 self.Floor = solid
                             end
                         end
-                        print(tpx, tpy, self.Velocity)
                         if pushX ~= 0 and math.abs(pushX) < 4 and (pushY == 0) and self.DebounceX == 0 then
-                            print("X CASE", pushX, pushY)
                             self.LastHitDirection = face
                             self.InternalDrawScale.X = math.clamp(1 - math.abs(self.Velocity.X)/4, 0.3, 1)
                             self.DebounceX = self.X_BOUNCE_DELAY
@@ -325,7 +328,6 @@ function Basketball.new()
             
             -- just give up if corner clipping, tbh
             if math.abs(pushX) > 2 and math.abs(pushY) > 2 and not movedAlready then
-                print("whatever", self.Velocity)
                 
                 self.Position = self.Position - (self.Velocity or V{0,0})*60*dt
                 self.Velocity = -self.Velocity
@@ -368,16 +370,17 @@ function Basketball.new()
             for solid, hDist, vDist, tileID in iterator do
                 local surfaceInfo = solid:GetSurfaceInfo(tileID)
                 local face = Prop.GetHitFace(hDist,vDist)
-    
+                
                 if solid == self.Floor and face == "bottom" then
                     foundFloor = true
+                    self.FloorSurfaceInfo = surfaceInfo.Top
                 end
             end
             if foundFloor then
                 
             else
-                
                 self.Floor = nil
+                self.FloorSurfaceInfo = nil
             end
             self.Position.Y = self.Position.Y - 2
         end,
