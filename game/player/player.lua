@@ -30,7 +30,8 @@ local Player = {
     ParryGravity = 0.125,
     FramesSinceLastLunge = 0,              --
     TrailLength = 1,                    -- (range 0-1) how long the trail should be
-    TrailColor = V{190/255, 140/255, 100/255, 0.7} + 0.3 ,       -- color of trail following player
+    TrailColor = V{190/255 + 0.3, 140/255 + 0.3, 100/255 + 0.3, 1},       -- color of trail following player
+    DefaultTrailColor = V{190/255 + 0.3, 140/255 + 0.3, 100/255 + 0.3, 1},       -- color of trail following player
     IsCrouchedHitbox = false,           -- whether the player's hitbox is in "crouched" state or not
     
     CrouchTime = 0,                     -- how many frames the player has been crouching for (0 if not crouching)
@@ -100,6 +101,9 @@ local Player = {
     MinPouncePower = 5,                  -- the X velocity out of a sideways pounce
     MaxPouncePower = 6.5,                  -- the X velocity out of a sideways pounce
     
+    DisablePlayerControl = false,       -- disables movement input for cutscenes
+    InInteraction = false,               -- disables entering new transitions during current ones
+
     InLedgeLunge = false,                   -- if the player is currently in a "ledge lunge" (AKA lunged into a staircase ledge)
     WaitingForLedgeLunge = false,           -- if the player just did a lunge and is waiting for ledge lunge
     FramesOnGroundAfterLedgeLungeBeforeChainEnds = 15,
@@ -262,11 +266,13 @@ local Player = {
 
 
     -- TEMPORARY
+    NearbyInteractable = nil,
     NearbyHoldableItem = nil,
     HeldItem = nil,
     LastHeldItem = nil,         -- doesn't reset after dropping
     CaughtHeldItemMidairChain = 0,
     CaughtLastHeldItemFromMidair = false,
+
     ThrewItemInAir = false,
     FramesSinceHoldingItem = -1,
     LastThrowDirection = 0,       -- -1 "left" or 1 "right" - the last direction an object was thrown at (resets on land)
@@ -521,10 +527,16 @@ function Player.new()
 
     newPlayer.Texture:AddCallback({
         62, 65, -- running footsteps
-        68, 71, -- running w/ held itemd
+        68, 71, -- running w/ held item
     }, function ()
         newPlayer:PlayLoudFootstepSound()
-
+        newPlayer:GetChild("RunFootstepDust"):Emit{
+            Position = newPlayer.Position,
+            Velocity = V{-newPlayer.Velocity.X, 0},
+            Color = newPlayer.TrailColor,
+            -- Acceleration = vel*-2,
+            Size = V{8 * sign(newPlayer.DrawScale.X), 8} * math.clamp(math.abs(newPlayer.Velocity.X), 4, 8)/4
+        }
     end)
 
     
@@ -549,6 +561,20 @@ function Player.new()
     newPlayer.LastSFX_ID = {}
 
     newPlayer.SFX.Jump[1].Test = true
+
+    Prop.new{
+        Name = "InteractIndicator",
+        AnchorPoint = V{0.5,0.5},
+        Texture = Animation.new("game/assets/images/interact-notifier.png", 4, 10):Properties{
+            Duration = 0.8,
+            LeftBound = 1, RightBound = 10,
+            Loop = false
+        },
+        Size = V{32,32},
+        Color = V{1,0,0},
+        Visible = false,
+        Position = V{348,2400},
+    }:Nest(newPlayer)
 
     Particles.new{
         Name = "RollKickoffDust",
@@ -608,6 +634,22 @@ function Player.new()
         ParticleSize = V{8, 8},
         LoopAnim = false,
         ParticleTexture = Animation.new("chexcore/assets/images/test/player/dust_forward_land.png", 1, 4):Properties{Duration = 0.5},
+        ParticleLifeTime = 0.5,
+        Color = V{0,0,0,0},
+        ParticleColor = newPlayer.TrailColor,
+        Update = function (self, dt)
+    end}:Nest(newPlayer)
+
+    Particles.new{
+        Name = "RunFootstepDust",
+        AnchorPoint = V{0.5, 0.5},
+        ParticleAnchorPoint = V{0.5, 1},
+        Texture = Texture.new("chexcore/assets/images/empty.png"),
+        RelativePosition = false,
+        Size = V{8,8},
+        ParticleSize = V{8, 8},
+        LoopAnim = false,
+        ParticleTexture = Animation.new("chexcore/assets/images/test/player/dust_run_footstep.png", 1, 4):Properties{Duration = 0.5},
         ParticleLifeTime = 0.5,
         Color = V{0,0,0,0},
         ParticleColor = newPlayer.TrailColor,
@@ -696,6 +738,7 @@ function Player.new()
     newPlayer.InputListener = Input.new{
         a = "move_left", gp_dpleft = "move_left", gp_lsleft = "move_left",
         d = "move_right", gp_dpright = "move_right", gp_lsright = "move_right",
+        w = "interact", gp_dpup = "interact", gp_lsup = "interact",
         space = "jump", gp_a = "jump", gp_b= "jump",
         lshift = "action", gp_x = "action", gp_y = "action", gp_leftshoulder = "action", gp_rightshoulder = "action",
         e = "action",
@@ -766,6 +809,7 @@ function Player:FloorPreventsJumping()
     return self.FloorSurfaceInfo and self.FloorSurfaceInfo.PreventJump
 end
 
+
 function Player:ConnectToFloor(floor, surfaceInfo, tileNo, tileLayer)
     
     -- if true then return flase end
@@ -802,12 +846,9 @@ function Player:ConnectToFloor(floor, surfaceInfo, tileNo, tileLayer)
     self.Position.Y = math.floor(self.Position.Y)
     self.DistanceAlongFloor = (self.Position.X - self.FloorLeftEdge) + (self.FloorRightEdge - self.FloorLeftEdge)
     -- self.Texture:AddProperties{LeftBound = 1, RightBound = 4, Loop = true}
-
-    
 end
 
 function Player:ConnectToWall(wall, direction, surfaceInfo, tileNo, tileLayer)
-    
     if not self.Wall then
         -- just touched wall
         self.FramesSinceAgainstWall = 0
@@ -849,6 +890,7 @@ function Player:AlignHitboxes()
     yHitbox.Position.Y = self.Position.Y
 
 end
+
 
 function Player:FollowFloor()
 
@@ -1032,10 +1074,29 @@ function Player:UnclipY(forTesting, returnFirstHit)
     
             
             
-            if not self.TouchEvents[solid] and not solid:IsA("Tilemap") then
+            if collider ~= self.HeldItem and not self.TouchEvents[solid] and not solid:IsA("Tilemap") then
                 self.TouchEvents[solid] = true
                 if solid.OnTouchEnter then solid:OnTouchEnter(self) end
                 if solid.OnTouchStay then solid:OnTouchStay(self) end
+                if solid.InteractActivate then
+                    if self.NearbyInteractable and self.NearbyInteractable.InteractLeave then
+                        -- overlapping interactables; leave current one
+                        self.NearbyInteractable:InteractLeave(self)
+                    end
+                    self.NearbyInteractable = solid
+                    if solid.InteractEnter then solid:InteractEnter(self) end
+
+                    -- set up interact notifier
+                    local indicator = self:GetChild("InteractIndicator")
+                    indicator.Position = solid.Position + (solid.InteractIndicatorOffset or V{30,-30})
+                    indicator.Visible = true
+                    indicator.Texture:Properties{
+                        Clock = 0,
+                        LeftBound = 1, RightBound = 10,
+                        IsPlaying = true
+                    }
+
+                end
             end
 
             
@@ -1071,12 +1132,15 @@ function Player:UnclipY(forTesting, returnFirstHit)
     if justLanded and math.abs(self.Velocity.X) > 1 and not forTesting then
         local vel = V{40, 0} * math.clamp(math.abs(self.Velocity.X), 0.75, 5) * sign(self.DrawScale.X)
         self:GetChild("ForwardLandDust"):Emit{
+            Color = self.TrailColor,
             Position = self.Position,
             Velocity = vel,
             Acceleration = vel*-2,
             Size = V{8 * sign(self.DrawScale.X), 8} * math.clamp(math.abs(self.Velocity.X), 4, 8)/4
         }
     end
+
+    
 
     return pushY
 end
@@ -1122,10 +1186,12 @@ function Player:UnclipX(forTesting)
                 (self.FramesSinceBounce == -1 or self.FramesSinceBounce >= self.BounceDebounce) and
                 (self.LastHeldItem ~= solid or self.FramesSinceDroppedItem > 12) then
                     self:ResetJumpStamina()
+                    self.LeapAnimSwitch = not self.LeapAnimSwitch
                     self:Jump(true)
                     self.Velocity.Y = -(surfaceInfo.Top.SpringPower or self.JumpPower)
                     self:PlaySFX("DoubleJump")
                     self:PlaySFX("Boing", 0.7, 1)
+                    
                     self.FramesSinceBounce = 0
                     self.ForceJumpHeldFrames = surfaceInfo.Top.ForceJumpHeldFrames or 6
                     -- if self.MoveDir ~= 0 then self.DrawScale.X = math.abs(self.DrawScale.X) * self.MoveDir end
@@ -1176,12 +1242,13 @@ function Player:ValidateFloor()
                 self.LastFloorSurfaceInfo = surfaceInfo.Top
                 self.FloorTileNo = tileNo
                 self.FloorTileLayer = tileLayer
+                self:SetTrailColor(self.FloorSurfaceInfo and self.FloorSurfaceInfo.DustColor or self.DefaultTrailColor)
                 break
             end
         end
         if not hit then
 
-            
+            self:SetTrailColor(self.DefaultTrailColor)
 
             -- first check to see if there's a ledge or slope right below us
             local i = 1
@@ -1384,6 +1451,18 @@ function Player:ProcessInput(dt)
         _G.FAST_MODE = not _G.FAST_MODE
         
     end
+
+
+    if self.DisablePlayerControl then
+        self.MoveDir = 0
+        return -- don't process any input
+    end
+
+
+    if self.NearbyInteractable and self.InputListener:JustPressed("interact") and not self.InInteraction then
+        self.NearbyInteractable:InteractActivate(self)
+    end
+
     -- crouch input
     if self.CrouchTime == 0 and self.InputListener:IsDown("crouch") and (self.FramesSinceRoll == -1 or self.FramesSinceRoll == 12) then
         if self.Floor then
@@ -1740,6 +1819,7 @@ function Player:Jump(noSFX)
         kickoffdust:Emit{
             Position = V{self.Position.X, self.PreviousFloorHeight}, 
             Size = V{kickoffdust.ParticleSize.X * sign(self.DrawScale.X), kickoffdust.ParticleSize.Y}, 
+            Color = self.TrailColor,
             Velocity = math.abs(self.Velocity.X) < 1 and V{0, 0} or V{-sign(self.DrawScale.X) * 35, 0}
         }
         self:ShrinkHitbox()
@@ -1830,7 +1910,8 @@ function Player:WallKick()
     self:PlaySFX("WallKick")
     self:GetChild("WallKickDust"):Emit{
         Position = self.Position - V{wallDir*4,5},
-        Size = V{16*wallDir, 16}
+        Size = V{16*wallDir, 16},
+        Color = self.TrailColor,
     }
     self.FramesSinceWallKick = 0
 end
@@ -1895,7 +1976,7 @@ function Player:DoubleJump(ignoreRejection)
     -- double jumping cancels run momentum
     self.CantRunUntilGrounded = true
 
-    self:GetChild("DoubleJumpDust"):Emit{Position = self:GetPoint(0.5,0.5), Rotation = math.random(0,3)*math.rad(90)}
+    self:GetChild("DoubleJumpDust"):Emit{Position = self:GetPoint(0.5,0.5), Rotation = math.random(0,3)*math.rad(90), Color = self.TrailColor}
     
     
     
@@ -1968,7 +2049,7 @@ function Player:Parry()
     end)
 
     self.JumpBuffer = 0
-    self:GetChild("DoubleJumpDust"):Emit{Position = self:GetPoint(0.5,0.5), Rotation = math.random(0,3)*math.rad(90)}
+    self:GetChild("DoubleJumpDust"):Emit{Position = self:GetPoint(0.5,0.5), Rotation = math.random(0,3)*math.rad(90), Color = self.TrailColor}
     
     -- local parrySpeed = ((self.WallDirection == "right" and self.MoveDir == 1) or (self.WallDirection == "left" and self.MoveDir == -1)) and 1 -- player is moving towards wall
     --     or self.MoveDir == 0 and 2.5    -- player is neutral
@@ -1997,7 +2078,8 @@ function Player:Parry()
     
     self:GetChild("WallKickDust"):Emit{
         Position = self.Position - V{-wallDir*4,5},
-        Size = V{16*-wallDir, 16}
+        Size = V{16*-wallDir, 16},
+        Color = self.TrailColor
     }
     self:PlaySFX("Parry")
     self:PlaySFX("Parry2")
@@ -2112,7 +2194,7 @@ function Player:Dive()
         self.Position.Y = self.Position.Y - 3
     end
 
-    self:GetChild("DiveDust"):Emit{Position = self:GetPoint(0.5,0.65), Rotation = math.random(0,3)*math.rad(90)}
+    self:GetChild("DiveDust"):Emit{Position = self:GetPoint(0.5,0.65), Rotation = math.random(0,3)*math.rad(90),Color = self.TrailColor,}
 
 
     
@@ -2159,6 +2241,7 @@ function Player:Roll()
         Position = self.Position,
         Velocity = vel,
         Acceleration = vel*-2,
+        Color = self.TrailColor,
         Size = V{8 * sign(self.DrawScale.X) * (movementPower == self.ShimmyPower and 1 or -1), 8} * math.clamp(math.abs(movementPower/2), 4, 8)/4 
     }  
 
@@ -2173,6 +2256,7 @@ function Player:Roll()
         kickoffdust:Emit{
             Position = V{self.Position.X, self.PreviousFloorHeight}, 
             Size = V{kickoffdust.ParticleSize.X * sign(self.DrawScale.X), kickoffdust.ParticleSize.Y}, 
+            Color = self.TrailColor,
             Velocity = math.abs(self.Velocity.X) < 1 and V{0, 0} or V{-sign(self.DrawScale.X) * 35, 0}
         }
         self.Velocity.X = sign(self.DrawScale.X) * movementPower
@@ -2188,7 +2272,7 @@ function Player:Roll()
     
     local blockJump
 
-    if self.InputListener:IsDown("jump") and self.FramesSinceJump <= self.RollWindowPastJump and self.TimeSinceCrouching < 5 then
+    if self.InputListener:IsDown("jump") and self.FramesSinceJump <= self.RollWindowPastJump and self.TimeSinceCrouching < 5 and not self:FloorPreventsJumping() then
         -- rolled a few frames late after a jump - initiate a pounce instead
         blockJump = true
         
@@ -2420,6 +2504,7 @@ function Player:UpdateAnimation()
                 Position = self:GetPoint(0.5,0.9) + V{xOfs, yOfs},
                 Size = V{25, 12} * (self.FramesSincePounce % (2*frequency) == 0 and 0.8 or 1) * 1 * chainFactor * speedFactor,
                 SizeVelocity = V{5,-17} * chainFactor * speedFactor,
+                Color = self.TrailColor,
                 SizeAcceleration = V{-60, 0} * chainFactor * speedFactor * 0.8,
                 Rotation = -self.Velocity:ToAngle() -math.rad(90),
                 Velocity = self.Velocity * 5,
@@ -2876,7 +2961,8 @@ function Player:UpdateFrameValues()
                 if self.FramesSinceAgainstWall % frequency == frequency-1 then
                     self:GetChild("WallSlideDust"):Emit{
                         Position = self.Position - V{wallDir*4,5},
-                        Size = V{16*wallDir, 16}
+                        Size = V{16*wallDir, 16},
+                        Color = self.TrailColor,
                     }
                 end
             end
@@ -3387,6 +3473,10 @@ function Player:UpdatePhysics()
             if solid.OnTouchStay then solid:OnTouchStay(self, hDist, vDist) end
         else
             if solid.OnTouchLeave then solid:OnTouchLeave(self) end
+            if self.NearbyInteractable == solid then
+                self:DisconnectNearbyInteractable()
+                if solid.InteractLeave then solid:InteractLeave(self) end
+            end
             self.TouchEvents[solid] = false
         end
     end
@@ -3501,6 +3591,40 @@ function Player:UpdatePhysics()
     
     self.Velocity.X = min(max(self.Velocity.X, -self.MaxSpeed.X), self.MaxSpeed.X)
     self.Velocity.Y = min(max(self.Velocity.Y, -self.MaxSpeed.Y), self.MaxSpeed.Y)
+end
+
+function Player:Teleport(x, y)
+    x, y = y and x or x[1], y or x[2]
+
+    local distX, distY = self.Position.X - x,
+                         self.Position.Y - y
+
+    self.Position.X = x
+    self.Position.Y = y
+
+    -- update tail points to avoid tail jitter
+    for _, p in ipairs(self.TailPoints) do
+        p[1] = p[1] - distX
+        p[2] = p[2] - distY
+    end
+
+    self:DisconnectFromWall()
+end
+
+function Player:DisconnectNearbyInteractable()
+    self.NearbyInteractable = nil
+    local indicator = self:GetChild("InteractIndicator")
+    indicator.Texture:Properties{
+        Clock = 0,
+        LeftBound = 11, RightBound = 20,
+        Duration = 0.6,
+        IsPlaying = true
+    }
+    Timer.Schedule(indicator.Texture.Duration, function ()
+        if not self.NearbyInteractable then -- check to make sure it wasn't recently reactivated
+            indicator.Visible = false
+        end
+    end)
 end
 
 local insert = table.insert
@@ -3819,7 +3943,7 @@ end
 function Player:UpdateHeldItem()
     if self.HeldItem then
         -- self.HeldItem.Position = self.Position + V{0, self.HeldItem.VerticalOffset - 12 + (self.HeldItemAnimationFrameOffsets[self.Texture.CurrentFrame] or 0)}
-        self.HeldItem.Position = self.Position + V{0, self.HeldItem.VerticalOffset - 12}
+        self.HeldItem.Position = self.Position + V{-0.5, self.HeldItem.VerticalOffset - 12}
     end
 end
 
@@ -3889,4 +4013,19 @@ function Player:ThrowItem()
     self.LastThrowDirection = dir
     item:Throw(not not self.Floor)
 end
+
+function Player:SetTrailColor(r,g,b,a)
+    if g then -- SetTrailColor(r, g, b, a)
+        self.TrailColor[1] = r
+        self.TrailColor[2] = g
+        self.TrailColor[3] = b
+        self.TrailColor[4] = a
+    else -- SetTrailColor(V{col})
+        self.TrailColor[1] = r[1]
+        self.TrailColor[2] = r[2]
+        self.TrailColor[3] = r[3]
+        self.TrailColor[4] = r[4]
+    end
+end
+
 return Player

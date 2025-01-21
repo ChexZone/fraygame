@@ -61,6 +61,7 @@ function Canvas:DrawToScreen(...)
     -- render the Canvas
     draw(self._drawable, ...)
     
+    setBlendMode(mode, alphaMode)
 end
 
 local setCanvas, setShader = lg.setCanvas, lg.setShader

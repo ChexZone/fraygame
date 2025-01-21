@@ -297,6 +297,7 @@ function GameScene:Update(dt)
 
             Timer.Schedule(0.5, function ()
                 self.Player:Respawn(self.Player.LastSafePosition)
+                self.Camera.Position = self.Player.LastSafePosition
             end)
 
             Timer.Schedule(1.2, function ()

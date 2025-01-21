@@ -8,7 +8,7 @@ local Text = {
     WordWrap = true,    -- whether to enforce word wrapping beyond the Size.X width
     FontSize = nil,   -- can assign a specific font height (pixels)
     Font = Font.new(),
-
+    Visible = true,
 
     -- internal properties
     _super = "Gui",      -- Supertype
@@ -59,7 +59,7 @@ local lg = love.graphics
 local floor = math.floor
 
 function Text:Draw(tx, ty, isForeground)
-
+    
     if self.Shader then
         self.Shader:Activate()
     end

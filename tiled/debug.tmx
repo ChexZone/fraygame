@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="200" height="300" tilewidth="16" tileheight="16" infinite="0" nextlayerid="6" nextobjectid="20">
+<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="200" height="300" tilewidth="16" tileheight="16" infinite="0" nextlayerid="6" nextobjectid="25">
  <editorsettings>
   <export target="../game/scenes/debug/tilemap.lua" format="lua"/>
  </editorsettings>
  <tileset firstgid="1" source="tilemap2.tsx"/>
+ <tileset firstgid="1025" source="cave-door.tsx"/>
  <layer id="3" name="bg'" width="200" height="300" tintcolor="#755b5b" offsetx="0" offsety="12">
   <properties>
    <property name="IgnoreCollision" type="bool" value="true"/>
@@ -995,7 +996,7 @@
   </object>
  </objectgroup>
  <objectgroup id="5" name="Misc">
-  <object id="9" name="PlayerSpawn" x="362.848" y="2538.74">
+  <object id="9" name="PlayerSpawn" x="2560" y="1584">
    <point/>
   </object>
   <object id="10" x="948.25" y="1690.5" width="162" height="77.5">
@@ -1009,6 +1010,16 @@ SHIFT: Action
    <text wrap="1" color="#ffffff">P: Performance Mode
 H: Debug Mode
 J: Slow Mode</text>
+  </object>
+  <object id="23" name="Door4" type="Door" gid="1025" x="2592" y="1584" width="48" height="32">
+   <properties>
+    <property name="Goal" type="object" value="24"/>
+   </properties>
+  </object>
+  <object id="24" name="Door3" type="Door" gid="1025" x="160" y="1024" width="48" height="32">
+   <properties>
+    <property name="Goal" type="object" value="23"/>
+   </properties>
   </object>
  </objectgroup>
 </map>

@@ -8,6 +8,9 @@
         "."
     ],
     "fileStates": {
+        "cave-door.tsx": {
+            "dynamicWrapping": true
+        },
         "debug.tmx": {
             "expandedObjectLayers": [
                 5,
@@ -31,6 +34,9 @@
                 "y": 4000
             }
         },
+        "thumbnails.tsx": {
+            "scaleInDock": 1
+        },
         "tilemap.tsx": {
             "scaleInDock": 1
         },
@@ -40,7 +46,7 @@
         }
     },
     "last.exportedFilePath": "D:/VSCode/lua/chexcore/game/scenes/debug",
-    "last.imagePath": "D:/VSCode/lua/chexcore/game/scenes/debug",
+    "last.imagePath": "D:/VSCode/lua/chexcore/game/assets/images",
     "map.height": 200,
     "map.lastUsedExportFilter": "Lua files (*.lua)",
     "map.lastUsedFormat": "tmx",
@@ -52,7 +58,7 @@
         "demo.tmx"
     ],
     "project": "debug-zone.tiled-project",
-    "property.type": "float",
+    "property.type": "object",
     "recentFiles": [
         "demo.tmx",
         "debug.tmx",
@@ -62,5 +68,6 @@
     "tileset.tileSize": {
         "height": 16,
         "width": 16
-    }
+    },
+    "tileset.type": 1
 }

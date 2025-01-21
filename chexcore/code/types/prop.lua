@@ -55,8 +55,13 @@ end
 
 
 function Prop:DrawChildren(tx, ty, isForeground)
+
     for _, child in ipairs(self._children) do
-        if child.Visible then 
+        -- if self:IsA("Group") then
+        --     print(child, child.Visible)
+        -- end
+        if child.Visible then
+
             if not isForeground and child.DrawInForeground then
                 self:GetLayer():DelayDrawCall(self.ZIndex or 1, child.Draw, child, tx, ty, true)
             else

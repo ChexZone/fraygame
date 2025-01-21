@@ -79,7 +79,7 @@ local Tilemap = {
         },
 
         Ice = {
-            Top = {Friction = 0.2, Material = "Glass", PreventJump = true},
+            Top = {Friction = 0.2, Material = "Glass", PreventJump = true, DustColor = V{1,1,1,0}},
             Left = {Material = "Glass"},
             Right = {Material = "Glass"},
         }
@@ -661,8 +661,11 @@ function Tilemap.import(tiledPath, atlasPath, properties)
                         Position = V{objData.x, objData.y} * newTilemap.Scale,
                         Size = V{objData.width, objData.height} * newTilemap.Scale,
                         Name = objData.name,
+                        -- Visible = true,
                         DrawInForeground = isForegroundLayer
                     })
+
+                    
 
                     if objData.type == "" then
                         newObj.Color = V{1,1,1,0}
@@ -675,10 +678,14 @@ function Tilemap.import(tiledPath, atlasPath, properties)
                     -- correct for Tiled having (0, 1) AnchorPoint
                     newObj.Position.X = newObj.Position.X + newObj.Size.X * newObj.AnchorPoint.X
                     
+
+                    -- print(newObj, newObj.AnchorPoint)
+
                     if objData.gid then
-                        
-                        newObj.Position.Y = newObj.Position.Y - newObj.Size.Y * newObj.AnchorPoint.Y
+                        print(newObj, "1",  newObj.Size.Y * (newObj.AnchorPoint.Y), newObj.Position)
+                        newObj.Position.Y = newObj.Position.Y - newObj.Size.Y * (1-newObj.AnchorPoint.Y)
                     else
+                        print(newObj, "2")
                         newObj.Position.Y = newObj.Position.Y + newObj.Size.Y * newObj.AnchorPoint.Y
                     end
 
@@ -729,7 +736,7 @@ function Tilemap.import(tiledPath, atlasPath, properties)
                         end
                         newObj._tilemapOriginPoint = V{newObj.Position.X/(newTilemap.TileSize*newTilemap._dimensions[1]), newObj.Position.Y/(newTilemap.TileSize*newTilemap._dimensions[2])}
                     
-                        newObj.Visible = rawget(newObj, "Visible") or false
+                        -- newObj.Visible = rawget(newObj, "Visible") or false
                     end
 
                     if objData.shape == "text" then
@@ -742,6 +749,8 @@ function Tilemap.import(tiledPath, atlasPath, properties)
 
 
                     end
+
+                    
                 end
             end
         end

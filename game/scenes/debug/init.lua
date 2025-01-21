@@ -11,6 +11,7 @@ local scene = GameScene.new{
 Chexcore:AddType("game.objects.wheel")
 Chexcore:AddType("game.objects.cameraZone")
 Chexcore:AddType("game.objects.basketball")
+Chexcore:AddType("game.objects.door")
 
 local bgLayer = Prop.new{Size = V{640, 360},
     Update = function (self)
@@ -369,10 +370,21 @@ layer:Adopt(Prop.new{
 })
 
 
+
+
+
 scene:SwapChildOrder(#scene:GetChildren()-1,#scene:GetChildren())
 
+local d1 = mainLayer:Adopt(Door.new():Properties{Position = V{348,2560}, Name="Door1"})
+-- local d2 = mainLayer:Adopt(Door.new():Properties{Position = V{1852,2384}, Name="Door2"})
+local d2 = mainLayer:Adopt(Door.new():Properties{Position = V{1451,1968}, Name="Door2"})
+
+d1.Goal = d2; d2.Goal = d1
+
+-- mainLayer:Adopt()
+
 -- DISABLE PRINTING FOR NOW
-local print = function() end
+-- local print = function() end
 
 -- temp: holdable item
 

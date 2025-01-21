@@ -11,9 +11,9 @@ function Basketball.new()
     local newBall = Prop.new{
         Name = "Holdable",
         
-        LinesTexture = Texture.new("game/assets/images/soccer-ball.png"),
-        BaseTexture = Texture.new("game/assets/images/soccer-ball.png"),
-        HeldTexture = Texture.new("game/assets/images/soccer-ball.png"),
+        LinesTexture = Texture.new("game/assets/images/basketball-lines.png"),
+        BaseTexture = Texture.new("game/assets/images/basketball-base.png"),
+        HeldTexture = Texture.new("game/assets/images/basketball-held.png"),
         DrawOverChildren = true,
         DrawInForeground = true,
         
