@@ -14,6 +14,14 @@ local GameScene = {
     DeathHeight = 2000, -- if the player's height is greater than this, respawn it
     InRespawn = false,  -- whether the player is in a respawn sequence or not
 
+    LightingQueue = {
+        focalPoints = {},
+        radii = {},
+        sharpnesses = {},
+        lightColors = {}
+    }, -- over the course of the frame, LightSource objects will feed into this
+    Brightness = .1, -- brightness of the overall scene (0=pitch black)
+
     ShowStats = false,  -- show stats of the player
 
     GuiLayer = nil,     -- set in constructor
@@ -31,7 +39,25 @@ function GameScene.new(properties)
             newGameScene[prop] = val
         end
     end
+
+    newGameScene.LightingQueue = {
+        focalPoints = {},
+        radii = {},
+        sharpnesses = {},
+        lightColors = {}
+    }
+
     local mainLayer = newGameScene:AddLayer(Layer.new("Gameplay", GameScene.GameplaySize.X, GameScene.GameplaySize.Y))
+
+    mainLayer.Shader = Shader.new("game/assets/shaders/scene-focus.glsl")
+        :Send("lightRects", unpack{{0.5,0.5, 0.85,.7}})
+        :Send("radii", unpack{1,1})
+        :Send("darkenFactor", 1)
+        :Send("sharpnesses", unpack{0.4,1})
+        :Send("aspectRatio", {16,9})
+        :Send("blendRange", 5.0)
+        :Send("baseShadowColor", HSV{0,0,0})
+        :Send("lightCount", 2)
 
     newGameScene.Camera = GameCamera.new():Set("Scene", newGameScene)
 
@@ -321,6 +347,9 @@ function GameScene:Update(dt)
 
             -- self.fallGuiTop.Size.Y = self.fallGuiTop.Size.Y + 5
         end
+
+        
+        
     end
 
     -- make sure gui layer is on top
@@ -331,13 +360,90 @@ function GameScene:Update(dt)
         guiID = self.GuiLayer:GetChildID()
     end
 
-    local ret = Scene.Update(self, dt)
-    return ret
+    -- local ret = Scene.Update(self, dt)
+    -- return ret
+
+    -- manual reimplementation of Scene.Update instead
+    for layer in self:EachChild() do
+        layer:Update(dt)
+    end
+
+    if self.Camera.Update then
+        self.Camera:Update(dt)
+    end
 end
 
 function GameScene:Draw(tx, ty)
     self.CameraBounds:PrepareToDraw()
+
+    -- flush lighting queue
+    self:ApplyLighting()
+
     return Scene.Draw(self, tx, ty)
 end
+
+function GameScene:ApplyLighting()
+    local queue = self.LightingQueue
+
+    -- queue = {
+    --     focalPoints = { {0.525, 0.55}, {0.475, 0.45} },
+    --     radii = {1, 1},
+    --     sharpnesses = {1,1},
+    --     lightColors = {
+    --         {1.0, 0.0, 1.0, 0.0},  -- red
+    --         {1.0, 1.0, 0.0, 1.0},  -- red
+    --     }
+    -- }
+
+
+    if #queue.sharpnesses == 0 then -- empty lighting queue
+        
+        self:GetLayer("Gameplay").Shader
+            :Send("lightCount", 0)
+            :Send("darkenFactor", self.Brightness or 0.4)
+    else
+
+        self:GetLayer("Gameplay").Shader
+            :Send("lightRects", unpack(queue.focalPoints))
+            :Send("lightChannels", unpack(queue.lightColors))
+            :Send("radii", unpack(queue.radii))
+            :Send("sharpnesses", unpack(queue.sharpnesses))
+            :Send("lightCount", #queue.sharpnesses)
+            :Send("darkenFactor", self.Brightness or 0.4)
+
+    end
+
+
+    queue.lightColors = {}
+    queue.focalPoints = {}
+    queue.radii = {}
+    queue.sharpnesses = {}
+end
+
+local radFactor = 1.075 / 8 / 16
+function GameScene:EnqueueLight(lightSource, precomputed_tl, preomputed_br)
+    -- lightSource.Radius = 0
+    self.LightingQueue.sharpnesses[#self.LightingQueue.sharpnesses+1] = lightSource.Sharpness
+    self.LightingQueue.radii[#self.LightingQueue.radii+1] = (lightSource.Radius*radFactor)
+    self.LightingQueue.lightColors[#self.LightingQueue.lightColors+1] = lightSource.Color
+
+    -- calculate focal point.. something like reverse Layer:GetMousePosition()?
+
+    local x1, y1 = (lightSource:GetLayer():PositionOnMasterCanvas((precomputed_tl or lightSource:GetPoint(0,0))) / self.MasterCanvas:GetSize())()
+    local x2, y2 = (lightSource:GetLayer():PositionOnMasterCanvas(preomputed_br or (lightSource:GetPoint(1,1))) / self.MasterCanvas:GetSize())()
+
+    self.LightingQueue.focalPoints[#self.LightingQueue.focalPoints+1] = {x1, y1, x2, y2}
+
+
+    
+
+
+
+    
+end
+
+
+
+
 
 return GameScene

@@ -9,16 +9,147 @@ function love.load()
     
 
 
+
+
+
+
+
+
     -- Load the Chexcore example Scene!
     
     Chexcore:AddType(require"game.player.player")
     Chexcore:AddType(require"game.objects.basketball")
+    Chexcore:AddType(require"game.objects.lightsource")
+    Chexcore:AddType(require"game.objects.cube")
     Chexcore:AddType(require"game.player.gameScene")
     Chexcore:AddType(require"game.player.gameCamera")
     local scene = require"game.scenes.debug.init"
+
+    local cube = Cube.new({":)","aA","D","D","]][[","F","G"},60):Nest(scene:GetLayer("Gameplay"))
+    cube.Size = V{64,64}
+    cube.GoalColor = V{1,1,1,1}
+    cube.GoalScale = V{1,1}
+    cube.Position = cube.Position
+    cube.Shader = Shader.new("game/assets/shaders/4px-white-outline.glsl"):Send("step", V{1,1}/V{160,160})
+    cube.Update = function (self,dt)
+        self.Color = self.Color:Lerp(self.GoalColor, dt*5)
+        self.DrawScale = self.DrawScale:Lerp(self.GoalScale, dt*5)
+        if self.Scared then
+            self.AnchorPoint = V{0.5 + math.random(-5,5)/100,0.5 + math.random(-5,5)/100}
+        else
+            self.AnchorPoint = V{0.5,0.5}
+        end
+
+    end
+    
+    cube:Adopt(LightSource.new():Properties{
+        Name = "CubeLight",
+        Position = cube:GetPoint(0.5,0.5),
+        Sharpness = 1, Color = V{1,1,1,0.5}, Radius = 400,
+        Update = function (self)
+            self.Position = cube.Position
+        end
+
+    })
+    function cube:OnTouchEnter(other)
+        self.GoalColor = HSV{0.55, 0.3, .7}
+        self.GoalScale = V{0.8,0.8}
+        self.Scared = other
+    end
+    function cube:OnTouchLeave(other)
+        self.GoalColor = V{1,1,1,1}
+        self.GoalScale = V{1,1}
+        self.Scared = false
+    end
+    cube.Solid = true
+    cube.Passthrough = true
+    cube.DrawInForeground = false
+    cube.Name = "Track"
+    _G.bigCube = cube
+    for i = 1, 10 do
+        local cube = Cube.new():Nest(scene:GetLayer("Gameplay"))
+        cube.Size = V{32,32}
+        cube.Shader = Shader.new("game/assets/shaders/4px-white-outline.glsl"):Send("step", V{1,1}/V{160,160})
+        cube.Position = cube.Position + V{
+            60 * math.cos(2*math.pi*i/10),
+            60 * math.sin(2*math.pi*i/10)
+        }
+        cube.Color = HSV{i/10, 1, 1, 1}
+
+        cube:Adopt(LightSource.new():Properties{
+            Position = cube:GetPoint(0.5,0.5),
+            Sharpness = 0, Color = cube.Color, Radius = 100,
+            Update = function (self)
+                self.Position = cube.Position
+            end
+
+        })
+
+    end
+
+    -- for i = 1, 20 do
+    --     local cube = Cube.new():Nest(scene:GetLayer("Gameplay"))
+    --     cube.Size = V{24,24}
+    --     cube.Position = cube.Position + V{
+    --         100 * math.cos(2*math.pi*i/20),
+    --         100 * math.sin(2*math.pi*i/20)
+    --     }
+    -- end
     
     local player = Player.new():Nest(scene:GetLayer("Gameplay"))
     -- local player2 = Player.new():Nest(scene:GetLayer("Gameplay"))
+
+
+    player:Adopt(LightSource.new():Properties{
+        Name = "PlayerLight",
+        -- AnchorPoint = V{0,0},
+        Update = function (self, dt)
+            self.Position = player:GetPoint(0.5,0.5)
+            self.Radius = (math.sin(Chexcore._clock*2)+1)/2 * 128
+            self.Sharpness = 1 --(math.cos(Chexcore._clock+math.pi/2)+1)/2
+            self.Color = HSV{1,0,1,0.5}
+            self.Size = V{
+                512-(math.sin(Chexcore._clock*2)+1)/2*128,
+                128-(math.sin(Chexcore._clock*2)+1)/2*128
+            }
+            print(self.Size)
+        end,
+        Radius = 1.0,
+        Sharpness = .5,
+        Size = V{100,1}
+        -- Color = V{0,0,0,1}
+    })
+
+    
+    player:Adopt(LightSource.new():Properties{
+        Name = "PlayerLight",
+        -- AnchorPoint = V{0,0},
+
+        Radius = 100,
+        Sharpness = 1,
+        Color = V{1,1,1,1},
+        Update = function (self, dt)
+            self.Position = player:GetPoint(0.5,0.5)
+        end
+        -- Color = V{0,0,0,1}
+    })
+
+    -- player:Adopt(LightSource.new():Properties{
+    --     Update = function (self, dt)
+    --         self.Position = player:GetPoint(0.5,0.5)
+    --     end,
+    --     Radius = .5,
+    --     Sharpness = 1,
+    --     Color = V{1,1,1,1}
+    -- })
+    -- player:Adopt(LightSource.new():Properties{
+    --     Update = function (self, dt)
+    --         self.Position = player:GetPoint(0.5,0.5)
+    --     end,
+    --     Radius = 0.4,
+    --     Sharpness = .5,
+    --     Color = V{1,1,0,1}
+    -- })
 
     scene.Camera.Focus = player
     

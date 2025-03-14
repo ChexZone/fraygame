@@ -910,14 +910,14 @@ function Player:FollowFloor()
             --     self.Velocity.Y = 0
             -- end
         end
-
+        -- print(self.Floor:GetEdge("top", self.FloorTileNo, self.FloorTileLayer))
+        -- self.Position.Y = self.Floor:GetEdge("top", self.FloorTileNo, self.FloorTileLayer)
+        -- self:SetEdge("bottom", self.Floor:GetEdge("top", self.FloorTileNo, self.FloorTileLayer))
         self.FloorPos = self.Floor.Position:Clone()
         
         self.PreviousFloorHeight = self:GetEdge("bottom")
     elseif self.LastFloor then
         self.LastFloorDelta = self.LastFloorPos - self.LastFloor.Position
-
-
     end
 end
 
@@ -966,9 +966,9 @@ end
 ------- collison function
 local justLanded, hitCeiling, inParry
 local pushX, pushY
-function Player:Unclip(forTesting)
+function Player:Unclip(forTesting, ignoreX, ignoreY)
     self.UnclipCount = self.UnclipCount + 1
-    if self.Floor then
+    if self.Floor and not ignoreY then
         self.Position.Y = self.Position.Y + 1
     end
     justLanded = false
@@ -977,12 +977,12 @@ function Player:Unclip(forTesting)
     
     
     if self.HeldItem and self.HeldItem.ExtendsHitbox then
-        pushX = self:UnclipX(forTesting)
-        pushY = self:UnclipY(forTesting)
+        if not ignoreX then pushX = self:UnclipX(forTesting) end
+        if not ignoreY then pushY = self:UnclipY(forTesting) end
         
     else
-        pushX = self:UnclipX(forTesting)
-        pushY = self:UnclipY(forTesting)
+        if not ignoreX then pushX = self:UnclipX(forTesting) end
+        if not ignoreY then pushY = self:UnclipY(forTesting) end
     end
 
 
@@ -1791,8 +1791,8 @@ function Player:Jump(noSFX)
     -------------
 
     if self.FramesSinceLastLunge <= self.CoyoteFrames and not self.Floor then
-        self.Position.Y = math.lerp(self.Position.Y, self.YPositionAtLedge, 0.8)
-        self.Velocity.X = self.XVelocityBeforeLastLunge
+        -- self.Position.Y = math.lerp(self.Position.Y, self.YPositionAtLedge, 0.8)
+        -- self.Velocity.X = self.XVelocityBeforeLastLunge
     else 
         self.YPositionAtLedge = self.Position.Y
     end
@@ -2368,7 +2368,7 @@ function Player:GrowHitbox(noUnclip)
         
         self:AlignHitboxes()
 
-        if not noUnclip then self:Unclip() end
+        -- if not noUnclip then self:Unclip() end
     end
 
     self.XHitbox.Size.Y = X_HITBOX_HEIGHT
@@ -3564,6 +3564,25 @@ function Player:UpdatePhysics()
         if px ~= 0 then pushedX = true end
         if py ~= 0 then pushedY = true end
     end
+    
+    -- for i = 1, math.abs(posDelta.X) do
+    --     self.Position.X = self.Position.X + 1 * sign(posDelta.X)
+    --     local px = self:Unclip(false, false, true)
+    --     if px ~= 0 then pushedX = true end
+    -- end
+    -- self.Position.X = self.Position.X + (math.abs(posDelta.X)%1)*sign(posDelta.X)
+    -- local px = self:Unclip(false, false, true)
+    -- if px ~= 0 then pushedX = true end
+
+    -- for i = 1, math.abs(posDelta.Y) do
+    --     print(i)
+    --     self.Position.Y = self.Position.Y + 1 * sign(posDelta.Y)
+    --     local py = self:Unclip(false, true, false)
+    --     if py ~= 0 then pushedY = true end
+    -- end
+    -- self.Position.Y = self.Position.Y + (math.abs(posDelta.Y)%1)*sign(posDelta.Y)
+    -- local py = self:Unclip(false, true, false)
+    -- if py ~= 0 then pushedY = true end
 
     local posAfterMove = self.Position
 
@@ -3579,6 +3598,7 @@ function Player:UpdatePhysics()
     -- special edge case for "falling" just off the corner of an object
     -- this happens when the player doesn't move far enough down for the x hitbox to touch the collider and move the player to the side
     -- the solution I think is just to force the movement and pray it doesn't create any edge case collision bugs
+    
     if pushedY and not self.HeldItem and self.Velocity.X == 0 and self.Acceleration.X == 0 and not self.Floor and math.abs(posAfterMove.Y - posBeforeMove.Y) < 1 then
         print("HANGING OFF LEDGE!!!")
         self.Position.Y = self.Position.Y + self.Velocity.Y

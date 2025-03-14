@@ -76,6 +76,11 @@ function Basketball.new()
         },
     
         Draw = function (self, tx, ty)
+
+            if self.DrawOverChildren and self:HasChildren() then
+                self:DrawChildren(tx, ty)
+            end
+
             if (not self.Owner) or self.Owner.FramesSinceHoldingItem < 2 then
                 local drawPosX, drawPosY = self.Position()
                 if self.Owner and self.Owner.FramesSinceHoldingItem == 1 then
@@ -152,6 +157,10 @@ function Basketball.new()
                 if self.Shader then self.Shader:Deactivate() end
             end
             self.LastDrawnPos = self.Position
+
+            if self.DrawOverChildren and self:HasChildren() then
+                self:DrawChildren(tx, ty)
+            end
         end,
     
         _dtThreshold = 1/50,
@@ -213,7 +222,6 @@ function Basketball.new()
                 
                 if self.Floor then -- apply ground deceleration
                     
-                print(self:GetFloorFriction())
                     self.Velocity.X = sign(self.Velocity.X) * math.max(math.abs(self.Velocity.X) - self.X_DECELERATION_GROUND*60*dt*self:GetFloorFriction(), 0)
                 else -- apply air deceleration
                     self.Velocity.X = sign(self.Velocity.X) * math.max(math.abs(self.Velocity.X) - self.X_DECELERATION_AIR*60*dt, 0)
@@ -248,7 +256,6 @@ function Basketball.new()
         end,
     
         GetFloorFriction = function (self)
-            print(self.FloorSurfaceInfo)
             return self.FloorSurfaceInfo and self.FloorSurfaceInfo.Friction or 1
         end,
 
@@ -400,6 +407,16 @@ function Basketball.new()
     newBall.Texture = Canvas.new((newBall.Size+V{2,2})())
     newBall.HelperCanvas = Canvas.new((newBall.Size)())
     newBall.Shader = Shader.new("game/assets/shaders/outline.glsl"):Send("step",{1/(newBall.Size.X+2),1/(newBall.Size.Y+2)}) -- 1/ 24 (for tile size) / 12 (for tile count)
+
+    newBall:Adopt(LightSource.new():Properties{
+        Update = function (self, dt)
+            self.Position = newBall:GetPoint(0.5,0.5)
+        end,
+        
+        Radius = 128,
+        Sharpness = 1,
+        Color = V{2,2,2,1}
+    })
 
     return newBall
 end

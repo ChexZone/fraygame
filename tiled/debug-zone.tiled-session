@@ -3,24 +3,38 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "debug.tmx",
+    "activeFile": "D:/VSCode/lua/8bubble/game/assets/tilemaps/debug.tmx",
     "expandedProjectPaths": [
         "."
     ],
+    "file.lastUsedOpenFilter": "All Files (*)",
     "fileStates": {
+        "D:/VSCode/lua/8bubble/game/assets/tilemaps/atlas.tsx": {
+            "scaleInDock": 1
+        },
+        "D:/VSCode/lua/8bubble/game/assets/tilemaps/debug.tmx": {
+            "scale": 1.856458333333333,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 239.97306699584786,
+                "y": 160.25137470542026
+            }
+        },
         "cave-door.tsx": {
-            "dynamicWrapping": true
+            "dynamicWrapping": true,
+            "scaleInDock": 1,
+            "scaleInEditor": 1
         },
         "debug.tmx": {
             "expandedObjectLayers": [
                 5,
                 4
             ],
-            "scale": 4,
+            "scale": 3,
             "selectedLayer": 1,
             "viewCenter": {
-                "x": 1600.125,
-                "y": 2404
+                "x": 1718.1666666666665,
+                "y": 2451.5
             }
         },
         "demo.tmx": {
@@ -30,8 +44,8 @@
             "scale": 1.5,
             "selectedLayer": 3,
             "viewCenter": {
-                "x": 4000.333333333333,
-                "y": 4000
+                "x": 4215,
+                "y": 4091
             }
         },
         "thumbnails.tsx": {
@@ -41,6 +55,7 @@
             "scaleInDock": 1
         },
         "tilemap2.tsx": {
+            "dynamicWrapping": false,
             "scaleInDock": 1.5,
             "scaleInEditor": 1
         }
@@ -55,13 +70,17 @@
     "map.width": 200,
     "openFiles": [
         "debug.tmx",
-        "demo.tmx"
+        "demo.tmx",
+        "cave-door.tsx",
+        "D:/VSCode/lua/8bubble/game/assets/tilemaps/debug.tmx"
     ],
     "project": "debug-zone.tiled-project",
     "property.type": "object",
     "recentFiles": [
-        "demo.tmx",
         "debug.tmx",
+        "demo.tmx",
+        "cave-door.tsx",
+        "D:/VSCode/lua/8bubble/game/assets/tilemaps/debug.tmx",
         "tilemap2.tsx"
     ],
     "tileset.lastUsedFormat": "tsx",

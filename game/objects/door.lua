@@ -215,7 +215,7 @@ function Door.new()
 
         Position = newDoor.Position - V{0,10},
         Size = V{0,0},
-        Color = V{0,0,0},
+        Color = V{34,32,52}/255,
         DrawInForeground = true,
         ZIndex = 9999,
     })
