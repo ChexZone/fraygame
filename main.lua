@@ -19,7 +19,7 @@ function love.load()
     
     Chexcore:AddType(require"game.player.player")
     Chexcore:AddType(require"game.objects.basketball")
-    Chexcore:AddType(require"game.objects.lightsource")
+    Chexcore:AddType(require"game.objects.lightSource")
     Chexcore:AddType(require"game.objects.cube")
     Chexcore:AddType(require"game.player.gameScene")
     Chexcore:AddType(require"game.player.gameCamera")
