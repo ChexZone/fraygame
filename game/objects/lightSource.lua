@@ -34,7 +34,6 @@ end
 local function isLightOnScreen(camPos, camSize, zoom, radius, light_tl, light_br)
     local hw = camSize[1] / (zoom) / 2
     local hh = camSize[2] / (zoom) / 2
-    print(radius)
     return not (camPos[1] + hw < light_tl[1] - radius or camPos[1] - hw > light_br[1] + radius or camPos[2] + hh < light_tl[2] - radius or camPos[2] - hh > light_br[2] + radius)
 end
 

@@ -8,7 +8,7 @@ require "chexcore"
 function love.load()
     
 
-
+ 
 
 
 
@@ -112,7 +112,6 @@ function love.load()
                 512-(math.sin(Chexcore._clock*2)+1)/2*128,
                 128-(math.sin(Chexcore._clock*2)+1)/2*128
             }
-            print(self.Size)
         end,
         Radius = 1.0,
         Sharpness = .5,
