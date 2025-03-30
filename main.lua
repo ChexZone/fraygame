@@ -25,67 +25,67 @@ function love.load()
     Chexcore:AddType(require"game.player.gameCamera")
     local scene = require"game.scenes.debug.init"
 
-    local cube = Cube.new({":)","aA","D","D","]][[","F","G"},60):Nest(scene:GetLayer("Gameplay"))
-    cube.Size = V{64,64}
-    cube.GoalColor = V{1,1,1,1}
-    cube.GoalScale = V{1,1}
-    cube.Position = cube.Position
-    cube.Shader = Shader.new("game/assets/shaders/4px-white-outline.glsl"):Send("step", V{1,1}/V{160,160})
-    cube.Update = function (self,dt)
-        self.Color = self.Color:Lerp(self.GoalColor, dt*5)
-        self.DrawScale = self.DrawScale:Lerp(self.GoalScale, dt*5)
-        if self.Scared then
-            self.AnchorPoint = V{0.5 + math.random(-5,5)/100,0.5 + math.random(-5,5)/100}
-        else
-            self.AnchorPoint = V{0.5,0.5}
-        end
+    -- local cube = Cube.new({":)","aA","D","D","]][[","F","G"},60):Nest(scene:GetLayer("Gameplay"))
+    -- cube.Size = V{64,64}
+    -- cube.GoalColor = V{1,1,1,1}
+    -- cube.GoalScale = V{1,1}
+    -- cube.Position = cube.Position
+    -- cube.Shader = Shader.new("game/assets/shaders/4px-white-outline.glsl"):Send("step", V{1,1}/V{160,160})
+    -- cube.Update = function (self,dt)
+    --     self.Color = self.Color:Lerp(self.GoalColor, dt*5)
+    --     self.DrawScale = self.DrawScale:Lerp(self.GoalScale, dt*5)
+    --     if self.Scared then
+    --         self.AnchorPoint = V{0.5 + math.random(-5,5)/100,0.5 + math.random(-5,5)/100}
+    --     else
+    --         self.AnchorPoint = V{0.5,0.5}
+    --     end
 
-    end
+    -- end
     
-    cube:Adopt(LightSource.new():Properties{
-        Name = "CubeLight",
-        Position = cube:GetPoint(0.5,0.5),
-        Sharpness = 1, Color = V{1,1,1,0.5}, Radius = 400,
-        Update = function (self)
-            self.Position = cube.Position
-        end
+    -- cube:Adopt(LightSource.new():Properties{
+    --     Name = "CubeLight",
+    --     Position = cube:GetPoint(0.5,0.5),
+    --     Sharpness = 1, Color = V{1,1,1,0.5}, Radius = 400,
+    --     Update = function (self)
+    --         self.Position = cube.Position
+    --     end
 
-    })
-    function cube:OnTouchEnter(other)
-        self.GoalColor = HSV{0.55, 0.3, .7}
-        self.GoalScale = V{0.8,0.8}
-        self.Scared = other
-    end
-    function cube:OnTouchLeave(other)
-        self.GoalColor = V{1,1,1,1}
-        self.GoalScale = V{1,1}
-        self.Scared = false
-    end
-    cube.Solid = true
-    cube.Passthrough = true
-    cube.DrawInForeground = false
-    cube.Name = "Track"
-    _G.bigCube = cube
-    for i = 1, 10 do
-        local cube = Cube.new():Nest(scene:GetLayer("Gameplay"))
-        cube.Size = V{32,32}
-        cube.Shader = Shader.new("game/assets/shaders/4px-white-outline.glsl"):Send("step", V{1,1}/V{160,160})
-        cube.Position = cube.Position + V{
-            60 * math.cos(2*math.pi*i/10),
-            60 * math.sin(2*math.pi*i/10)
-        }
-        cube.Color = HSV{i/10, 1, 1, 1}
+    -- })
+    -- function cube:OnTouchEnter(other)
+    --     self.GoalColor = HSV{0.55, 0.3, .7}
+    --     self.GoalScale = V{0.8,0.8}
+    --     self.Scared = other
+    -- end
+    -- function cube:OnTouchLeave(other)
+    --     self.GoalColor = V{1,1,1,1}
+    --     self.GoalScale = V{1,1}
+    --     self.Scared = false
+    -- end
+    -- cube.Solid = true
+    -- cube.Passthrough = true
+    -- cube.DrawInForeground = false
+    -- cube.Name = "Track"
+    -- _G.bigCube = cube
+    -- for i = 1, 10 do
+    --     local cube = Cube.new():Nest(scene:GetLayer("Gameplay"))
+    --     cube.Size = V{32,32}
+    --     cube.Shader = Shader.new("game/assets/shaders/4px-white-outline.glsl"):Send("step", V{1,1}/V{160,160})
+    --     cube.Position = cube.Position + V{
+    --         60 * math.cos(2*math.pi*i/10),
+    --         60 * math.sin(2*math.pi*i/10)
+    --     }
+    --     cube.Color = HSV{i/10, 1, 1, 1}
 
-        cube:Adopt(LightSource.new():Properties{
-            Position = cube:GetPoint(0.5,0.5),
-            Sharpness = 0, Color = cube.Color, Radius = 100,
-            Update = function (self)
-                self.Position = cube.Position
-            end
+    --     cube:Adopt(LightSource.new():Properties{
+    --         Position = cube:GetPoint(0.5,0.5),
+    --         Sharpness = 0, Color = cube.Color, Radius = 100,
+    --         Update = function (self)
+    --             self.Position = cube.Position
+    --         end
 
-        })
+    --     })
 
-    end
+    -- end
 
     -- for i = 1, 20 do
     --     local cube = Cube.new():Nest(scene:GetLayer("Gameplay"))
