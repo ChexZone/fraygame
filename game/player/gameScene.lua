@@ -49,7 +49,7 @@ function GameScene.new(properties)
 
     local mainLayer = newGameScene:AddLayer(Layer.new("Gameplay", GameScene.GameplaySize.X, GameScene.GameplaySize.Y))
 
-    mainLayer.Shader = Shader.new("game/assets/shaders/scene-focus.glsl")
+    mainLayer.Shader2 = Shader.new("game/assets/shaders/scene-focus.glsl")
         :Send("lightRects", unpack{{0.5,0.5, 0.85,.7}})
         :Send("radii", unpack{1,1})
         :Send("darkenFactor", 1)
@@ -398,12 +398,12 @@ function GameScene:ApplyLighting()
 
     if #queue.sharpnesses == 0 then -- empty lighting queue
         
-        self:GetLayer("Gameplay").Shader
+        self:GetLayer("Gameplay").Shader2
             :Send("lightCount", 0)
             :Send("darkenFactor", self.Brightness or 0.4)
     else
 
-        self:GetLayer("Gameplay").Shader
+        self:GetLayer("Gameplay").Shader2
             :Send("lightRects", unpack(queue.focalPoints))
             :Send("lightChannels", unpack(queue.lightColors))
             :Send("radii", unpack(queue.radii))
