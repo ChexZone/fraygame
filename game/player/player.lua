@@ -1425,6 +1425,11 @@ function Player:ProcessInput(dt)
         self:GetLayer():GetParent().GuiLayer:GetChild("StatsGui").Visible = not self:GetLayer():GetParent().GuiLayer:GetChild("StatsGui").Visible
     end
 
+    if input:JustPressed("m") then
+        self.Canvas:Record(30, "player_only")
+        self:GetScene().MasterCanvas:Record(30, "full_screen")
+    end
+
     if self.JustPressed["f11"] or ((input:IsDown("lalt") or input:IsDown("ralt")) and input:JustPressed("return")) then
         love.window.setFullscreen( not love.window.getFullscreen(), "desktop" )
     end
