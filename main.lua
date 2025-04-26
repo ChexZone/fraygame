@@ -23,7 +23,7 @@ function love.load()
     Chexcore:AddType(require"game.objects.cube")
     Chexcore:AddType(require"game.player.gameScene")
     Chexcore:AddType(require"game.player.gameCamera")
-    local scene = require"game.scenes.debug.init"
+    local scene = require"game.scenes.pretty.init"
 
     -- local cube = Cube.new({":)","aA","D","D","]][[","F","G"},60):Nest(scene:GetLayer("Gameplay"))
     -- cube.Size = V{64,64}
@@ -100,24 +100,24 @@ function love.load()
     -- local player2 = Player.new():Nest(scene:GetLayer("Gameplay"))
 
 
-    player:Adopt(LightSource.new():Properties{
-        Name = "PlayerLight",
-        -- AnchorPoint = V{0,0},
-        Update = function (self, dt)
-            self.Position = player:GetPoint(0.5,0.5)
-            self.Radius = (math.sin(Chexcore._clock*2)+1)/2 * 128
-            self.Sharpness = 1 --(math.cos(Chexcore._clock+math.pi/2)+1)/2
-            self.Color = HSV{1,0,1,0.5}
-            self.Size = V{
-                512-(math.sin(Chexcore._clock*2)+1)/2*128,
-                128-(math.sin(Chexcore._clock*2)+1)/2*128
-            }
-        end,
-        Radius = 1.0,
-        Sharpness = .5,
-        Size = V{100,1}
-        -- Color = V{0,0,0,1}
-    })
+    -- player:Adopt(LightSource.new():Properties{
+    --     Name = "PlayerLight",
+    --     -- AnchorPoint = V{0,0},
+    --     Update = function (self, dt)
+    --         self.Position = player:GetPoint(0.5,0.5)
+    --         self.Radius = (math.sin(Chexcore._clock*2)+1)/2 * 128
+    --         self.Sharpness = .5 --(math.cos(Chexcore._clock+math.pi/2)+1)/2
+    --         self.Color = V{100,0,0,1}
+    --         self.Size = V{
+    --             512-(math.sin(Chexcore._clock*2)+1)/2*128,
+    --             128-(math.sin(Chexcore._clock*2)+1)/2*128
+    --         }
+    --     end,
+    --     Radius = 1.0,
+    --     Sharpness = .5,
+    --     Size = V{100,1}
+    --     -- Color = V{0,0,0,1}
+    -- })
 
     
     player:Adopt(LightSource.new():Properties{
@@ -125,7 +125,7 @@ function love.load()
         -- AnchorPoint = V{0,0},
 
         Radius = 100,
-        Sharpness = 1,
+        Sharpness = 0,
         Color = V{1,1,1,1},
         Update = function (self, dt)
             self.Position = player:GetPoint(0.5,0.5)
@@ -209,6 +209,58 @@ function love.load()
     -- A scene will only be processed by Chexcore while it is "mounted"
     Chexcore.MountScene(scene)
 
+    -- scene:GetLayer("Gameplay"):Adopt(Prop.new{
+    --     Name = "Parent",
+    --     Update = function (self)
+    --         self.Iterator = self.Iterator or scene:EachDescendant()
+    --         for i = 1, 2 do
+    --             local c = self.Iterator()
+    --             if not c then
+    --                 self.Iterator = scene:EachDescendant()
+    --                 c = self.Iterator()
+    --             end
+    --             print(c)
+    --         end
+    --         print("------------------------------------")
+    --     end
+    -- }:With(Prop.new{Name="Child1"})
+    -- :With(Prop.new{Name="Child2"})
+    -- :With(Prop.new{Name="Child3"})
+    -- )
+
+    -- Timer.Schedule(.5, function ()
+    --     print("-----------------------------------------------\n\n\n\n\n\n\n")
+
+
+    --     -- local gc = Object.new{Name="Grandchild2-1"}
+    --     -- local object = Object.new{Name="Parent"}
+    --     --                 :With(Object.new{Name="Child1"}
+    --     --                     :With(Object.new{Name="Grandchild1"})
+    --     --                     :With(Object.new{Name="Grandchild2"}))
+
+    --     local object = Object.new{Name="Parent"}
+    --         :With(Object.new{Name="Child1"})
+    --         :With(Object.new{Name="Child2"})
+    --         :With(Object.new{Name="Child3"})
+
+    --     -- for c in object:EachDescendant() do
+    --     --     print(c.Name)
+    --     -- end
+
+    --     local descendantFunc = object:EachDescendant()
+
+    --     print(descendantFunc())
+    --     -- object:GetChild("Child1"):Emancipate()
+    --     object:SwapChildOrder(1,3)
+    --     print(descendantFunc())
+    --     object:SwapChildOrder(2,1)
+
+    --     print(descendantFunc())
+
+    --     print(descendantFunc())
+
+
+    -- end)
 
     -- print(player:ToString(true))
     -- You can unmount (or deactivate) a scene by using Chexcore.UnmountScene(scene)

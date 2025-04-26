@@ -20,7 +20,8 @@ local GameScene = {
         sharpnesses = {},
         lightColors = {}
     }, -- over the course of the frame, LightSource objects will feed into this
-    Brightness = .1, -- brightness of the overall scene (0=pitch black)
+    Brightness = 1, -- brightness of the overall scene (0=pitch black)
+    ShadowColor = HSV{0,0,0},
 
     ShowStats = false,  -- show stats of the player
 
@@ -48,6 +49,36 @@ function GameScene.new(properties)
     }
 
     local mainLayer = newGameScene:AddLayer(Layer.new("Gameplay", GameScene.GameplaySize.X, GameScene.GameplaySize.Y))
+    mainLayer.FinalCanvas = Canvas.new(GameScene.GameplaySize()):Properties{Name="FINAL"}
+    mainLayer.FinalCanvas.Shader = Shader.new("game/assets/shaders/water.glsl")
+    -- mainLayer.FinalCanvas.Shader:Send("screenSize", {960,540})
+    -- mainLayer.FinalCanvas.Shader:Send("sourceCanvas", mainLayer.Canvases[1]._drawable)
+    mainLayer.Draw = function (self, tx, ty)
+        Layer.Draw(self, tx, ty)
+        mainLayer.FinalCanvas.Shader:Send("frontWaveSpeed", -1.5)  -- move rightward normally
+        mainLayer.FinalCanvas.Shader:Send("backWaveSpeed", -1)  -- move leftward normally
+        mainLayer.FinalCanvas.Shader:Send("aspectRatio", {16,9})
+        mainLayer.FinalCanvas.Shader:Send("waterRects", {0.5,0.5, 1,1},{0,0.1,0.7,1})
+        mainLayer.FinalCanvas.Shader:Send("waterCount",2)
+        mainLayer.FinalCanvas.Shader:Send("clock",Chexcore._clock)
+        self.FinalCanvas:CopyFrom(self.Canvases[1], mainLayer.FinalCanvas.Shader)
+        
+        
+        
+        -- mainLayer.BaseCanvas, mainLayer.Canvases[1] = mainLayer.Canvases[1], mainLayer.BaseCanvas
+        
+    end
+
+
+
+    -- Euclidean algorithm to find GCD
+local function gcd(a, b)
+    while b ~= 0 do
+        a, b = b, a % b
+    end
+    return a
+end
+
 
     mainLayer.Shader = Shader.new("game/assets/shaders/scene-focus.glsl")
         :Send("lightRects", unpack{{0.5,0.5, 0.85,.7}})
@@ -56,7 +87,7 @@ function GameScene.new(properties)
         :Send("sharpnesses", unpack{0.4,1})
         :Send("aspectRatio", {16,9})
         :Send("blendRange", 5.0)
-        :Send("baseShadowColor", HSV{0,0,0})
+        :Send("baseShadowColor", newGameScene.ShadowColor or GameScene.ShadowColor)
         :Send("lightCount", 2)
 
     newGameScene.Camera = GameCamera.new():Set("Scene", newGameScene)
@@ -374,6 +405,7 @@ function GameScene:Update(dt)
 end
 
 function GameScene:Draw(tx, ty)
+    
     self.CameraBounds:PrepareToDraw()
 
     -- flush lighting queue
@@ -408,6 +440,7 @@ function GameScene:ApplyLighting()
             :Send("lightChannels", unpack(queue.lightColors))
             :Send("radii", unpack(queue.radii))
             :Send("sharpnesses", unpack(queue.sharpnesses))
+            :Send("baseShadowColor", self.ShadowColor or GameScene.ShadowColor)
             :Send("lightCount", #queue.sharpnesses)
             :Send("darkenFactor", self.Brightness or 0.4)
 
