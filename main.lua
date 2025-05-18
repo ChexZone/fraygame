@@ -23,7 +23,7 @@ function love.load()
     Chexcore:AddType(require"game.objects.cube")
     Chexcore:AddType(require"game.player.gameScene")
     Chexcore:AddType(require"game.player.gameCamera")
-    local scene = require"game.scenes.pretty.init"
+    local scene = require"game.scenes.debug.init"
 
     local cube = Cube.new({":)","aA","D","D","]][[","F","G"},60):Nest(scene:GetLayer("Gameplay"))
     cube.Size = V{64,64}
