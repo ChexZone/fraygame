@@ -6,8 +6,8 @@ local scene = GameScene.new{
         -- self.Camera.Position = self.Camera.Position:Lerp((self.Player:GetPoint(0.5,0.5)), 1000*dt)
         -- self.Camera.Zoom = 1 --+ (math.sin(Chexcore._clock)+1)/2
     end,
-    Brightness = 0,
-    ShadowColor = HSV{0.1,0.8,0.2,1}
+    Brightness = .3,
+    ShadowColor = HSV{0.5,0.8,0.2,1}
 }
 Chexcore:AddType("game.objects.wheel")
 Chexcore:AddType("game.objects.cameraZone")

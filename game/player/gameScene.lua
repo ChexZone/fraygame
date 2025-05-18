@@ -49,25 +49,118 @@ function GameScene.new(properties)
     }
 
     local mainLayer = newGameScene:AddLayer(Layer.new("Gameplay", GameScene.GameplaySize.X, GameScene.GameplaySize.Y))
-    mainLayer.FinalCanvas = Canvas.new(GameScene.GameplaySize()):Properties{Name="FINAL"}
-    mainLayer.FinalCanvas.Shader = Shader.new("game/assets/shaders/water.glsl")
+    mainLayer.Canvases[2] = Canvas.new(GameScene.GameplaySize()):Properties{Name="FINAL"}
+    mainLayer.HelperCanvas = mainLayer.Canvases[2]
+    -- mainLayer.FinalCanvas.Shader = Shader.new("game/assets/shaders/water.glsl")
     -- mainLayer.FinalCanvas.Shader:Send("screenSize", {960,540})
     -- mainLayer.FinalCanvas.Shader:Send("sourceCanvas", mainLayer.Canvases[1]._drawable)
+
+    mainLayer.ShaderCache = {
+        water = "game/assets/shaders/water.glsl",
+        lighting = Shader.new("game/assets/shaders/scene-focus.glsl"):Send("blendRange", 5):Send("aspectRatio", {16,9})
+    }
+
+
+
+    mainLayer.ShaderQueue = {}
+
+    mainLayer.OverlayShaders = {"water", "lighting"}
+
+    mainLayer.EnqueueShaderData = function (self, shaderName, valueName, ...)
+        self.ShaderQueue[shaderName] = self.ShaderQueue[shaderName] or {}
+        self.ShaderQueue[shaderName][valueName] = self.ShaderQueue[shaderName][valueName] or {}
+        local p = self.ShaderQueue[shaderName][valueName]
+        for _, v in ipairs{...} do
+            p[#p+1] = v
+        end
+
+    end
+
+    mainLayer.SetShaderData = function (self, shaderName, valueName, ...)
+        self.ShaderQueue[shaderName] = self.ShaderQueue[shaderName] or {}
+        self.ShaderQueue[shaderName][valueName] = {...}
+    end
+
+    mainLayer.GetShaderData = function (self, shaderName, valueName)
+        if not self.ShaderQueue[shaderName] then
+            return nil
+        end
+        if not self.ShaderQueue[shaderName][valueName] then
+            return nil
+        end
+        return unpack(self.ShaderQueue[shaderName][valueName])
+    end
+
+    -- mainLayer.GetShaderData = function(self, shaderName, valueName)
+    --     -- nothing queued? bail out
+    --     local queueForShader = self.ShaderQueue[shaderName]
+    --     if not queueForShader or not queueForShader[valueName] then
+    --         return nil
+    --     end
+    
+    --     -- grab the cached data
+    --     local cacheForShader = self.ShaderCache[shaderName]
+    --     if not cacheForShader then
+    --         return nil
+    --     end
+    
+    --     local data = cacheForShader[valueName]
+    --     if not data then
+    --         return nil
+    --     end
+    
+    --     -- safe to unpack now
+    --     return table.unpack(data)
+    -- end
+    -- set up Gameplay layer draw cycle
     mainLayer.Draw = function (self, tx, ty)
+        self.ShaderQueue = {}
+
         Layer.Draw(self, tx, ty)
-        mainLayer.FinalCanvas.Shader:Send("frontWaveSpeed", -1.5)  -- move rightward normally
-        mainLayer.FinalCanvas.Shader:Send("backWaveSpeed", -1)  -- move leftward normally
-        mainLayer.FinalCanvas.Shader:Send("aspectRatio", {16,9})
-        mainLayer.FinalCanvas.Shader:Send("waterRects", {0.5,0.5, 1,1},{0,0.1,0.7,1})
-        mainLayer.FinalCanvas.Shader:Send("waterCount",2)
-        mainLayer.FinalCanvas.Shader:Send("clock",Chexcore._clock)
-        self.FinalCanvas:CopyFrom(self.Canvases[1], mainLayer.FinalCanvas.Shader)
+
+        self.ShaderCache.lighting:Send("baseShadowColor", newGameScene.ShadowColor)
+        self.ShaderCache.lighting:Send("darkenFactor", newGameScene.Brightness)
+        
+        self.FinalCanvas = self.Canvases[1]
+        self.HelperCanvas = self.Canvases[2]
+
+        for _, shader in ipairs(self.OverlayShaders) do
+            if self.ShaderQueue[shader] then
+                -- load shader into cache if not loaded yet
+                self.ShaderCache[shader] = type(self.ShaderCache[shader]) == "string" and Shader.new(self.ShaderCache[shader]) or self.ShaderCache[shader]
+
+
+                -- send any relevant data to the shader:
+                for extern, val in pairs(self.ShaderQueue[shader]) do
+                    self.ShaderCache[shader]:Send(extern, unpack(val))
+                end
+
+                self.ShaderCache[shader]:Activate()
+                self.HelperCanvas:CopyFrom(self.FinalCanvas)
+                self.ShaderCache[shader]:Deactivate()
+                self.FinalCanvas, self.HelperCanvas = self.HelperCanvas, self.FinalCanvas
+            end
+        end
+
+
+        -- mainLayer.FinalCanvas.Shader:Send("frontWaveSpeed", -1.5)  -- move rightward normally
+        -- mainLayer.FinalCanvas.Shader:Send("backWaveSpeed", -1.4)  -- move leftward normally
+        -- mainLayer.FinalCanvas.Shader:Send("aspectRatio", {16,9})
+        -- mainLayer.FinalCanvas.Shader:Send("waterSides", {1,1,0,1},{1,1,1,1})
+        -- mainLayer.FinalCanvas.Shader:Send("waterRects", {0.595,0.3, 0.8,.55}, {0.3, 0.2, 0.6, 0.7})
+        -- -- mainLayer.FinalCanvas.Shader:Send("renderSides", {1,1,1,1},{1,1,1,1})
+        -- mainLayer.FinalCanvas.Shader:Send("waterCount",2)
+        -- -- mainLayer.FinalCanvas.Shader:Send("waveInset",0.200)
+        -- mainLayer.FinalCanvas.Shader:Send("clock",Chexcore._clock)
+        -- self.FinalCanvas:CopyFrom(self.Canvases[1], mainLayer.FinalCanvas.Shader)
         
         
         
         -- mainLayer.BaseCanvas, mainLayer.Canvases[1] = mainLayer.Canvases[1], mainLayer.BaseCanvas
         
     end
+
+
 
 
 
@@ -80,15 +173,15 @@ local function gcd(a, b)
 end
 
 
-    mainLayer.Shader = Shader.new("game/assets/shaders/scene-focus.glsl")
-        :Send("lightRects", unpack{{0.5,0.5, 0.85,.7}})
-        :Send("radii", unpack{1,1})
-        :Send("darkenFactor", 1)
-        :Send("sharpnesses", unpack{0.4,1})
-        :Send("aspectRatio", {16,9})
-        :Send("blendRange", 5.0)
-        :Send("baseShadowColor", newGameScene.ShadowColor or GameScene.ShadowColor)
-        :Send("lightCount", 2)
+    -- mainLayer.Shader = Shader.new("game/assets/shaders/scene-focus.glsl")
+    --     :Send("lightRects", unpack{{0.5,0.5, 0.85,.7}})
+    --     :Send("radii", unpack{1,1})
+    --     :Send("darkenFactor", 1)
+    --     :Send("sharpnesses", unpack{0.4,1})
+    --     :Send("aspectRatio", {16,9})
+    --     :Send("blendRange", 5.0)
+    --     :Send("baseShadowColor", newGameScene.ShadowColor or GameScene.ShadowColor)
+    --     :Send("lightCount", 2)
 
     newGameScene.Camera = GameCamera.new():Set("Scene", newGameScene)
 
@@ -305,6 +398,8 @@ end
 end
 
 local Scene = Scene
+
+
 function GameScene:Update(dt)
 
     self.FrameLimit = self.PerformanceMode and self._performanceFPS or self._normalFPS
@@ -430,19 +525,19 @@ function GameScene:ApplyLighting()
 
     if #queue.sharpnesses == 0 then -- empty lighting queue
         
-        self:GetLayer("Gameplay").Shader
-            :Send("lightCount", 0)
-            :Send("darkenFactor", self.Brightness or 0.4)
+        -- self:GetLayer("Gameplay").Shader
+        --     :Send("lightCount", 0)
+        --     :Send("darkenFactor", self.Brightness or 0.4)
     else
 
-        self:GetLayer("Gameplay").Shader
-            :Send("lightRects", unpack(queue.focalPoints))
-            :Send("lightChannels", unpack(queue.lightColors))
-            :Send("radii", unpack(queue.radii))
-            :Send("sharpnesses", unpack(queue.sharpnesses))
-            :Send("baseShadowColor", self.ShadowColor or GameScene.ShadowColor)
-            :Send("lightCount", #queue.sharpnesses)
-            :Send("darkenFactor", self.Brightness or 0.4)
+        -- self:GetLayer("Gameplay").Shader
+        --     :Send("lightRects", unpack(queue.focalPoints))
+        --     :Send("lightChannels", unpack(queue.lightColors))
+        --     :Send("radii", unpack(queue.radii))
+        --     :Send("sharpnesses", unpack(queue.sharpnesses))
+        --     :Send("baseShadowColor", self.ShadowColor or GameScene.ShadowColor)
+        --     :Send("lightCount", #queue.sharpnesses)
+        --     :Send("darkenFactor", self.Brightness or 0.4)
 
     end
 

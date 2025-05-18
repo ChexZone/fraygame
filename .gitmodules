@@ -1,3 +1,4 @@
 [submodule "chexcore"]
 	path = chexcore
 	url = https://github.com/ChexZone/chexcore.git
+	brach = main

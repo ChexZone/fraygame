@@ -1558,7 +1558,9 @@ function Player:ProcessInput(dt)
 
     local blockJump
 
-    if not self.DiveExpired and  self.ActionBuffer > 0 and (not self.Floor and self.CoyoteBuffer == 0) and self.FramesSinceDive == -1 and (self.FramesSinceJump == -1 or self.FramesSinceJump > 4) and self.FramesSinceRoll == -1 and (self.FramesSincePounce == -1 or self.PounceAnimCancelled or self.FramesSinceDoubleJump > -1 or self.InputListener:IsDown("crouch")) then
+    if not self.DiveExpired and  self.ActionBuffer > 0 and (not self.Floor and self.CoyoteBuffer == 0) and 
+           self.FramesSinceDive == -1 and (self.FramesSinceJump == -1 or self.FramesSinceJump > 4) and self.FramesSinceRoll == -1 and 
+           (self.FramesSincePounce == -1 or self.PounceAnimCancelled or self.FramesSinceDoubleJump > -1 or self.InputListener:IsDown("crouch")) then
         -- dive
 
         if not (self.MoveDir == 0 and input:IsDown("crouch")) then -- we don't let the dive action happen if holding neutral and crouch

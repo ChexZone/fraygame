@@ -1,112 +1,171 @@
 #define MAX_WATER_BOXES 15
 
+// mask: x=top, y=bottom, z=left, w=right
+extern vec4 waterSides[MAX_WATER_BOXES];
 extern vec4 waterRects[MAX_WATER_BOXES];
-extern int waterCount;
+extern int  waterCount;
 extern vec2 aspectRatio;
 extern float clock;
 
-// NEW externs:
 extern float frontWaveSpeed;
 extern float backWaveSpeed;
 
-vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen_coords)
-{
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen_coords) {
     vec2 coord = uv * aspectRatio;
 
-    float inWater = 0.0;
-    float onSurface = 0.0;
-    float inBackWater = 0.0;
-    float onBackSurface = 0.0;
+    float isInFrontWater   = 0.0;
+    float isInBackWater    = 0.0;
+    float isOnFrontSurface = 0.0;
+    float isOnBackSurface  = 0.0;
+    float bandAccum        = 0.0;
 
-    float distanceToFront = -1e6;
-    float distanceToBack = -1e6;
+    float closestFrontDist = 1e6;
+    float closestBackDist  = 1e6;
 
-    // Precompute constants
-    float invAspectY = 1.0 / aspectRatio.y;
-    float waveFrequency = 150.0;
-    float waveAmplitude = 0.4;
-    float waveCenterOffset = 8.0;
-    float lowerFrontOffset = 0.25;
-    float bobbingAmplitude = 0.6;
-    float bobbingSpeed = 2.0;
+    // --- NEW: count how many front-water rects cover this pixel ---
+    float frontCount = 0.0;
 
-    float bobbingFront = sin(clock * bobbingSpeed) * bobbingAmplitude;
-    float bobbingBack  = sin(clock * bobbingSpeed + 1.0) * bobbingAmplitude;
+    // precompute
+    float invA_Y    = 1.0 / aspectRatio.y;
+    float invA_X    = 1.0 / aspectRatio.x;
+    float freq      = 250.0;
+    float amp       = 0.3;
+    float bobAmp    = 0.5;
+    float bobSpeed  = 1.0;
+
+    float thickY = 0.25 * invA_Y;
+    float thickX = 0.25 * invA_X;
+
+    float maxOffY = (amp + bobAmp) * invA_Y;
+    float maxOffX = (amp + bobAmp) * invA_X;
+
+    float waveOverflow = 12.0 * invA_Y;
+    float surfMarginY  = maxOffY + thickY - 0.08;
+    float surfMarginX  = maxOffX + thickX - 0.06;
+
+    float bobF = sin(clock * bobSpeed)      * bobAmp;
+    float bobB = sin(clock * bobSpeed + 1.) * bobAmp;
 
     for (int i = 0; i < waterCount; i++) {
-        vec2 tl = waterRects[i].xy * aspectRatio;
-        vec2 br = waterRects[i].zw * aspectRatio;
+        vec4 sides = waterSides[i];
+        vec2 tl    = waterRects[i].xy * aspectRatio;
+        vec2 br    = waterRects[i].zw * aspectRatio;
 
-        float isInside = step(tl.x, coord.x) * step(coord.x, br.x) * step(tl.y, coord.y) * step(coord.y, br.y);
+        // expanded region for sine‐existence
+        vec2 eTL = tl - vec2(waveOverflow);
+        vec2 eBR = br + vec2(waveOverflow);
+        float insideExp = step(eTL.x, coord.x) * step(coord.x, eBR.x)
+                        * step(eTL.y, coord.y) * step(coord.y, eBR.y);
+        if (insideExp > 0.0) {
+            // --- compute per-side sine offsets ---
+            float wFX = sin(coord.x * freq * invA_X + (clock+1.)*frontWaveSpeed) * amp;
+            float wBX = sin(coord.x * freq * invA_X + clock*backWaveSpeed ) * amp;
+            float wFY = sin(coord.y * freq * invA_X + (clock+2.)*frontWaveSpeed) * amp;
+            float wBY = sin(coord.y * freq * invA_X + (clock+1.)*backWaveSpeed ) * amp;
 
-        if (isInside > 0.0) {
-            // --- Front wave ---
-            float waveFront = sin(coord.x * waveFrequency / aspectRatio.x + clock * frontWaveSpeed) * waveAmplitude;
-            float surfaceFrontY = tl.y 
-                                + waveCenterOffset * invAspectY
-                                + waveFront * invAspectY
-                                + bobbingFront * invAspectY
-                                + lowerFrontOffset * invAspectY;
+            // boundary positions
+            float sFT = tl.y + (wFX + bobF) * invA_Y;
+            float sFB = br.y + (wFX + bobF) * invA_Y;
+            float sBT = tl.y + (wBX + bobB) * invA_Y;
+            float sBB = br.y + (wBX + bobB) * invA_Y;
 
-            distanceToFront = coord.y - surfaceFrontY;
+            float sFL = tl.x + (wFY + bobF) * invA_X;
+            float sFR = br.x + (wFY + bobF) * invA_X;
+            float sBL = tl.x + (wBY + bobB) * invA_X;
+            float sBR = br.x + (wBY + bobB) * invA_X;
 
-            onSurface = step(abs(distanceToFront), 0.25 * invAspectY);
-            inWater = step(0.0, distanceToFront);
+            // mix flat vs wavy per‐side
+            float bFT = mix(tl.y, sFT, sides.x);
+            float bFB = mix(br.y, sFB, sides.y);
+            float bFL = mix(tl.x, sFL, sides.z);
+            float bFR = mix(br.x, sFR, sides.w);
 
-            // --- Back wave ---
-            float waveBack = sin(coord.x * waveFrequency / aspectRatio.x + clock * backWaveSpeed) * waveAmplitude;
-            float surfaceBackY = tl.y
-                                + waveCenterOffset * invAspectY
-                                + waveBack * invAspectY
-                                + bobbingBack * invAspectY;
+            float bBT = mix(tl.y, sBT, sides.x);
+            float bBB = mix(br.y, sBB, sides.y);
+            float bBL = mix(tl.x, sBL, sides.z);
+            float bBR = mix(br.x, sBR, sides.w);
 
-            distanceToBack = coord.y - surfaceBackY;
+            // distances
+            float dFT = coord.y - bFT;
+            float dFB = bFB - coord.y;
+            float dFL = coord.x - bFL;
+            float dFR = bFR - coord.x;
 
-            onBackSurface = step(abs(distanceToBack), 0.25 * invAspectY);
-            inBackWater = step(0.0, distanceToBack);
+            float dBT = coord.y - bBT;
+            float dBB = bBB - coord.y;
+            float dBL = coord.x - bBL;
+            float dBR = bBR - coord.x;
 
-            break; // found our box, no need to check more
+            // underwater detection
+            float inF = step(0.,dFT)*step(0.,dFB)*step(0.,dFL)*step(0.,dFR);
+            float inB = step(0.,dBT)*step(0.,dBB)*step(0.,dBL)*step(0.,dBR);
+
+            // --- accumulate front-water coverage count ---
+            frontCount += inF;
+            isInFrontWater = max(isInFrontWater, inF);
+            isInBackWater  = max(isInBackWater,  inB);
+
+            closestFrontDist = min(closestFrontDist, min(dFT,dFL));
+            closestBackDist  = min(closestBackDist,  min(dBT,dBL));
+
+            // surface‐line clamp
+            float inSurfX = step(tl.x - surfMarginX, coord.x)
+                          * step(coord.x, br.x + surfMarginX);
+            float inSurfY = step(tl.y - surfMarginY, coord.y)
+                          * step(coord.y, br.y + surfMarginY);
+
+            float fT = step(abs(dFT), thickY)*inSurfX*sides.x;
+            float fB = step(abs(dFB), thickY)*inSurfX*sides.y;
+            float fL = step(abs(dFL), thickX)*inSurfY*sides.z;
+            float fR = step(abs(dFR), thickX)*inSurfY*sides.w;
+            float surfF = (fT+fB+fL+fR)*(1.0 - isInFrontWater);
+
+            float bT = step(abs(dBT), thickY)*inSurfX*sides.x;
+            float bB = step(abs(dBB), thickY)*inSurfX*sides.y;
+            float bL = step(abs(dBL), thickX)*inSurfY*sides.z;
+            float bR = step(abs(dBR), thickX)*inSurfY*sides.w;
+            float surfB = (bT+bB+bL+bR)*(1.0 - isInFrontWater);
+
+            isOnFrontSurface = max(isOnFrontSurface, surfF);
+            isOnBackSurface  = max(isOnBackSurface,  surfB);
+
+            // purple‐shadow per‐side
+            float insideBand = inSurfX * inSurfY;
+            float bandT = step(0.,dFT)*step(0.,-dBT)*sides.x;
+            float bandB = step(0.,dFB)*step(0.,-dBB)*sides.y;
+            float bandL = step(0.,dFL)*step(0.,-dBL)*sides.z;
+            float bandR = step(0.,dFR)*step(0.,-dBR)*sides.w;
+            float bandHere = max(max(bandT,bandB), max(bandL,bandR)) * insideBand;
+            bandAccum = max(bandAccum, bandHere);
         }
     }
 
-    // Ripple UVs
-    vec2 rippleUV = uv;
-    if (inWater > 0.0 || inBackWater > 0.0) {
-        float rippleSpeed = 2.0;
-        float rippleStrength = 0.0025;
-        float rippleFrequency = 50.0;
-        rippleUV.x += sin(rippleUV.y * rippleFrequency + clock * rippleSpeed) * rippleStrength;
-    }
+    // --- NEW: if more than one front-water covers pixel, disable its surface & shadow ---
+    float single = step(frontCount, 1.0);
+    isOnFrontSurface *= single;
+    bandAccum        *= single;
 
-    vec4 texel = Texel(tex, rippleUV);
+    // ripple & texture
+    vec2 ruv = uv;
+    if (isInFrontWater>0.0 || isInBackWater>0.0)
+        ruv.x += sin(ruv.y*150.+clock*4.)*0.001;
+    vec4 tx = Texel(tex, ruv);
 
-    // Colors
-    vec4 waterOpaque      = vec4(139.0/255.0, 0.0, 1.0, 1.0);      // #8b00ff
-    vec4 waterTransparent = vec4(62.0/255.0, 115.0/255.0, 1.0, 1.0); // #3e73ff
-    vec4 backWaterFill    = vec4(15.0/255.0, 211.0/255.0, 1.0, 1.0); // #0fd3ff
-    vec4 surfaceColor     = vec4(108.0/255.0, 1.0, 1.0, 1.0);        // #6cffff
+    // colors
+    vec4 colO = vec4(139./255.,0.,1.,1.),    // purple shadow
+         colT = vec4(62./255.,115./255.,1.,0.95),
+         colB = vec4(15./255.,211./255.,1.,1.),  // blue fill
+         colS = vec4(108./255.,1.,1.,1.);    // surface highlight
+    float clr = step(tx.a,0.01);
+    vec4 wm = mix(colO,colT,clr),
+         uw = mix(tx,wm,1.0);
 
-    // Mix water colors depending on transparency
-    float isTexClear = step(texel.a, 0.01);
-    vec4 waterColor = mix(waterOpaque, waterTransparent, isTexClear);
-    vec4 finalWaterCol = mix(texel, waterColor, 1.0);
+    vec4 outC = tx;
+    outC = mix(outC, colB,      isInBackWater);
+    outC = mix(outC, uw,        isInFrontWater);
+    outC = mix(outC, colO, bandAccum);
+    outC = mix(outC, colS, isOnFrontSurface);
+    outC = mix(outC, colS, isOnBackSurface*clr);
 
-    // Compose final color
-    vec4 finalColor = texel;
-    finalColor = mix(finalColor, backWaterFill, inBackWater);
-    finalColor = mix(finalColor, finalWaterCol, inWater);
-
-    // Fill gap between back and front wave
-    float belowFront = step(0.0, distanceToFront);
-    float aboveBack  = step(0.0, -distanceToBack);
-    float bandRegion = belowFront * aboveBack;
-    finalColor = mix(finalColor, waterOpaque, bandRegion);
-
-    // Draw surface crests
-    finalColor = mix(finalColor, surfaceColor, onSurface);
-
-    float backCrestVisible = onBackSurface * (1.0 - inWater);
-    finalColor = mix(finalColor, surfaceColor, backCrestVisible);
-
-    return finalColor;
+    return outC;
 }
