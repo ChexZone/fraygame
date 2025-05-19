@@ -130,7 +130,7 @@ function love.load()
         Update = function (self, dt)
             self.Position = player:GetPoint(0.5,0.5)
             -- collectgarbage("stop")
-            collectgarbage("setpause", 150)
+            collectgarbage("setpause", 80)
             collectgarbage("setstepmul", 100)
             print(collectgarbage("count"))
         end
