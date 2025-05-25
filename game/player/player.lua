@@ -14,6 +14,7 @@ local Player = {
     Rotation = math.rad(0),
     Position = V{80,-50},
     Size = V{24,24},
+    ZIndex = 0,
 
     FramesSinceInit = 0,                -- how many frames since the Player object was created
 
@@ -973,9 +974,9 @@ function Player:Unclip(forTesting, ignoreX, ignoreY)
     end
     justLanded = false
     hitCeiling = false
-    
-    
-    
+
+    self._collisionCandidates = self:GetLayer():GetCollisionCandidates(self)
+
     if self.HeldItem and self.HeldItem.ExtendsHitbox then
         if not ignoreX then pushX = self:UnclipX(forTesting) end
         if not ignoreY then pushY = self:UnclipY(forTesting) end
@@ -1018,7 +1019,7 @@ function Player:UnclipY(forTesting, returnFirstHit)
     local activeCollider
 
     for _, collider in ipairs(yColliders) do
-        for solid, hDist, vDist, tileID, tileNo, tileLayer in collider:CollisionPass(self._parent, true) do
+        for solid, hDist, vDist, tileID, tileNo, tileLayer in collider:CollisionPass(self._collisionCandidates, true) do
             
 
 
@@ -1156,7 +1157,7 @@ function Player:UnclipX(forTesting)
     local activeCollider
 
     for _, collider in ipairs(xColliders) do
-        for solid, hDist, vDist, tileID, tileNo, tileLayer in collider:CollisionPass(self._parent, true) do
+        for solid, hDist, vDist, tileID, tileNo, tileLayer in collider:CollisionPass(self._collisionCandidates, true) do
             
             local face = Prop.GetHitFace(hDist,vDist)
             local surfaceInfo = solid:GetSurfaceInfo(tileID)

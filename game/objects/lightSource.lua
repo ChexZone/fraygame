@@ -22,6 +22,7 @@ function LightSource.new(properties)
         DrawOverChildren = false,
     }
     lightSource.Color = rawget(lightSource, "Color") or LightSource.Color:Clone()
+    lightSource._propID = _G.CURRENT_PROP_ID; _G.CURRENT_PROP_ID = _G.CURRENT_PROP_ID + 1
 
     setmetatable(lightSource, LightSource)
     return lightSource

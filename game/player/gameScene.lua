@@ -50,6 +50,7 @@ function GameScene.new(properties)
 
     local mainLayer = newGameScene:AddLayer(Layer.new("Gameplay", GameScene.GameplaySize.X, GameScene.GameplaySize.Y))
     mainLayer.Canvases[2] = Canvas.new(GameScene.GameplaySize()):Properties{Name="FINAL"}
+    mainLayer.RenderCulling = true
     mainLayer.HelperCanvas = mainLayer.Canvases[2]
     -- mainLayer.FinalCanvas.Shader = Shader.new("game/assets/shaders/water.glsl")
     -- mainLayer.FinalCanvas.Shader:Send("screenSize", {960,540})
