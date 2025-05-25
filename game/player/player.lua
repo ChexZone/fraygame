@@ -159,8 +159,8 @@ local Player = {
     RunBackwardDeceleration = 0.1,         -- how fast the player speed decreases while "braking" on the ground
     RunIdleDeceleration = 0.2,             -- how fast the player halts to a stop while idle on the ground
     AirBackwardDeceleration = 0.25,     -- how much the player decelerates while in the air, against the movement direction
-    AirForwardDeceleration = 0.2,      -- how much the player decelerates while in the air, moving in the same direction
-    AirIdleDeceleration = 0.2,          -- how much the player decelerates while idle in the air    
+    AirForwardDeceleration = 0.255,      -- how much the player decelerates while in the air, moving in the same direction
+    AirIdleDeceleration = 0.15,          -- how much the player decelerates while idle in the air    
     DiveBackwardDeceleration = 0.08,     -- how much the player decelerates while in a dive, against the movement direction
     DiveForwardDeceleration = 0.07,      -- how much the player decelerates while in a dive, moving in the same direction
     DiveIdleDeceleration = 0.025,          -- how much the player decelerates while idle in a dive    
@@ -208,6 +208,9 @@ local Player = {
     FramesAfterBounceBeforeCanDoubleJump = 16,  -- it's in the name
     FramesSinceBounce = -1,             -- how many frames since bouncing off a spring object (resets to -1 on land)
     ForceJumpHeldFrames = 0,            -- set this value to something greater than 0 to simulate holding jump
+
+    InteractBufferTime = 8,             -- how many frames after pressing interact it will save the input
+    InteractBuffer = 0,
 
     -- vars
     XHitbox = nil,                      -- the player's hitbox for walls
@@ -1476,8 +1479,10 @@ function Player:ProcessInput(dt)
         return -- don't process any input
     end
 
+    print(self.InteractBuffer)
 
-    if self.NearbyInteractable and self.InputListener:JustPressed("interact") and not self.InInteraction then
+    if self.NearbyInteractable and self.InteractBuffer > 0 and not self.InInteraction then
+        self.InteractBuffer = 0
         self.NearbyInteractable:InteractActivate(self)
     end
 
@@ -1591,7 +1596,12 @@ function Player:ProcessInput(dt)
             self.JumpBuffer = self.JumpFrames
         end
 
+        if self.JustPressed["interact"] then
+            self.InteractBuffer = self.InteractBufferTime
+        end
+
         if self.JumpBuffer > 0 and not blockJump then
+            print("JUMPED")
             if (self.Floor or self.CoyoteBuffer > 0) and not self:FloorPreventsJumping() then
                 self:Jump()
                 
@@ -1611,8 +1621,10 @@ function Player:ProcessInput(dt)
                     (self.FramesSinceWallKick == -1 or self.FramesSinceWallKick < 10) or ((self.FramesSinceWallKick > -1 or self.FramesSinceWallKick > 4) and self.Wall)
                 ) and self.FramesSinceWallKick then
                     self:WallKick()
-                elseif self.FramesSinceDoubleJump == -1 then
+                    print("wallkick?")
+                elseif self.FramesSinceDoubleJump == -1 and (not self.DiveWasLunge or (self.FramesSinceDive > 10 or self.FramesSinceDive == -1)) then
                     self:DoubleJump()
+                    print("doublejump?")
                 end
                 
             end
@@ -1786,7 +1798,7 @@ function Player:StopWallSlideSound()
 end
 
 function Player:Jump(noSFX)
-
+    
 
     -- check to make sure we can jump
     if self.CrouchTime > 0 then
@@ -3104,6 +3116,10 @@ function Player:UpdateFrameValues()
         self.JumpBuffer = self.JumpBuffer - 1
     end
 
+    if self.InteractBuffer > 0 then
+        self.InteractBuffer = self.InteractBuffer - 1
+    end
+
     if self.ActionBuffer > 0 then
         self.ActionBuffer = self.ActionBuffer - 1
     end
@@ -3333,9 +3349,10 @@ function Player:UpdatePhysics()
     
     
 
+    local shouldBeRunning = ((self.Floor or not self.CantRunUntilGrounded) and math.abs(self.Velocity.X) > self.RunSpeed and (self.FramesSinceRoll == -1 or self.Floor))
 
     local horizSpeed = self.FramesSinceDive > -1 and self.DiveSpeed or 
-                        (((self.Floor or not self.CantRunUntilGrounded) and math.abs(self.Velocity.X) > self.RunSpeed) and self.RunSpeed or self.WalkSpeed)
+                        (shouldBeRunning and self.RunSpeed or self.WalkSpeed)
     local decelGoal = math.abs(self.MoveDir) > 0 and horizSpeed or 0
     local speedOver = math.abs(self.Velocity.X) - decelGoal
     

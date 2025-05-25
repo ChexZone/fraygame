@@ -130,7 +130,6 @@ function love.load()
         Update = function (self, dt)
             self:MoveTo(player:GetPoint(0.5,0.5))
             -- collectgarbage("stop")
-            print("WOOT")
             self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
         end
         -- Color = V{0,0,0,1}
