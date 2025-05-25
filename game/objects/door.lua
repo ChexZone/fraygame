@@ -69,6 +69,7 @@ local Door = {
             else
                 -- goalPos is another Door
                 goalPos = self.Goal.Position
+                
                 self.Goal.TransitionEffect.Size = V{self.TransitionEffect.GoalRadius, self.TransitionEffect.GoalRadius}
                 self.Goal.TransitionEffect.GoalRadius = 0
                 self.Goal.InTransition = true
@@ -82,6 +83,7 @@ local Door = {
             -- player.Position = self.GoalPos:Clone()
             Timer.ScheduleFrames(1, function ()
                 player:Teleport(goalPos)
+                self:GetLayer():SetPartitions(self.Goal.TransitionEffect)
                 self.SFX.MarimbaEnd[1+player.TransitionUses%#self.SFX.MarimbaEnd]:Play()
                 self.TransitionEffect.Size = V{0,0}
                 self.TransitionEffect.GoalRadius = 0
