@@ -128,9 +128,9 @@ function love.load()
         Sharpness = 0,
         Color = V{1,1,1,1},
         Update = function (self, dt)
-            self.Position = player:GetPoint(0.5,0.5)
+            self:MoveTo(player:GetPoint(0.5,0.5))
             -- collectgarbage("stop")
-
+            print("WOOT")
         end
         -- Color = V{0,0,0,1}
     })

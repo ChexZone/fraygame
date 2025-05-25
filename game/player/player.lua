@@ -565,6 +565,9 @@ function Player.new()
 
     Prop.new{
         Name = "InteractIndicator",
+        IgnoreCulling = true,
+        ZIndex = 10001,
+        DrawOverShaders = true,
         AnchorPoint = V{0.5,0.5},
         Texture = Animation.new("game/assets/images/interact-notifier.png", 4, 10):Properties{
             Duration = 0.8,
@@ -579,6 +582,7 @@ function Player.new()
 
     Particles.new{
         Name = "RollKickoffDust",
+        IgnoreCulling = true,
         AnchorPoint = V{0.5, 0.5},
         ParticleAnchorPoint = V{0.5, 1},
         Texture = Texture.new("chexcore/assets/images/square.png"),
@@ -593,7 +597,7 @@ function Player.new()
         Color = V{0,0,0,0},
         ParticleColor = newPlayer.TrailColor,
         Update = function (self, dt)
-            self.Position = self:GetParent().Positions
+            self.Position = self:GetParent().Position
             -- if math.random(1, 100) == 1 then
             --     self:Emit{
             --         Position = self.Position
@@ -604,6 +608,7 @@ function Player.new()
 
     Particles.new{
         Name = "PounceDust",
+        IgnoreCulling = true,
         AnchorPoint = V{0.5, 0.5},
         ParticleAnchorPoint = V{0.5, 0.5},
         Texture = Texture.new("chexcore/assets/images/empty.png"),
@@ -627,6 +632,7 @@ function Player.new()
     
     Particles.new{
         Name = "ForwardLandDust",
+        IgnoreCulling = true,
         AnchorPoint = V{0.5, 0.5},
         ParticleAnchorPoint = V{0.5, 1},
         Texture = Texture.new("chexcore/assets/images/empty.png"),
@@ -643,6 +649,7 @@ function Player.new()
 
     Particles.new{
         Name = "RunFootstepDust",
+        IgnoreCulling = true,
         AnchorPoint = V{0.5, 0.5},
         ParticleAnchorPoint = V{0.5, 1},
         Texture = Texture.new("chexcore/assets/images/empty.png"),
@@ -659,6 +666,7 @@ function Player.new()
 
     Particles.new{
         Name = "WallSlideDust",
+        IgnoreCulling = true,
         AnchorPoint = V{0.5, 0.5},
         ParticleAnchorPoint = V{0.5, 0.5},
         Texture = Texture.new("chexcore/assets/images/empty.png"),
@@ -675,6 +683,7 @@ function Player.new()
 
     Particles.new{
         Name = "WallKickDust",
+        IgnoreCulling = true,
         AnchorPoint = V{0.5, 0.5},
         ParticleAnchorPoint = V{0.5, 0.5},
         Texture = Texture.new("chexcore/assets/images/empty.png"),
@@ -691,6 +700,7 @@ function Player.new()
     
     Particles.new{
         Name = "DoubleJumpDust",
+        IgnoreCulling = true,
         AnchorPoint = V{0.5, 0.5},
         ParticleAnchorPoint = V{0.5, 0.5},
         Texture = Texture.new("chexcore/assets/images/empty.png"),
@@ -706,6 +716,7 @@ function Player.new()
 
     Particles.new{
         Name = "DiveDust",
+        IgnoreCulling = true,
         AnchorPoint = V{0.5, 0.5},
         ParticleAnchorPoint = V{0.5, 0.5},
         Texture = Texture.new("chexcore/assets/images/empty.png"),
@@ -721,6 +732,7 @@ function Player.new()
 
     Particles.new{
         Name = "JumpDust",
+        IgnoreCulling = true,
         AnchorPoint = V{0.5, 0.5},
         ParticleAnchorPoint = V{0.5, 1},
         Texture = Texture.new("chexcore/assets/images/empty.png"),
@@ -3627,8 +3639,9 @@ function Player:Teleport(x, y)
     local distX, distY = self.Position.X - x,
                          self.Position.Y - y
 
-    self.Position.X = x
-    self.Position.Y = y
+    self:MoveTo(x, y)
+    -- self.Position.X = x
+    -- self.Position.Y = y
 
     -- update tail points to avoid tail jitter
     for _, p in ipairs(self.TailPoints) do
@@ -3734,6 +3747,13 @@ function Player:Update(engine_dt)
     if self._usingPerformanceMode and not self._updateStep then
         self:Update(engine_dt)
     end
+
+    local l = self:GetLayer()
+    -- if self:HasChildren() then
+    --     for child in self:EachChild() do
+    --         l:SetPartitions(child)
+    --     end
+    -- end
 end
 
 function Player:DrawTrail()
@@ -3779,9 +3799,9 @@ end
 
 function Player:Draw(tx, ty)
 
-    if self:HasChildren() then
-        self:DrawChildren(tx, ty)
-    end
+    -- if self:HasChildren() then
+    --     self:DrawChildren(tx, ty)
+    -- end
 
 
     -- make sure hitboxes are re-aligned with player after position updates
@@ -3971,7 +3991,7 @@ end
 function Player:UpdateHeldItem()
     if self.HeldItem then
         -- self.HeldItem.Position = self.Position + V{0, self.HeldItem.VerticalOffset - 12 + (self.HeldItemAnimationFrameOffsets[self.Texture.CurrentFrame] or 0)}
-        self.HeldItem.Position = self.Position + V{-0.5, self.HeldItem.VerticalOffset - 12}
+        self.HeldItem:MoveTo(self.Position + V{-0.5, self.HeldItem.VerticalOffset - 12})
     end
 end
 

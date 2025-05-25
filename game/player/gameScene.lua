@@ -49,7 +49,7 @@ function GameScene.new(properties)
     }
 
     local mainLayer = newGameScene:AddLayer(Layer.new("Gameplay", GameScene.GameplaySize.X, GameScene.GameplaySize.Y))
-    mainLayer.Canvases[2] = Canvas.new(GameScene.GameplaySize()):Properties{Name="FINAL"}
+    -- mainLayer.Canvases[2] = Canvas.new(GameScene.GameplaySize()):Properties{Name="FINAL"}
     mainLayer.RenderCulling = true
     mainLayer.HelperCanvas = mainLayer.Canvases[2]
     -- mainLayer.FinalCanvas.Shader = Shader.new("game/assets/shaders/water.glsl")
@@ -57,40 +57,20 @@ function GameScene.new(properties)
     -- mainLayer.FinalCanvas.Shader:Send("sourceCanvas", mainLayer.Canvases[1]._drawable)
 
     mainLayer.ShaderCache = {
-        water = "game/assets/shaders/water.glsl",
+        -- water = "game/assets/shaders/water.glsl",
+        water = Shader.new("game/assets/shaders/water.glsl"),
         lighting = Shader.new("game/assets/shaders/scene-focus.glsl"):Send("blendRange", 5):Send("aspectRatio", {16,9})
     }
 
 
 
-    mainLayer.ShaderQueue = {}
+    -- mainLayer.ShaderQueue = {}
 
     mainLayer.OverlayShaders = {"water", "lighting"}
 
-    mainLayer.EnqueueShaderData = function (self, shaderName, valueName, ...)
-        self.ShaderQueue[shaderName] = self.ShaderQueue[shaderName] or {}
-        self.ShaderQueue[shaderName][valueName] = self.ShaderQueue[shaderName][valueName] or {}
-        local p = self.ShaderQueue[shaderName][valueName]
-        for _, v in ipairs{...} do
-            p[#p+1] = v
-        end
 
-    end
 
-    mainLayer.SetShaderData = function (self, shaderName, valueName, ...)
-        self.ShaderQueue[shaderName] = self.ShaderQueue[shaderName] or {}
-        self.ShaderQueue[shaderName][valueName] = {...}
-    end
 
-    mainLayer.GetShaderData = function (self, shaderName, valueName)
-        if not self.ShaderQueue[shaderName] then
-            return nil
-        end
-        if not self.ShaderQueue[shaderName][valueName] then
-            return nil
-        end
-        return unpack(self.ShaderQueue[shaderName][valueName])
-    end
 
     -- mainLayer.GetShaderData = function(self, shaderName, valueName)
     --     -- nothing queued? bail out
@@ -117,31 +97,16 @@ function GameScene.new(properties)
     mainLayer.Draw = function (self, tx, ty)
         self.ShaderQueue = {}
 
-        Layer.Draw(self, tx, ty)
-
         self.ShaderCache.lighting:Send("baseShadowColor", newGameScene.ShadowColor)
         self.ShaderCache.lighting:Send("darkenFactor", newGameScene.Brightness)
+        self.ShaderCache.lighting:Send("lightCount", 0)
+        self.ShaderCache.water:Send("waterCount", 0)
+
+        Layer.Draw(self, tx, ty)
+
+
         
-        self.FinalCanvas = self.Canvases[1]
-        self.HelperCanvas = self.Canvases[2]
 
-        for _, shader in ipairs(self.OverlayShaders) do
-            if self.ShaderQueue[shader] then
-                -- load shader into cache if not loaded yet
-                self.ShaderCache[shader] = type(self.ShaderCache[shader]) == "string" and Shader.new(self.ShaderCache[shader]) or self.ShaderCache[shader]
-
-
-                -- send any relevant data to the shader:
-                for extern, val in pairs(self.ShaderQueue[shader]) do
-                    self.ShaderCache[shader]:Send(extern, unpack(val))
-                end
-
-                self.ShaderCache[shader]:Activate()
-                self.HelperCanvas:CopyFrom(self.FinalCanvas)
-                self.ShaderCache[shader]:Deactivate()
-                self.FinalCanvas, self.HelperCanvas = self.HelperCanvas, self.FinalCanvas
-            end
-        end
 
 
         -- mainLayer.FinalCanvas.Shader:Send("frontWaveSpeed", -1.5)  -- move rightward normally
@@ -257,24 +222,28 @@ end
 
     newGameScene.CameraBounds = Group.new("Gameplay"):With(Prop.new{
         Name = "Left",
+        IgnoreCulling = true,
         AnchorPoint = V{0, 0.5},
         Color = V{0,0,0,1},
         DrawInForeground = true,
         ZIndex = 0.5,
     }):With(Prop.new{
         Name = "Right",
+        IgnoreCulling = true,
         AnchorPoint = V{1, 0.5},
         Color = V{0,0,0,1},
         DrawInForeground = true,
         ZIndex = 0.5,
     }):With(Prop.new{
         Name = "Top",
+        IgnoreCulling = true,
         AnchorPoint = V{0.5, 0},
         Color = V{0,0,0,1},
         DrawInForeground = true,
         ZIndex = 0.5,
     }):With(Prop.new{
         Name = "Bottom",
+        IgnoreCulling = true,
         AnchorPoint = V{0.5, 1},
         Color = V{0,0,0,1},
         DrawInForeground = true,
@@ -360,10 +329,10 @@ end
             bottom.Position = camPos + vBase
 
 
-            mainLayer:SetPartitions(left)
-            mainLayer:SetPartitions(right)
-            mainLayer:SetPartitions(top)
-            mainLayer:SetPartitions(bottom)
+            -- mainLayer:SetPartitions(left)
+            -- mainLayer:SetPartitions(right)
+            -- mainLayer:SetPartitions(top)
+            -- mainLayer:SetPartitions(bottom)
 
             -- if self.LeftEdge and left:GetEdge("right") > self.LeftEdge then
             --     left.Size.X = left.Size.X*2

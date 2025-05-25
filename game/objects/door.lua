@@ -45,10 +45,13 @@ local Door = {
         self.SFX.MarimbaStart[1+player.TransitionUses%#self.SFX.MarimbaStart]:Play()
         self.SFX.TransitionWhoosh[1+player.TransitionUses%#self.SFX.TransitionWhoosh]:Play()
         local oldZ = player.ZIndex
+        local oldOverShader = player.DrawOverShaders
         local oldForeground = player.DrawInForeground
         -- player.DisablePlayerControl = true
         player.InTransition = true
         player.DrawInForeground = true
+        player.DrawOverShaders = true
+        self.TransitionEffect.DrawOverShaders = true
         player.ZIndex = 10000
         player:DisconnectNearbyInteractable()
         player.InInteraction = true
@@ -56,7 +59,8 @@ local Door = {
         self.TransitionSizeCurve = transitionCurve
         self.TransitionTime = 0
         self.TransitionEffect.GoalRadius = 1400
-
+        -- self.Goal.TransitionEffect.Visible = true
+        -- self.Goal.TransitionEffect.Size = V{self.TransitionEffect.GoalRadius, self.TransitionEffect.GoalRadius}
         Timer.Schedule(1, function ()
             -- player.DisablePlayerControl = false
             local goalPos
@@ -90,6 +94,7 @@ local Door = {
         Timer.Schedule(2, function ()
             self.TransitionSizeCurve = nil
             player.DrawInForeground = oldForeground
+            player.DrawOverShaders = oldOverShader
             player.ZIndex = oldZ
             -- player.DisablePlayerControl = false
             self.InTransition = false
@@ -167,7 +172,7 @@ function Door.new()
 
     newDoor.TransitionEffect = newDoor:Adopt(Prop.new{
         Draw = function (self, tx, ty)
-
+            self:GetLayer():SetPartitions(self)
             -- love.graphics.setColor(1,0,0,1)
 
             -- love.graphics.ellipse2("fill",
@@ -213,11 +218,12 @@ function Door.new()
             --     self.AnchorPoint[2]
             -- )
         end,
-
+        Name = "DoorEffect",
         Position = newDoor.Position - V{0,10},
-        Size = V{0,0},
+        Size = V{1,1},
         Color = V{34,32,52}/255,
-        DrawInForeground = true,
+        DrawInForeground = false,
+        DrawOverShaders = true,
         ZIndex = 9999,
     })
     Door:Connect(newDoor)

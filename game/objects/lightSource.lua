@@ -54,6 +54,7 @@ end
   
 local radFactor = 1.075 / 8 / 16
 function LightSource:Draw(tx, ty)
+    
     if not self:GetLayer() then return end
     -- draw method with tx, ty offsets (draw at position minus tx, ty)
     local layer = self:GetLayer()
