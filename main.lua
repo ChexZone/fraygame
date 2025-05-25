@@ -125,12 +125,13 @@ function love.load()
         -- AnchorPoint = V{0,0},
 
         Radius = 250,
-        Sharpness = 0,
+        Sharpness = 0.5,
         Color = V{1,1,1,1},
         Update = function (self, dt)
             self:MoveTo(player:GetPoint(0.5,0.5))
             -- collectgarbage("stop")
             print("WOOT")
+            self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
         end
         -- Color = V{0,0,0,1}
     })
