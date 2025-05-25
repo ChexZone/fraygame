@@ -259,22 +259,26 @@ end
         Name = "Left",
         AnchorPoint = V{0, 0.5},
         Color = V{0,0,0,1},
-        DrawInForeground = true
+        DrawInForeground = true,
+        ZIndex = 0.5,
     }):With(Prop.new{
         Name = "Right",
         AnchorPoint = V{1, 0.5},
         Color = V{0,0,0,1},
-        DrawInForeground = true
+        DrawInForeground = true,
+        ZIndex = 0.5,
     }):With(Prop.new{
         Name = "Top",
         AnchorPoint = V{0.5, 0},
         Color = V{0,0,0,1},
-        DrawInForeground = true
+        DrawInForeground = true,
+        ZIndex = 0.5,
     }):With(Prop.new{
         Name = "Bottom",
         AnchorPoint = V{0.5, 1},
         Color = V{0,0,0,1},
-        DrawInForeground = true
+        DrawInForeground = true,
+        ZIndex = 0.5,
     }):Properties{
         Scene = newGameScene,
         PrepareToDraw = function (self)
@@ -354,6 +358,12 @@ end
             right.Position = camPos + hBase
             top.Position = camPos - vBase
             bottom.Position = camPos + vBase
+
+
+            mainLayer:SetPartitions(left)
+            mainLayer:SetPartitions(right)
+            mainLayer:SetPartitions(top)
+            mainLayer:SetPartitions(bottom)
 
             -- if self.LeftEdge and left:GetEdge("right") > self.LeftEdge then
             --     left.Size.X = left.Size.X*2

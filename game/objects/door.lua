@@ -11,6 +11,7 @@ local Door = {
     Goal = nil, -- can be another door, or a Position
     Solid = true,
     Passthrough = true,
+    ZIndex = 0,
 
     SFX = {
         MarimbaStart = {

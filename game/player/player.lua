@@ -14,7 +14,7 @@ local Player = {
     Rotation = math.rad(0),
     Position = V{80,-50},
     Size = V{24,24},
-    ZIndex = 0,
+    ZIndex = 1,
 
     FramesSinceInit = 0,                -- how many frames since the Player object was created
 
