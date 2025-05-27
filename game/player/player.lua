@@ -939,7 +939,7 @@ end
 
 function Player:FollowWall()
     -- if true then return end
-    if self.Wall then
+    if self.Wall and not self.HeldItem then
         local wallSign = (self.WallDirection=="left"and-1 or 1)
         if self.WallPos and ((self.FramesSinceParry == -1 or self.FramesSinceParry > 5) and (self.FramesSinceRoll == -1)) and (self:GetBodyOrientation() == wallSign or self.MoveDir == wallSign)  --[[and self.WallPos ~= self.Wall.Position]] then
             -- if not self.Floor:IsA("Tilemap") then
@@ -995,7 +995,6 @@ function Player:Unclip(forTesting, ignoreX, ignoreY)
     if self.HeldItem and self.HeldItem.ExtendsHitbox then
         if not ignoreX then pushX = self:UnclipX(forTesting) end
         if not ignoreY then pushY = self:UnclipY(forTesting) end
-        
     else
         if not ignoreX then pushX = self:UnclipX(forTesting) end
         if not ignoreY then pushY = self:UnclipY(forTesting) end
@@ -1438,7 +1437,7 @@ function Player:ProcessInput(dt)
     if self.JustPressed["HITBOXTOGGLE"] then
         self.XHitbox.Visible = not self.XHitbox.Visible
         self.YHitbox.Visible = not self.YHitbox.Visible
-        self:GetLayer():GetParent().GuiLayer:GetChild("StatsGui").Visible = not self:GetLayer():GetParent().GuiLayer:GetChild("StatsGui").Visible
+        self:GetLayer():GetParent().OverlayLayer:GetChild("StatsGui").Visible = not self:GetLayer():GetParent().OverlayLayer:GetChild("StatsGui").Visible
     end
 
     if input:JustPressed("m") then

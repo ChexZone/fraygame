@@ -19,6 +19,7 @@ function love.load()
     
     Chexcore:AddType(require"game.player.player")
     Chexcore:AddType(require"game.objects.basketball")
+    Chexcore:AddType(require"game.objects.water")
     Chexcore:AddType(require"game.objects.lightSource")
     Chexcore:AddType(require"game.objects.cube")
     Chexcore:AddType(require"game.player.gameScene")
@@ -163,43 +164,7 @@ function love.load()
 
 
 
-    local testWater = scene:GetLayer("Gameplay"):Adopt(Prop.new{
-        Name = "TestWater",
-        Position = Player.Position:Clone(),
-        AnchorPoint = V{0.5,0.5},
-        Size = V{1000,1000},
-        Update = function (self, dt)
-           if Chexcore._clock < 1 then
-              self:MoveTo(player.Position)
-           end
-        end,
-
-        Draw = function (self, tx, ty)
-            if not self:GetLayer() then return end
-            -- draw method with tx, ty offsets (draw at position minus tx, ty)
-            local layer = self:GetLayer()
-            local cam = layer:GetParent().Camera
-            local tl, br = self:GetPoint(0,0), self:GetPoint(1,1)
-            -- if isLightOnScreen(cam.Position, layer.Canvases[1]:GetSize(), cam.Zoom, self.Radius, tl, br) then
-                local x1, y1 = (((tl or self:GetPoint(0,0)) - V{tx,ty}) / self:GetLayer().Canvases[1]:GetSize())()
-                local x2, y2 = (((br or self:GetPoint(1,1)) - V{tx,ty}) / self:GetLayer().Canvases[1]:GetSize())()
-        
-        
-                
-                self:GetLayer():EnqueueShaderData("water", "waterRects", {x1, y1, x2, y2})
-                self:GetLayer():EnqueueShaderData("water", "waterSides", {1, 1, 1, 1})
-                -- local l = self:GetLayer()
-                -- print("L IS", tostring(l == nil))
-                -- print("FUCKGHDGHDH", self, self:GetLayer():GetShaderData("lighting", "lightCount"))
-                self:GetLayer():SetShaderData("water", "waterCount", (self:GetLayer():GetShaderData("water", "waterCount") or 0)+1)
-                self:GetLayer():SetShaderData("water", "aspectRatio", {16,9})
-                self:GetLayer():SetShaderData("water", "clock", Chexcore._clock)
-                self:GetLayer():SetShaderData("water", "frontWaveSpeed", 1)
-                self:GetLayer():SetShaderData("water", "backWaveSpeed", -1)
-            -- end
-                -- print(self:GetLayer():GetShaderData("water","waterCount"))
-        end
-    })
+    local testWater = scene:GetLayer("Gameplay"):Adopt(Water.new())
 
 
 -- local scene = Scene.new()

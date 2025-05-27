@@ -10,8 +10,12 @@ extern float clock;
 extern float frontWaveSpeed;
 extern float backWaveSpeed;
 
+// NEW: external offset for wave sine phase (x, y)
+extern vec2 waveOffset;
+
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen_coords) {
-    vec2 coord = uv * aspectRatio;
+    // base coordinate for water box calculations (without waveOffset)
+    vec2 baseCoord = uv * aspectRatio;
 
     float isInFrontWater   = 0.0;
     float isInBackWater    = 0.0;
@@ -51,17 +55,17 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen_coords) {
         vec2 tl    = waterRects[i].xy * aspectRatio;
         vec2 br    = waterRects[i].zw * aspectRatio;
 
-        // expanded region for sine‐existence
+        // expanded region for sine‐existence using baseCoord
         vec2 eTL = tl - vec2(waveOverflow);
         vec2 eBR = br + vec2(waveOverflow);
-        float insideExp = step(eTL.x, coord.x) * step(coord.x, eBR.x)
-                        * step(eTL.y, coord.y) * step(coord.y, eBR.y);
+        float insideExp = step(eTL.x, baseCoord.x) * step(baseCoord.x, eBR.x)
+                        * step(eTL.y, baseCoord.y) * step(baseCoord.y, eBR.y);
         if (insideExp > 0.0) {
-            // --- compute per-side sine offsets ---
-            float wFX = sin(coord.x * freq * invA_X + (clock+1.)*frontWaveSpeed) * amp;
-            float wBX = sin(coord.x * freq * invA_X + clock*backWaveSpeed ) * amp;
-            float wFY = sin(coord.y * freq * invA_X + (clock+2.)*frontWaveSpeed) * amp;
-            float wBY = sin(coord.y * freq * invA_X + (clock+1.)*backWaveSpeed ) * amp;
+            // --- compute per-side sine offsets using (baseCoord + waveOffset) ---
+            float wFX = sin((baseCoord.x + waveOffset.x) * freq * invA_X + (clock+1.)*frontWaveSpeed) * amp;
+            float wBX = sin((baseCoord.x + waveOffset.x) * freq * invA_X + clock*backWaveSpeed ) * amp;
+            float wFY = sin((baseCoord.y + waveOffset.y) * freq * invA_X + (clock+2.)*frontWaveSpeed) * amp;
+            float wBY = sin((baseCoord.y + waveOffset.y) * freq * invA_X + (clock+1.)*backWaveSpeed ) * amp;
 
             // boundary positions
             float sFT = tl.y + (wFX + bobF) * invA_Y;
@@ -85,16 +89,16 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen_coords) {
             float bBL = mix(tl.x, sBL, sides.z);
             float bBR = mix(br.x, sBR, sides.w);
 
-            // distances
-            float dFT = coord.y - bFT;
-            float dFB = bFB - coord.y;
-            float dFL = coord.x - bFL;
-            float dFR = bFR - coord.x;
+            // distances using baseCoord
+            float dFT = baseCoord.y - bFT;
+            float dFB = bFB - baseCoord.y;
+            float dFL = baseCoord.x - bFL;
+            float dFR = bFR - baseCoord.x;
 
-            float dBT = coord.y - bBT;
-            float dBB = bBB - coord.y;
-            float dBL = coord.x - bBL;
-            float dBR = bBR - coord.x;
+            float dBT = baseCoord.y - bBT;
+            float dBB = bBB - baseCoord.y;
+            float dBL = baseCoord.x - bBL;
+            float dBR = bBR - baseCoord.x;
 
             // underwater detection
             float inF = step(0.,dFT)*step(0.,dFB)*step(0.,dFL)*step(0.,dFR);
@@ -109,10 +113,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen_coords) {
             closestBackDist  = min(closestBackDist,  min(dBT,dBL));
 
             // surface‐line clamp
-            float inSurfX = step(tl.x - surfMarginX, coord.x)
-                          * step(coord.x, br.x + surfMarginX);
-            float inSurfY = step(tl.y - surfMarginY, coord.y)
-                          * step(coord.y, br.y + surfMarginY);
+            float inSurfX = step(tl.x - surfMarginX, baseCoord.x)
+                          * step(baseCoord.x, br.x + surfMarginX);
+            float inSurfY = step(tl.y - surfMarginY, baseCoord.y)
+                          * step(baseCoord.y, br.y + surfMarginY);
 
             float fT = step(abs(dFT), thickY)*inSurfX*sides.x;
             float fB = step(abs(dFB), thickY)*inSurfX*sides.y;
@@ -145,7 +149,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen_coords) {
     isOnFrontSurface *= single;
     bandAccum        *= single;
 
-    // ripple & texture
+    // ripple & texture use base uv without offset
     vec2 ruv = uv;
     if (isInFrontWater>0.0 || isInBackWater>0.0)
         ruv.x += sin(ruv.y*150.+clock*4.)*0.001;

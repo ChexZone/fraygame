@@ -25,7 +25,7 @@ local GameScene = {
 
     ShowStats = false,  -- show stats of the player
 
-    GuiLayer = nil,     -- set in constructor
+    OverlayLayer = nil,     -- set in constructor
 
 
     -- internal properties
@@ -101,6 +101,7 @@ function GameScene.new(properties)
         self.ShaderCache.lighting:Send("darkenFactor", newGameScene.Brightness)
         self.ShaderCache.lighting:Send("lightCount", 0)
         self.ShaderCache.water:Send("waterCount", 0)
+        self.ShaderCache.water:Send("waveOffset", V{tx, ty}/65)
 
         Layer.Draw(self, tx, ty)
 
@@ -151,9 +152,227 @@ end
 
     newGameScene.Camera = GameCamera.new():Set("Scene", newGameScene)
 
-    newGameScene.GuiLayer = newGameScene:Adopt(Layer.new("GUI", 1280, 720, true))
+    newGameScene.OverlayLayer = newGameScene:Adopt(Layer.new("GUI", 1280, 720, true))
+    newGameScene.GuiLayer = newGameScene:Adopt(Layer.new("GUI", 640, 360, true))
 
-    newGameScene.fallGuiTop = newGameScene.GuiLayer:Adopt(Prop.new{
+
+    newGameScene.HealthBar = newGameScene.GuiLayer:Adopt(Prop.new{
+        Name = "HealthBar",
+        Health = 3,
+        Size = V{100, 80},
+        FramesAlive = 0,
+        Texture = Texture.new("game/assets/images/gui/hud/healthbar_base.png"),
+        ShakeIntensity = 0,
+        OverhangPosition = V{0,0},
+        GoalOverhangPosition = V{0,0},
+
+        Update = function (self, dt)
+            
+            if self.ShakeIntensity == 0 or self.FramesAlive%2==0 then
+                self.Position = V{-14 + math.random(-3,3) * self.ShakeIntensity*2, 0} + self.OverhangPosition
+                self:GetChild("FacePlate").Position = self.Position + V{60,47}
+                self:GetChild("Tube").Position = self.Position
+            end
+
+            self.OverhangPosition = self.OverhangPosition:Lerp(self.GoalOverhangPosition, 1/20)
+            self.ShakeIntensity = math.lerp(self.ShakeIntensity, 0, 1/20, 0.1)
+
+            self.FramesAlive = self.FramesAlive + 1
+        end,
+        
+        Damage = function (self, amt)
+
+            self.Health = self.Health - amt
+            self.GoalOverhangPosition = V{24,0}
+            if amt >= 0 then
+                self.OverhangPosition = self.GoalOverhangPosition
+                self.ShakeIntensity = 1
+                self:GetChild("FacePlate").Size = V{40,60}
+                self:GetChild("FacePlate").Rotation = math.random(1,2)==1 and -0.2 or 0.2
+                if self.Health == 2 then
+                    self:GetChild("FacePlate").Color = V{1,1,0}
+                    self:GetChild("FacePlate").AnimationQueue = {{2, {48,  5, 40,  10, 41,  10, 42,  10, 43,  10, 42,  10, 43,  30, 48,  5, 25,  5, 26,  5, 27, 40, 27}, self:GetChild("FacePlate").NewExpression}}
+                elseif self.Health == 1 then
+                    self:GetChild("FacePlate").Color = V{1,0,0}
+                    self:GetChild("FacePlate").AnimationQueue = {{2, {48+24,  5, 40+24,  10, 41+24,  10, 42+24,  10, 43+24,  10, 42+24,  10, 43+24,  30, 48+24,  5, 25+24,  5, 26+24,  5, 27+24, 5, 27+24}, self:GetChild("FacePlate").NewExpression}}
+                elseif self.Health == 0 then
+                    self:GetChild("FacePlate").AnimationQueue = { {2, {20}} }
+                end
+            else -- negative damage (healing)
+                self:GetChild("FacePlate").Size = V{56,56}
+                self:GetChild("FacePlate").Color = V{0,1,0}
+                if self.Health == 3 then
+                    self:GetChild("FacePlate").AnimationQueue = { {2, {24, 5, 21, 4, 22, 5, 23, 20, 21, 5, 24, 5, 24}, self:GetChild("FacePlate").NewExpression} }
+                elseif self.Health == 2 then
+                    self:GetChild("FacePlate").AnimationQueue = { {2, {24+24, 5, 21+24, 4, 22+24, 5, 23+24, 20, 21+24, 5, 24+24, 5, 24+24}, self:GetChild("FacePlate").NewExpression} }
+                end
+            end
+            self:GetChild("FacePlate").BlinkTimer = 2
+
+            Timer.Schedule(3, function ()
+                self.GoalOverhangPosition = V{0,0}
+            end)
+        end
+    })
+
+    newGameScene.HealthBar:Adopt(Prop.new{
+        Name = "Tube",
+        Size = V{100,80},
+        AnchorPoint = V{1,0},
+        Texture = Texture.new("game/assets/images/gui/hud/healthbar_tube.png")
+    })
+
+    newGameScene.HealthBar:Adopt(Prop.new{
+        Name = "FacePlate",
+        Size = V{52, 52},
+        Position = V{34 + 26,21 + 26},
+        GoalColor = V{1,1,1},
+        GoalSize = V{52,52},
+        AnchorPoint = V{0.5,0.5},
+        
+        BlinkTimer = 1,
+        
+        Last1HPFrameProfile = 1,
+
+        AnimationQueue = {
+            -- FORMAT: {currentFrame, [timeTilNextFrame, nextFrame, ...]}
+            -- EXAMPLE:
+            -- {1, {5, 10, 6, 11, 7}, nextAnimFunc}
+            -- {1, {1, 30, 2, 3, 3, 3, 4}},
+            -- {2, {31, 3, 32, 3, 33, 3, 34}}
+        },
+
+        Texture = Animation.new("game/assets/images/gui/hud/healthbar_faceplate_uncolored.png", 6, 12):Properties{
+            IsPlaying = false
+        },
+        Update = function (self, dt)
+            dt = 1/60
+
+            
+
+            self.Color = self.Color:Lerp(self.GoalColor, dt)
+            self.Size = self.Size:Lerp(self.GoalSize, dt*2)
+            self.Rotation = math.lerp(self.Rotation, 0, dt*2)
+
+            self.BlinkTimer = self.BlinkTimer - dt
+
+            if self.BlinkTimer <= 0 then
+                if self:GetParent().Health == 3 then
+                    self.Color = V{0.8,0.8,1}
+                    self.BlinkTimer = 8
+                elseif self:GetParent().Health == 2 then
+                    self.Color = V{1,1,0.6}
+                    self.BlinkTimer = 4
+                elseif self:GetParent().Health == 1 then
+                    self.Color = V{1,0.5,0.5}
+                    self.Size = self.Size * 1.1
+                    self.BlinkTimer = 2
+                end
+            end
+
+            table.sort(self.AnimationQueue, function (a, b) -- sort AnimationQueue by priority
+                return a[1] < b[1]
+            end)
+
+            for i = #self.AnimationQueue, 1, -1 do
+                local animation = self.AnimationQueue[i]
+                local frameQueue = animation[2]
+            
+                if i == #self.AnimationQueue then
+                    self.Texture:SetFrame(frameQueue[1])
+                end
+            
+                local delay = frameQueue[2]
+                if delay then
+                    frameQueue[2] = delay - 1
+                    if frameQueue[2] == 0 then
+                        table.remove(frameQueue, 1) -- remove frame
+                        table.remove(frameQueue, 1) -- remove delay
+                    end
+                else
+                    local callback = animation[3]
+                    if callback then callback(self) end
+                    table.remove(self.AnimationQueue, i)
+                end
+            end
+        end,
+
+        NewExpression = function (self)
+            local newExpression
+
+            if self:GetParent().Health == 3 then
+                local m = math.random(1,5)
+                newExpression =  m == 1 and {1, {1,  5, 2,  4, 3,  120 + math.random(-60,60), 1,  5, 24, 3, 24}, self.NewExpression}
+                                    or m == 2 and {1, {4,  5, 5,  4, 6,  120 + math.random(-60,60), 4,  5, 24, 3, 24}, self.NewExpression}
+                                    or m == 3 and {1, {7,  5, 8,  4, 9,  120 + math.random(-60,60), 7,  5, 24, 3, 24}, self.NewExpression}
+                                    or m == 4 and {1, {10,  5, 11,  4, 12,  120 + math.random(-60,60), 10,  5, 24, 3, 24}, self.NewExpression}
+                                    or m == 5 and {1, {13,  5, 14,  4, 15,  120 + math.random(-60,60), 13,  5, 24, 3, 24}, self.NewExpression}
+            elseif self:GetParent().Health == 2 then
+                local m = math.random(1,5)
+                newExpression =  m == 1 and {1, {1+24,  5, 2+24,  4, 3+24,  120 + math.random(-60,60), 1+24,  5, 24+24, 3, 24+24}, self.NewExpression}
+                                    or m == 2 and {1, {4+24,  5, 5+24,  4, 6+24,  120 + math.random(-60,60), 4+24,  5, 24+24, 3, 24+24}, self.NewExpression}
+                                    or m == 3 and {1, {7+24,  5, 8+24,  4, 9+24,  120 + math.random(-60,60), 7+24,  5, 24+24, 3, 24+24}, self.NewExpression}
+                                    or m == 4 and {1, {10+24,  5, 11+24,  4, 12+24,  120 + math.random(-60,60), 10+24,  5, 24+24, 3, 24+24}, self.NewExpression}
+                                    or m == 5 and {1, {13+24,  5, 14+24,  4, 15+24,  120 + math.random(-60,60), 13+24,  5, 24+24, 3, 24+24}, self.NewExpression}
+
+            elseif self:GetParent().Health == 1 then
+                local m
+                repeat m = math.random(1, 5) until m ~= self.Last1HPFrameProfile
+                self.Last1HPFrameProfile = m
+
+                local f1, f2, f3
+                
+                if m == 1 then f1, f2, f3 = 49, 50, 51
+                elseif m == 2 then f1, f2, f3 = 52, 53, 54
+                elseif m == 3 then f1, f2, f3 = 55, 56, 57
+                elseif m == 4 then f1, f2, f3 = 58, 59, 60
+                elseif m == 5 then f1, f2, f3 = 61, 62, 63 end
+
+                newExpression = {1, {f1, 5, f2, 4, f3, 6, f2, 5, f3}, self.NewExpression}
+
+                -- add extra length to the animation
+                for i = 1, math.random(5, 25) do
+                    newExpression[2][#newExpression[2]+1] = math.random(3,5)
+                    newExpression[2][#newExpression[2]+1] = i%2==0 and f3 or f2
+                end
+            end
+
+
+            self.AnimationQueue[#self.AnimationQueue+1] = newExpression
+        end,
+
+        ClearAnimationQueue = function (self)
+            self.AnimationQueue = {}
+        end
+    })
+    newGameScene.HealthBar:GetChild("FacePlate").Texture:SetFrame(3)
+    newGameScene.HealthBar:GetChild("FacePlate"):NewExpression()
+    -- local f f = function ()
+    --     print("Repeats every 1 second")
+    --     newGameScene.HealthBar:GetChild("FacePlate").Color = V{0,1,0}
+    --     -- newGameScene.HealthBar:GetChild("FacePlate").Size = V{60,60}
+    --     Timer.Schedule(2, f)
+    -- end f()
+
+    Timer.Schedule(7, function ()
+        newGameScene.HealthBar:Damage(1)
+    end)
+
+    Timer.Schedule(14, function ()
+        newGameScene.HealthBar:Damage(1)
+    end)
+
+    Timer.Schedule(21, function ()
+        newGameScene.HealthBar:Damage(-1)
+    end)
+
+    Timer.Schedule(28, function ()
+        newGameScene.HealthBar:Damage(-1)
+    end)
+
+    
+
+    newGameScene.fallGuiTop = newGameScene.OverlayLayer:Adopt(Prop.new{
         Name = "FallGuiTop",
         Texture = Texture.new("chexcore/assets/images/test/fallGui.png"),
         Size = V{1280, 720},
@@ -162,7 +381,7 @@ end
         Visible = false,
     })
 
-    newGameScene.fallGuiBottom = newGameScene.GuiLayer:Adopt(Prop.new{
+    newGameScene.fallGuiBottom = newGameScene.OverlayLayer:Adopt(Prop.new{
         Name = "FallGuiBottom",
         Texture = Texture.new("chexcore/assets/images/test/fallGui.png"),
         Size = V{1280, 720},
@@ -172,7 +391,7 @@ end
         Visible = false,
     })
 
-    newGameScene.statsGui = newGameScene.GuiLayer:Adopt(Gui.new{
+    newGameScene.statsGui = newGameScene.OverlayLayer:Adopt(Gui.new{
         Name = "StatsGui",
         Size = V{350, 390},
         Position = V{0, 0},
@@ -355,7 +574,7 @@ end
 
     
 
-    newGameScene.GuiLayer:GetChild("StatsGui"):Adopt(Text.new{
+    newGameScene.OverlayLayer:GetChild("StatsGui"):Adopt(Text.new{
         AlignMode = "justify",
         TextColor = V{1, 1, 1},
         -- Font = Font.new(20--[["chexcore/assets/fonts/chexfont_bold.ttf"]]),
@@ -465,6 +684,14 @@ function GameScene:Update(dt)
         self:SwapChildOrder(guiID, guiID+1)
         guiID = self.GuiLayer:GetChildID()
     end
+
+    local overlayID = self.OverlayLayer:GetChildID()
+    while overlayID ~= #self._children do
+        self:SwapChildOrder(overlayID, overlayID+1)
+        overlayID = self.OverlayLayer:GetChildID()
+    end
+
+
 
     -- local ret = Scene.Update(self, dt)
     -- return ret

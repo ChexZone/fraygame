@@ -201,7 +201,7 @@ function Basketball.new()
                 
     
                 for i = 1, subdivisions do
-                    self.Position = self.Position + interval
+                    self:MoveTo(self.Position.X + interval.X, self.Position.Y + interval.Y)
                     self:RunCollision(false, dt)
                 end
     
@@ -414,8 +414,8 @@ function Basketball.new()
         end,
         
         Radius = 128,
-        Sharpness = 1,
-        Color = V{2,2,2,1}
+        Sharpness = 0,
+        Color = V{1,0,1,1}
     })
 
     return newBall
