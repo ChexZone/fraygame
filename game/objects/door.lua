@@ -51,6 +51,8 @@ local Door = {
         player.InTransition = true
         player.DrawInForeground = true
         player.DrawOverShaders = true
+        
+        -- self:GetLayer():SetPartitions(self.TransitionEffect)
         self.TransitionEffect.DrawOverShaders = true
         player.ZIndex = 10000
         player:DisconnectNearbyInteractable()
@@ -114,7 +116,7 @@ local Door = {
     Update = function (self, dt)
         if self.InTransition then
             
-            self.TransitionEffect.Position = self.Position - V{0, 10}
+            self.TransitionEffect:MoveTo(self.Position - V{0, 10})
             self.TransitionEffect.Visible = true
 
             if self.TransitionSizeCurve then
@@ -228,6 +230,9 @@ function Door.new()
         DrawOverShaders = true,
         ZIndex = 9999,
     })
+
+    -- print(newDoor.Position)
+    -- newDoor.TransitionEffect:MoveTo(newDoor.Position - V{0,10})
     Door:Connect(newDoor)
     return newDoor
 end

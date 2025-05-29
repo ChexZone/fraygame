@@ -18,6 +18,7 @@ function love.load()
     -- Load the Chexcore example Scene!
     
     Chexcore:AddType(require"game.player.player")
+    Chexcore:AddType(require"game.player.ragdoll")
     Chexcore:AddType(require"game.objects.basketball")
     Chexcore:AddType(require"game.objects.water")
     Chexcore:AddType(require"game.objects.lightSource")
@@ -96,8 +97,11 @@ function love.load()
     --         100 * math.sin(2*math.pi*i/20)
     --     }
     -- end
+    local player
     
-    local player = Player.new():Nest(scene:GetLayer("Gameplay"))
+    scene:GetLayer("Gameplay"):Adopt(PlayerRagdoll.new())
+
+     player = Player.new():Nest(scene:GetLayer("Gameplay"))
     -- local player2 = Player.new():Nest(scene:GetLayer("Gameplay"))
 
 
@@ -268,4 +272,10 @@ function love.load()
 
     -- print(player:ToString(true))
     -- You can unmount (or deactivate) a scene by using Chexcore.UnmountScene(scene)
+
+
+
+
+
+
 end

@@ -152,7 +152,7 @@ end
 
     newGameScene.Camera = GameCamera.new():Set("Scene", newGameScene)
 
-    newGameScene.OverlayLayer = newGameScene:Adopt(Layer.new("GUI", 1280, 720, true))
+    newGameScene.OverlayLayer = newGameScene:Adopt(Layer.new("Overlay", 1280, 720, true))
     newGameScene.GuiLayer = newGameScene:Adopt(Layer.new("GUI", 640, 360, true))
 
 
