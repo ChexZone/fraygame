@@ -15,6 +15,7 @@ local GameCamera = {
     Focus = nil,    -- prop
     LastFocus = nil,
 
+    ShakeIntensity = V{0,0},
     DampeningFactor = V{15, 0},
     MaxDistancePerFrame = V{10, 5},
     MinDistancePerFrame = V{5, 5},
@@ -132,9 +133,11 @@ function GameCamera._globalUpdate(dt)
             --     print(outAngle * camera.RealMaxDistanceFromFocus)
             -- end
 
+            
             camera.TrackingPosition = newPos
-            camera.Position = camera.TrackingPosition + camera.Offset
+            camera.Position = (camera.TrackingPosition + camera.Offset) + V{math.random(-3,3)*camera.ShakeIntensity.X/9, math.random(-3,3)*camera.ShakeIntensity.Y/9}
 
+            camera.ShakeIntensity = camera.ShakeIntensity:Lerp(V{0,0}, dt*6, 0.2)
             local goalZoom
             local fillWithFocus = camera.FillWithFocus or #camera.Overrides>0 and camera.Overrides[#camera.Overrides].Size:Magnitude()>0
             

@@ -102,7 +102,7 @@ local Door = {
             player.ZIndex = oldZ
             -- player.DisablePlayerControl = false
             self.InTransition = false
-            
+            player.InTransition = false
             if self.Goal.InTransition then
                 self.Goal.InTransition = false
                 self.Goal.TransitionEffect.Size = V{0,0}

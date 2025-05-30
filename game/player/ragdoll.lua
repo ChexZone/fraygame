@@ -9,6 +9,8 @@ function PlayerRagdoll.new(dir)
         MouseDropped = true,
         Canvas = Canvas.new(64, 64),
         HelperCanvas = Canvas.new(64, 64),
+        FramesSinceActive = -1,
+        FramesOnFloor = 0,
         Velocity = V{0,0},
         DrawInForeground = true,
         LandedOnBack = false,
@@ -138,26 +140,45 @@ function PlayerRagdoll.new(dir)
                 self.GoalRotation = self.Velocity:Magnitude()>0.5 and V{self.Velocity.X, -self.Velocity.Y}:ToAngle() or 0
 
                 if not self.Floor then
+                    self.FramesOnFloor = 0
                     self.Velocity = self.Velocity + V{0,0.1}
                 else
+                    self.FramesOnFloor = self.FramesOnFloor + 1
                     self.Velocity.Y = 0
                     self.Velocity.X = math.clamp(math.abs(self.Velocity.X) - 0.1, 0, math.huge) * sign(self.Velocity.X)
                     self.GoalRotation = self.LandedOnBack and self.RandomBackHeadAngle*self.Direction or math.rad(0)
                     self:ValidateFloor()
                 end
 
-                -- if moving vertically at least 1.5x faster than horizontally, prioritize X clipping, otherwise prioritize Y clipping
-                if math.abs(self.Velocity.Y) > 1.5*math.abs(self.Velocity.X) then
-                    self.Position.X = self.Position.X + self.Velocity.X
-                    self:Unclip("x")
-                    self.Position.Y = self.Position.Y + self.Velocity.Y
-                    self:Unclip("y")
-                else
-                    self.Position.Y = self.Position.Y + self.Velocity.Y
-                    self:Unclip("y")
-                    self.Position.X = self.Position.X + self.Velocity.X
-                    self:Unclip("x")
+                local MAX_Y_DIST = 1
+                local MAX_X_DIST = 1
+                local subdivisions = 1
+            
+                if math.abs(self.Velocity.X) > MAX_X_DIST then
+                    subdivisions = math.floor(1+math.abs(self.Velocity.X)/MAX_X_DIST)
                 end
+            
+                if math.abs(self.Velocity.Y) > MAX_Y_DIST then
+                    subdivisions = math.max(subdivisions, math.floor(1+math.abs(self.Velocity.Y)/MAX_Y_DIST))
+                end
+
+                local interval = subdivisions == 1 and self.Velocity or self.Velocity / subdivisions
+
+                -- if moving vertically at least 1.5x faster than horizontally, prioritize X clipping, otherwise prioritize Y clipping
+                for i = 1, subdivisions do
+                    if math.abs(interval.Y) > 1.5*math.abs(interval.X) then
+                        self.Position.X = self.Position.X + interval.X
+                        self:Unclip("x")
+                        self.Position.Y = self.Position.Y + interval.Y
+                        self:Unclip("y")
+                    else
+                        self.Position.Y = self.Position.Y + interval.Y
+                        self:Unclip("y")
+                        self.Position.X = self.Position.X + interval.X
+                        self:Unclip("x")
+                    end
+                end
+
 
 
                 self.Velocity = self.Velocity:Filter(function (v)
@@ -167,15 +188,33 @@ function PlayerRagdoll.new(dir)
             end
     
             self.Rotation = math.lerp(self.Rotation, self.GoalRotation*self.Direction, dt*10)
+
+            if self.FramesSinceActive > -1 then
+                self.FramesSinceActive = self.FramesSinceActive + 1
+            end
         end,
 
         Unclip = function (self, axis)
+            
+            if self.FramesSinceActive == -1 then return end
             local clipped
             local collisionCandidates = self:GetLayer():GetCollisionCandidates(self)
             for solid, hDist, vDist, tileID, tileNo, tileLayer in self:CollisionPass(collisionCandidates, true) do
-                if not solid.Passthrough then
+                local face = Prop.GetHitFace(hDist,vDist)
+                local otherFace = face=="top" and "bottom" or face=="bottom" and "top" or face=="left" and "right" or face=="right" and "left"
+                local surfaceInfo = solid:GetSurfaceInfo(tileID)
+                local capFace = type(otherFace)=="string" and otherFace:sub(1,1):upper() .. otherFace:sub(2,#otherFace)
+
+                -- damage handling
+                if surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.Player.InTransition then
+                    print(solid, face, tileID)
+                    self.Player:SetEdge("top", self:GetEdge("top"))
+                    self.Player:StartRagdoll(surfaceInfo[capFace], true)
+                    if face == "bottom" then
+                        self:MoveTo(self.Position.X, self.Position.Y-1)
+                    end
+                elseif not solid.Passthrough then -- regular collision
                     clipped = true
-                    local face = Prop.GetHitFace(hDist,vDist)
                     
                     if axis == "y" then
                         if face == "top" then
@@ -205,7 +244,13 @@ function PlayerRagdoll.new(dir)
                         end
                     end
                 end
+                -- Damage handling
+                
+
             end
+
+
+
             return clipped
         end,
 

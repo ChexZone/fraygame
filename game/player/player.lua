@@ -565,6 +565,7 @@ function Player.new()
     newPlayer.DrawScale = V{1,1}
 
     newPlayer.Ragdoll = PlayerRagdoll.new()
+    newPlayer.Ragdoll.Player = newPlayer
 
     newPlayer.LastSFX_ID = {}
 
@@ -1122,7 +1123,8 @@ function Player:UnclipY(forTesting, returnFirstHit)
 
             -- Damage handling
             local capFace = type(otherFace)=="string" and otherFace:sub(1,1):upper() .. otherFace:sub(2,#otherFace)
-            if surfaceInfo[capFace] and surfaceInfo[capFace].DamageType then
+            if (face=="top" or face=="bottom") and surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.InTransition then
+                
                 self:StartRagdoll(surfaceInfo[capFace])
             end
         end
@@ -1226,7 +1228,7 @@ function Player:UnclipX(forTesting)
 
             -- Damage handling
             local capFace = type(otherFace)=="string" and otherFace:sub(1,1):upper() .. otherFace:sub(2,#otherFace)
-            if surfaceInfo[capFace] and surfaceInfo[capFace].DamageType then
+            if surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.InTransition and (sign(self.Velocity.X) ~= (sign(hDist))) then
                 self:StartRagdoll(surfaceInfo[capFace])
             end
         end
@@ -1447,24 +1449,42 @@ function Player:ValidateWall()
     self:AlignHitboxes()
 end
 
-function Player:StartRagdoll(surfaceInfo)
+function Player:StartRagdoll(surfaceInfo, alreadyInRagdoll)
+
     self:GetParent():Adopt(self.Ragdoll)
-    self.Ragdoll:MoveTo(self.Position)
+    self.Ragdoll.FramesSinceActive = 0
     self.Velocity = V{0,0}
-    self.Ragdoll.IsActive = true
-    self.Ragdoll.Visible = true
-    self.Ragdoll:SetEdge("top", self.YHitbox:GetEdge("top"))
-    self.Ragdoll.Rotation = 0
-    self.Ragdoll:GetChild("RagdollTorso").Rotation = 0
-    self.Ragdoll:GetChild("RagdollFrontArm").Rotation = 0
-    self.Ragdoll:GetChild("RagdollBackArm").Rotation = 0
-    self.Ragdoll:GetChild("RagdollFrontLeg").Rotation = 0
-    self.Ragdoll:GetChild("RagdollBackLeg").Rotation = 0
-    self.Ragdoll.Velocity = surfaceInfo.DamageVelocity:Clone()
+    self.FramesSinceDive = -1
+    self.FramesSinceDoubleJump = -1
+    self.FramesSinceRoll = -1
+    self.FramesSinceJump = -1
+    self.FramesSinceCrouch = 0
+    self:GetScene().Camera.ShakeIntensity = V{5,5}
+    self.JumpBuffer = 0
+    self.ActionBuffer = 0
+    self.InteractBuffer = 0
+    self.Wall = nil
+    self.SlidingStopAnimation = false
+    if not alreadyInRagdoll then
+        self.Ragdoll:MoveTo(self.Position)
+        self.Ragdoll.IsActive = true
+        self.Ragdoll.Visible = true
+        self.Ragdoll:SetEdge("top", self.YHitbox:GetEdge("top"))
+        self.Ragdoll.Rotation = 0
+        self.Ragdoll:GetChild("RagdollTorso").Rotation = 0
+        self.Ragdoll:GetChild("RagdollFrontArm").Rotation = 0
+        self.Ragdoll:GetChild("RagdollBackArm").Rotation = 0
+        self.Ragdoll:GetChild("RagdollFrontLeg").Rotation = 0
+        self.Ragdoll:GetChild("RagdollBackLeg").Rotation = 0
+        self.Ragdoll.Velocity = surfaceInfo.DamageVelocity:Clone()
+    end
+
     self.StunTimer = surfaceInfo.DamageStunTimer or 1
 
     self.Ragdoll.Velocity.X = type(surfaceInfo.DamageVelocity.X) == "string" and self.Velocity.X or surfaceInfo.DamageVelocity.X
     self.Ragdoll.Velocity.Y = type(surfaceInfo.DamageVelocity.Y) == "string" and self.Velocity.Y or surfaceInfo.DamageVelocity.Y
+
+    
 
     self.Ragdoll.DrawScale = V{1.5,1.5}
     self.Ragdoll.Color = V{1,0.5,0.5}
@@ -1481,25 +1501,39 @@ function Player:StartRagdoll(surfaceInfo)
 end
 
 function Player:EndRagdoll()
+    self.Ragdoll.FramesSinceActive = -1
     self.Ragdoll.Visible = false
     self.Ragdoll.IsActive = false
     self.IsInRagdoll = false
+    self.Floor = self.Ragdoll.Floor
+    self.Ragdoll.Floor = nil
     self:GetScene().Camera.Focus = self
+    self:GetScene().Camera.Reeling = V{true,true}
     self:MoveTo(self.Ragdoll.Position)
     self:SetEdge("bottom", self.Ragdoll:GetEdge("bottom"))
     self.TailPoints = {}
-    self.Wall = nil
+    self:Jump()
 end
 ---------------------------------------------------------------------------------
 
 ------------------------ INPUT PROCESSING -----------------------------
 function Player:ProcessRagdollInput(dt)
     local input = self.InputListener
-    if input:IsDown("move_left") then
-        self.Ragdoll.Velocity.X = self.Ragdoll.Velocity.X - 0.05
+    if not self.Ragdoll.Floor then
+        if input:IsDown("move_left") then
+            self.Ragdoll.Velocity.X = self.Ragdoll.Velocity.X - 0.05
+        end
+        if input:IsDown("move_right") then
+            self.Ragdoll.Velocity.X = self.Ragdoll.Velocity.X + 0.05
+        end
     end
-    if input:IsDown("move_right") then
-        self.Ragdoll.Velocity.X = self.Ragdoll.Velocity.X + 0.05
+
+    if self.JustPressed["SLOWMODETOGGLE"] then
+        if _G.TRUE_FPS then
+            _G.TRUE_FPS = nil
+        else
+            _G.TRUE_FPS = 5
+        end
     end
 end
 
@@ -3790,9 +3824,10 @@ function Player:Update(engine_dt)
         self:GetScene().Camera.Focus = self.Ragdoll
         self:ProcessRagdollInput(engine_dt)
         self:MoveTo(self.Ragdoll.Position)
-        
+        self.Texture:SetFrame(100)
         self.StunTimer = math.max(self.StunTimer - engine_dt, 0)
-        if self.StunTimer == 0 then
+        
+        if self.StunTimer == 0 and self.Ragdoll.FramesOnFloor > 5 then
             self:EndRagdoll()
         end
     else -- regular player processing
@@ -3836,18 +3871,19 @@ function Player:Update(engine_dt)
         -- update frame values like FramesSinceJump and FramesSinceGrounded
         self:UpdateFrameValues()
 
-        -- flush input buffer at the end (in case anyone other than ProcessInput was sneakily looking at inputs)
-        for k, _ in pairs(self.JustPressed) do
-            self.JustPressed[k] = false
-        end
 
-        self._updateStep = not self._updateStep
-        if self._usingPerformanceMode and not self._updateStep then
-            self:Update(engine_dt)
-        end
     end
     
+    -- flush input buffer at the end (in case anyone other than ProcessInput was sneakily looking at inputs)
+    for k, _ in pairs(self.JustPressed) do
+        self.JustPressed[k] = false
+    end
 
+    self._updateStep = not self._updateStep
+    if self._usingPerformanceMode and not self._updateStep then
+        self:Update(engine_dt)
+    end
+    
     local l = self:GetLayer()
     -- if self:HasChildren() then
     --     for child in self:EachChild() do
