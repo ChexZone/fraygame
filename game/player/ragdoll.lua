@@ -6,13 +6,16 @@ function PlayerRagdoll.new(dir)
     local ragdoll = Prop.new{
         Name = "PlayerRagdoll",
         Direction = dir or 1,
+        MouseDropped = true,
         Canvas = Canvas.new(64, 64),
         HelperCanvas = Canvas.new(64, 64),
+        Velocity = V{0,0},
         DrawInForeground = true,
         LandedOnBack = false,
         RandomBackHeadAngle = math.rad(-90),
         Shader = Shader.new("game/assets/shaders/outline.glsl"):Send("step",{1/64,1/64}),
         Size = V{10,9},
+        CollisionSize = V{10,8},
         AnchorPoint = V{0.5,0.5},
         Texture = Texture.new("game/assets/images/player/ragdoll/head.png"),
         Floor = nil,
@@ -73,9 +76,13 @@ function PlayerRagdoll.new(dir)
             love.graphics.setColor(1,1,1)
 
             self.Shader:Activate()
+
+            local sx = 64 * (self.DrawScale[1]-1)
+            local sy = 64 * (self.DrawScale[2]-1)
+
             self.Canvas:DrawToScreen(
                 32, 32, 0,
-                64*self.Direction, 64,
+                64*self.Direction + sx*self.Direction, 64 + sy,
                 0.5,0.5
             )
             -- self.HelperCanvas:CopyFrom(self.Canvas)
@@ -84,15 +91,14 @@ function PlayerRagdoll.new(dir)
 
             
             
-            local sx = 64 * (self.DrawScale[1]-1)
-            local sy = 64 * (self.DrawScale[2]-1)
+
             
             self.HelperCanvas:DrawToScreen(
                 math.floor(self.Position[1] - tx),
                 math.floor(self.Position[2] - ty),
                 0, -- self.Rotation,
-                64 + sx,
-                64 + sy,
+                64,
+                64,
                 0.5,
                 0.5
             )
@@ -100,6 +106,9 @@ function PlayerRagdoll.new(dir)
         end,
 
         Update = function (self, dt)
+            if not self.IsActive then return end
+            self.DrawScale = self.DrawScale:Lerp(V{1,1},5*dt)
+            self.Color = self.Color:Lerp(V{1,1,1},2.5*dt)
             if not self.MouseDropped then
                 local newMousePos = self:GetLayer():GetMousePosition()
     
@@ -137,57 +146,63 @@ function PlayerRagdoll.new(dir)
                     self:ValidateFloor()
                 end
 
-                self.Position.Y = self.Position.Y + self.Velocity.Y
-                self:Unclip()
-                self.Position.X = self.Position.X + self.Velocity.X
-                self:Unclip()
+                -- if moving vertically at least 1.5x faster than horizontally, prioritize X clipping, otherwise prioritize Y clipping
+                if math.abs(self.Velocity.Y) > 1.5*math.abs(self.Velocity.X) then
+                    self.Position.X = self.Position.X + self.Velocity.X
+                    self:Unclip("x")
+                    self.Position.Y = self.Position.Y + self.Velocity.Y
+                    self:Unclip("y")
+                else
+                    self.Position.Y = self.Position.Y + self.Velocity.Y
+                    self:Unclip("y")
+                    self.Position.X = self.Position.X + self.Velocity.X
+                    self:Unclip("x")
+                end
+
 
                 self.Velocity = self.Velocity:Filter(function (v)
                     return math.clamp(v, -5, 5)
                 end)
-                
-    
-
-
-                -- collision..
-                
                 
             end
     
             self.Rotation = math.lerp(self.Rotation, self.GoalRotation*self.Direction, dt*10)
         end,
 
-        Unclip = function (self)
+        Unclip = function (self, axis)
             local clipped
             local collisionCandidates = self:GetLayer():GetCollisionCandidates(self)
             for solid, hDist, vDist, tileID, tileNo, tileLayer in self:CollisionPass(collisionCandidates, true) do
                 if not solid.Passthrough then
                     clipped = true
                     local face = Prop.GetHitFace(hDist,vDist)
-                    print(hDist, vDist)
                     
-                    if face == "right" and math.abs(hDist)>2 then
-                        self.Velocity.X = 0
-                        self.Rotation = 0
-                        self:SetEdge("right", solid:GetEdge("left", tileNo, tileLayer))
-                    elseif face == "left" and math.abs(hDist)>2 then
-                        self.Velocity.X = 0
-                        self.Rotation = 0
-                        self:SetEdge("left", solid:GetEdge("right", tileNo, tileLayer))
-                    elseif face == "top" then
-                        self.Velocity.Y = 0
-                        self:SetEdge("top", solid:GetEdge("bottom", tileNo, tileLayer))
-                    elseif face == "bottom" then -- floor
-                        self.Velocity.Y = 0
-                        self.Floor = solid
-                        if self.Direction == -sign(self.Velocity.X) then
-                            self.LandedOnBack = true
-                            self.RandomBackHeadAngle = math.random(1,2)==1 and math.rad(-90) or math.rad(-90)
-                        else
-                            self.LandedOnBack = false
+                    if axis == "y" then
+                        if face == "top" then
+                            self.Velocity.Y = 0
+                            self:SetEdge("top", solid:GetEdge("bottom", tileNo, tileLayer))
+                        elseif face == "bottom" then -- floor
+                            self.Velocity.Y = 0
+                            self.Floor = solid
+                            if self.Direction == -sign(self.Velocity.X) then
+                                self.LandedOnBack = true
+                                self.RandomBackHeadAngle = math.random(1,2)==1 and math.rad(-90) or math.rad(-90)
+                            else
+                                self.LandedOnBack = false
+                            end
+                            self:SetEdge("bottom", solid:GetEdge("top", tileNo, tileLayer))
+                            self.GoalRotation = math.rad(270)
                         end
-                        self:SetEdge("bottom", solid:GetEdge("top", tileNo, tileLayer))
-                        self.GoalRotation = math.rad(270)
+                    else -- x axis
+                        if face == "right" and math.abs(hDist)>1 then
+                            self.Velocity.X = math.abs(self.Velocity.X) > 2 and -self.Velocity.X/2 or 0
+                            self.Rotation = 0
+                            self:SetEdge("right", solid:GetEdge("left", tileNo, tileLayer))
+                        elseif face == "left" and math.abs(hDist)>1 then
+                            self.Velocity.X = math.abs(self.Velocity.X) > 2 and -self.Velocity.X/2 or 0
+                            self.Rotation = 0
+                            self:SetEdge("left", solid:GetEdge("right", tileNo, tileLayer))
+                        end
                     end
                 end
             end

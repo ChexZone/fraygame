@@ -20,6 +20,8 @@ local Player = {
 
     VelocityLastFrame = V{0,0},         -- the velocity of the player the previous frame (valid after Player:UpdatePhysics())
 
+    StunTimer = 0,                      -- for when the player is ragdolling/stunned. Can be set per-damage source. 
+
     MaxSpeed = V{10, 10},                 -- the absolute velocity caps (+/-) of the player
     WalkSpeed = 1.5,                     -- how fast the player runs by default
     RunSpeed = 2.4,                     -- how fast the player runs by default
@@ -562,6 +564,8 @@ function Player.new()
     newPlayer.JustPressed = {}
     newPlayer.DrawScale = V{1,1}
 
+    newPlayer.Ragdoll = PlayerRagdoll.new()
+
     newPlayer.LastSFX_ID = {}
 
     newPlayer.SFX.Jump[1].Test = true
@@ -1038,13 +1042,15 @@ function Player:UnclipY(forTesting, returnFirstHit)
 
 
             local face = Prop.GetHitFace(hDist,vDist)
+            local otherFace = face=="top" and "bottom" or face=="bottom" and "top" or face=="left" and "right" or face=="right" and "left"
+            local surfaceInfo = solid:GetSurfaceInfo(tileID)
             -- we check the "sign" of the direction to make sure the player is "moving into" the object before clipping back
             local faceSign = face == "bottom" and 1 or face == "top" and -1 or 0
             if (solid ~= self.YHitbox and solid ~= self.XHitbox and solid ~= self.HeldItem) and (faceSign == sign(self.Velocity.Y +0.01) or face == "none" or returnFirstHit) and not solid.Passthrough then
                 
 
 
-                local surfaceInfo = solid:GetSurfaceInfo(tileID)
+                
 
                 if returnFirstHit and (face == "none" or (face == "bottom" and not surfaceInfo.Bottom.Passthrough) or (face == "top" and not surfaceInfo.Top.Passthrough) or (face == "right" and not surfaceInfo.Right.Passthrough) or (face == "left" and not surfaceInfo.Left.Passthrough)) then
 
@@ -1114,7 +1120,11 @@ function Player:UnclipY(forTesting, returnFirstHit)
                 end
             end
 
-            
+            -- Damage handling
+            local capFace = type(otherFace)=="string" and otherFace:sub(1,1):upper() .. otherFace:sub(2,#otherFace)
+            if surfaceInfo[capFace] and surfaceInfo[capFace].DamageType then
+                self:StartRagdoll(surfaceInfo[capFace])
+            end
         end
     end
     
@@ -1174,6 +1184,7 @@ function Player:UnclipX(forTesting)
         for solid, hDist, vDist, tileID, tileNo, tileLayer in collider:CollisionPass(self._collisionCandidates, true) do
             
             local face = Prop.GetHitFace(hDist,vDist)
+            local otherFace = face=="top" and "bottom" or face=="bottom" and "top" or face=="left" and "right" or face=="right" and "left"
             local surfaceInfo = solid:GetSurfaceInfo(tileID)
             
             
@@ -1212,12 +1223,20 @@ function Player:UnclipX(forTesting)
                     -- if self.MoveDir ~= 0 then self.DrawScale.X = math.abs(self.DrawScale.X) * self.MoveDir end
                     if solid.ActivateSpring then solid:ActivateSpring(tileID) end
             end
+
+            -- Damage handling
+            local capFace = type(otherFace)=="string" and otherFace:sub(1,1):upper() .. otherFace:sub(2,#otherFace)
+            if surfaceInfo[capFace] and surfaceInfo[capFace].DamageType then
+                self:StartRagdoll(surfaceInfo[capFace])
+            end
         end
     
         if pushX ~= 0 then
             activeCollider = collider
             break
         end
+
+
     end
 
     if not forTesting then
@@ -1427,9 +1446,63 @@ function Player:ValidateWall()
     self:UpdateHeldItem()
     self:AlignHitboxes()
 end
+
+function Player:StartRagdoll(surfaceInfo)
+    self:GetParent():Adopt(self.Ragdoll)
+    self.Ragdoll:MoveTo(self.Position)
+    self.Velocity = V{0,0}
+    self.Ragdoll.IsActive = true
+    self.Ragdoll.Visible = true
+    self.Ragdoll:SetEdge("top", self.YHitbox:GetEdge("top"))
+    self.Ragdoll.Rotation = 0
+    self.Ragdoll:GetChild("RagdollTorso").Rotation = 0
+    self.Ragdoll:GetChild("RagdollFrontArm").Rotation = 0
+    self.Ragdoll:GetChild("RagdollBackArm").Rotation = 0
+    self.Ragdoll:GetChild("RagdollFrontLeg").Rotation = 0
+    self.Ragdoll:GetChild("RagdollBackLeg").Rotation = 0
+    self.Ragdoll.Velocity = surfaceInfo.DamageVelocity:Clone()
+    self.StunTimer = surfaceInfo.DamageStunTimer or 1
+
+    self.Ragdoll.Velocity.X = type(surfaceInfo.DamageVelocity.X) == "string" and self.Velocity.X or surfaceInfo.DamageVelocity.X
+    self.Ragdoll.Velocity.Y = type(surfaceInfo.DamageVelocity.Y) == "string" and self.Velocity.Y or surfaceInfo.DamageVelocity.Y
+
+    self.Ragdoll.DrawScale = V{1.5,1.5}
+    self.Ragdoll.Color = V{1,0.5,0.5}
+    self.IsInRagdoll = true
+    -- if sign(self.Ragdoll.Velocity.X) == 1 then
+    --     self.Ragdoll.Direction = 1
+    -- elseif sign(self.Ragdoll.Velocity.X) == -1 then
+    --     self.Ragdoll.Direction = -1
+    -- else
+    --     self.Ragdoll.Direction = math.random(1,2)==1 and -1 or 1
+    -- end
+
+    self.Ragdoll.Direction = self:GetBodyOrientation()
+end
+
+function Player:EndRagdoll()
+    self.Ragdoll.Visible = false
+    self.Ragdoll.IsActive = false
+    self.IsInRagdoll = false
+    self:GetScene().Camera.Focus = self
+    self:MoveTo(self.Ragdoll.Position)
+    self:SetEdge("bottom", self.Ragdoll:GetEdge("bottom"))
+    self.TailPoints = {}
+    self.Wall = nil
+end
 ---------------------------------------------------------------------------------
 
 ------------------------ INPUT PROCESSING -----------------------------
+function Player:ProcessRagdollInput(dt)
+    local input = self.InputListener
+    if input:IsDown("move_left") then
+        self.Ragdoll.Velocity.X = self.Ragdoll.Velocity.X - 0.05
+    end
+    if input:IsDown("move_right") then
+        self.Ragdoll.Velocity.X = self.Ragdoll.Velocity.X + 0.05
+    end
+end
+
 function Player:ProcessInput(dt)
 
     local input = self.InputListener
@@ -3713,55 +3786,66 @@ function Player:Update(engine_dt)
     ------------------- PHYSICS PROCESSING ----------------------------------
     
 
-    -- process the held item, if there is one
-    self:UpdateHeldItem()
+    if self.IsInRagdoll then
+        self:GetScene().Camera.Focus = self.Ragdoll
+        self:ProcessRagdollInput(engine_dt)
+        self:MoveTo(self.Ragdoll.Position)
+        self.StunTimer = math.max(self.StunTimer - engine_dt, 0)
+        if self.StunTimer == 0 then
+            self:EndRagdoll()
+        end
+    else -- regular player processing
+        -- process the held item, if there is one
+        self:UpdateHeldItem()
 
-    -- if we're on a moving floor let's move with it
-    self:FollowFloor()
-
-
-
-    -- listen for inputs here
-    self:ProcessInput(engine_dt)
-
-    -- update position based on velocity, velocity based on acceleration, etc
-    self:UpdatePhysics()
-
-    -- we do this manually inside UpdatePhysics now
-    -- -- make sure collision is all good
-    -- self:Unclip()
-
-    -- update tail (based on physics)
-    self:UpdateTail()
-    
-    -- confirm the floor remains the floor
-    self:ValidateFloor()
-
-        -- same with wall
-        self:FollowWall()
-
-        -- validate the wall early
-        self:ValidateWall()
-
-    -- set the proper animation state
-    self:UpdateAnimation()
-
-    
-    
+        -- if we're on a moving floor let's move with it
+        self:FollowFloor()
 
 
-    -- update frame values like FramesSinceJump and FramesSinceGrounded
-    self:UpdateFrameValues()
 
-    -- flush input buffer at the end (in case anyone other than ProcessInput was sneakily looking at inputs)
-    for k, _ in pairs(self.JustPressed) do
-        self.JustPressed[k] = false
+        -- listen for inputs here
+        self:ProcessInput(engine_dt)
+
+        -- update position based on velocity, velocity based on acceleration, etc
+        self:UpdatePhysics()
+
+        -- we do this manually inside UpdatePhysics now
+        -- -- make sure collision is all good
+        -- self:Unclip()
+
+        -- update tail (based on physics)
+        self:UpdateTail()
+
+        -- confirm the floor remains the floor
+        self:ValidateFloor()
+
+            -- same with wall
+            self:FollowWall()
+
+            -- validate the wall early
+            self:ValidateWall()
+
+        -- set the proper animation state
+        self:UpdateAnimation()
+
+
+
+
+
+        -- update frame values like FramesSinceJump and FramesSinceGrounded
+        self:UpdateFrameValues()
+
+        -- flush input buffer at the end (in case anyone other than ProcessInput was sneakily looking at inputs)
+        for k, _ in pairs(self.JustPressed) do
+            self.JustPressed[k] = false
+        end
+
+        self._updateStep = not self._updateStep
+        if self._usingPerformanceMode and not self._updateStep then
+            self:Update(engine_dt)
+        end
     end
-
-    self._updateStep = not self._updateStep
-    if self._usingPerformanceMode and not self._updateStep then
-        self:Update(engine_dt)
-    end
+    
 
     local l = self:GetLayer()
     -- if self:HasChildren() then
@@ -3814,6 +3898,7 @@ end
 
 function Player:Draw(tx, ty)
 
+    if self.IsInRagdoll then return end
     -- if self:HasChildren() then
     --     self:DrawChildren(tx, ty)
     -- end
