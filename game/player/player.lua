@@ -3790,6 +3790,7 @@ function Player:Update(engine_dt)
         self:GetScene().Camera.Focus = self.Ragdoll
         self:ProcessRagdollInput(engine_dt)
         self:MoveTo(self.Ragdoll.Position)
+        
         self.StunTimer = math.max(self.StunTimer - engine_dt, 0)
         if self.StunTimer == 0 then
             self:EndRagdoll()
