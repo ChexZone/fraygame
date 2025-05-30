@@ -1478,7 +1478,6 @@ function Player:ProcessInput(dt)
         return -- don't process any input
     end
 
-    print(self.InteractBuffer)
 
     if self.NearbyInteractable and self.InteractBuffer > 0 and not self.InInteraction then
         self.InteractBuffer = 0

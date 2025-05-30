@@ -99,7 +99,7 @@ function love.load()
     -- end
     local player
     
-    scene:GetLayer("Gameplay"):Adopt(PlayerRagdoll.new())
+    scene:GetLayer("Gameplay"):Adopt(PlayerRagdoll.new(1))
 
      player = Player.new():Nest(scene:GetLayer("Gameplay"))
     -- local player2 = Player.new():Nest(scene:GetLayer("Gameplay"))
@@ -129,7 +129,7 @@ function love.load()
         Name = "PlayerLight",
         -- AnchorPoint = V{0,0},
 
-        Radius = 250,
+        Radius = 400,
         Sharpness = 0.5,
         Color = V{1,1,1,1},
         Update = function (self, dt)

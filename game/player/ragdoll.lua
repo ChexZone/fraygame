@@ -2,16 +2,20 @@ local PlayerRagdoll = {
     Name = "PlayerRagdoll", _super = "Prop", _global = true
 }
 
-function PlayerRagdoll.new()
+function PlayerRagdoll.new(dir)
     local ragdoll = Prop.new{
         Name = "PlayerRagdoll",
+        Direction = dir or 1,
         Canvas = Canvas.new(64, 64),
         HelperCanvas = Canvas.new(64, 64),
         DrawInForeground = true,
+        LandedOnBack = false,
+        RandomBackHeadAngle = math.rad(-90),
         Shader = Shader.new("game/assets/shaders/outline.glsl"):Send("step",{1/64,1/64}),
         Size = V{10,9},
         AnchorPoint = V{0.5,0.5},
         Texture = Texture.new("game/assets/images/player/ragdoll/head.png"),
+        Floor = nil,
         ZIndex = 5,
     
         Draw = function (self, tx, ty)
@@ -28,7 +32,7 @@ function PlayerRagdoll.new()
                 local b = self:GetChild(bodyPartName)
                 b.Texture:DrawToScreen(
                     b.Position[1] - self.Position[1] + 32,
-                    b.Position[2] - self.Position[2] + 32,
+                    b.Position[2] - self.Position[2] + 33,
                     b.Rotation,
                     b.Size[1],
                     b.Size[2],
@@ -41,7 +45,7 @@ function PlayerRagdoll.new()
 
             -- HEAD
             self.Texture:DrawToScreen(
-                32, 32,
+                32, 33,
                 self.Rotation,
                 self.Size[1],
                 self.Size[2],
@@ -53,7 +57,7 @@ function PlayerRagdoll.new()
                 local b = self:GetChild(bodyPartName)
                 b.Texture:DrawToScreen(
                     b.Position[1] - self.Position[1] + 32,
-                    b.Position[2] - self.Position[2] + 32,
+                    b.Position[2] - self.Position[2] + 33,
                     b.Rotation,
                     b.Size[1],
                     b.Size[2],
@@ -64,16 +68,22 @@ function PlayerRagdoll.new()
 
             self.Canvas:Deactivate()
 
-            -- self.HelperCanvas:Activate()
+            self.HelperCanvas:Activate()
+            love.graphics.clear()
+            love.graphics.setColor(1,1,1)
 
+            self.Shader:Activate()
+            self.Canvas:DrawToScreen(
+                32, 32, 0,
+                64*self.Direction, 64,
+                0.5,0.5
+            )
+            -- self.HelperCanvas:CopyFrom(self.Canvas)
+            self.Shader:Deactivate()
+            self.HelperCanvas:Deactivate()
 
             
-            -- self.HelperCanvas:Deactivate()
-            self.Shader:Activate()
-            self.HelperCanvas:CopyFrom(self.Canvas)
-            self.Shader:Deactivate()
-
-            love.graphics.setColor(1,1,1)
+            
             local sx = 64 * (self.DrawScale[1]-1)
             local sy = 64 * (self.DrawScale[2]-1)
             
@@ -96,27 +106,109 @@ function PlayerRagdoll.new()
                 self:MoveTo(newMousePos)
                 
                 
-                self.Velocity = newMousePos - (self.MousePos or newMousePos)
-    
+                local vel = newMousePos - (self.MousePos or newMousePos)
+                
     
                 self.MousePos = newMousePos
     
-                if Input:JustPressed("m_1") then
+                if Input:JustPressed("m_1") and not self.IgnoreFrame then
                     self.MouseDropped = true
                 end
+                self.IgnoreFrame = false
+                self.GoalRotation = vel:Magnitude()>0.5 and V{vel.X, -vel.Y}:ToAngle() or 0
+    
+                self.Velocity = (self.Velocity or V{0,0}):Lerp(vel, dt*20)
+                
             else
-                self.Position = self.Position + self.Velocity
-                self.Velocity = self.Velocity + V{0,0.1}
+
+                if Input:JustPressed("m_1") and not self.NextOne then
+                    self.NextOne = self:GetParent():Adopt(PlayerRagdoll.new(-self.Direction))
+                    self.NextOne.IgnoreFrame = true
+                end
+
+                self.GoalRotation = self.Velocity:Magnitude()>0.5 and V{self.Velocity.X, -self.Velocity.Y}:ToAngle() or 0
+
+                if not self.Floor then
+                    self.Velocity = self.Velocity + V{0,0.1}
+                else
+                    self.Velocity.Y = 0
+                    self.Velocity.X = math.clamp(math.abs(self.Velocity.X) - 0.1, 0, math.huge) * sign(self.Velocity.X)
+                    self.GoalRotation = self.LandedOnBack and self.RandomBackHeadAngle*self.Direction or math.rad(0)
+                    self:ValidateFloor()
+                end
+
+                self.Position.Y = self.Position.Y + self.Velocity.Y
+                self:Unclip()
+                self.Position.X = self.Position.X + self.Velocity.X
+                self:Unclip()
+
                 self.Velocity = self.Velocity:Filter(function (v)
                     return math.clamp(v, -5, 5)
                 end)
                 
+    
+
+
+                -- collision..
+                
                 
             end
     
-            local goalRot = self.Velocity:Magnitude()>0.5 and V{self.Velocity.X, -self.Velocity.Y}:ToAngle() or 0
-    
-            self.Rotation = math.lerp(self.Rotation, goalRot, dt*10)
+            self.Rotation = math.lerp(self.Rotation, self.GoalRotation*self.Direction, dt*10)
+        end,
+
+        Unclip = function (self)
+            local clipped
+            local collisionCandidates = self:GetLayer():GetCollisionCandidates(self)
+            for solid, hDist, vDist, tileID, tileNo, tileLayer in self:CollisionPass(collisionCandidates, true) do
+                if not solid.Passthrough then
+                    clipped = true
+                    local face = Prop.GetHitFace(hDist,vDist)
+                    print(hDist, vDist)
+                    
+                    if face == "right" and math.abs(hDist)>2 then
+                        self.Velocity.X = 0
+                        self.Rotation = 0
+                        self:SetEdge("right", solid:GetEdge("left", tileNo, tileLayer))
+                    elseif face == "left" and math.abs(hDist)>2 then
+                        self.Velocity.X = 0
+                        self.Rotation = 0
+                        self:SetEdge("left", solid:GetEdge("right", tileNo, tileLayer))
+                    elseif face == "top" then
+                        self.Velocity.Y = 0
+                        self:SetEdge("top", solid:GetEdge("bottom", tileNo, tileLayer))
+                    elseif face == "bottom" then -- floor
+                        self.Velocity.Y = 0
+                        self.Floor = solid
+                        if self.Direction == -sign(self.Velocity.X) then
+                            self.LandedOnBack = true
+                            self.RandomBackHeadAngle = math.random(1,2)==1 and math.rad(-90) or math.rad(-90)
+                        else
+                            self.LandedOnBack = false
+                        end
+                        self:SetEdge("bottom", solid:GetEdge("top", tileNo, tileLayer))
+                        self.GoalRotation = math.rad(270)
+                    end
+                end
+            end
+            return clipped
+        end,
+
+        ValidateFloor = function (self)
+            local hit = false
+            self.Position.Y = self.Position.Y + 1
+            for solid, hDist, vDist, tileID, tileNo, tileLayer in self:CollisionPass(self.Floor, true, false, true) do
+                local surfaceInfo = solid:GetSurfaceInfo(tileID)
+                local face = Prop.GetHitFace(hDist,vDist)
+                if not surfaceInfo.Top.Passthrough and face == "bottom" then
+                    hit = solid
+                end
+
+            end
+            if not hit then
+                self.Floor = nil
+            end
+            self.Position.Y = self.Position.Y - 1
         end
     }
 
@@ -152,37 +244,69 @@ function PlayerRagdoll.new()
     
     ragdoll.Torso = ragdoll:Adopt(Prop.new{
         Name = "RagdollTorso",
-        Size = V{8,10},
+        Size = V{10,10},
         AnchorPoint = V{0.5,0},
         Visible = false,
         Texture = Texture.new("game/assets/images/player/ragdoll/torso.png"),
         ZIndex = 3,
+        GoalPoint = V{0.55,0.925},
     
         Update = function (self, dt)
             local p = self.Position:Clone()
-            self:MoveTo(self:GetParent():GetPoint(0.5,0.9))
+            
+            if self:GetParent().Floor then
+                if self:GetParent().LandedOnBack then
+                    self.GoalPoint = self.GoalPoint:Lerp(V{0.35, 0.825}, dt*5)
+                else
+                    self.GoalPoint = self.GoalPoint:Lerp(V{0.55, 0.925}, dt*5)
+                end
+            else
+                self.GoalPoint = self.GoalPoint:Lerp(V{0.55, 0.925}, dt*5)
+            end
+
+            self:MoveTo(self:GetParent():GetPoint(self.GoalPoint.X,self.GoalPoint.Y))
+
             local dist = self.Position - p
-            local goalRot = dist:Magnitude()>0.1 and V{dist[1], -dist[2]}:ToAngle() or self:GetParent().Rotation
-            self.Rotation = math.lerp(self.Rotation, goalRot, dt*4, 0.05)
+            local goalRot = dist:Magnitude()>0.1 and V{dist[1], -dist[2]}:ToAngle()*self:GetParent().Direction or self:GetParent().Rotation
+
+            if self:GetParent().Floor then
+                goalRot = self:GetParent().LandedOnBack and math.rad(-50) or math.rad(90)
+            end
+            
+            self.Rotation = math.lerp(self.Rotation, goalRot, dt*4, 0.1)
         end,
     })
     
     ragdoll:Adopt(Prop.new{
         Name = "RagdollFrontArm",
-        Size = V{5,8},
+        Size = V{5,10},
         AnchorPoint = V{0.5,0.2},
         Texture = Texture.new("game/assets/images/player/ragdoll/front_arm.png"),
         ZIndex = 4,
         Visible = false,
-    
+        GoalPoint = V{0.2, 0.25},
         Update = function (self, dt)
+            if self:GetParent().Floor then
+                if self:GetParent().LandedOnBack then
+                    self.GoalPoint = self.GoalPoint:Lerp(V{0.3, 0.25}, dt*3)
+                else
+                    self.GoalPoint = self.GoalPoint:Lerp(V{0.7, 0.25}, dt*3)
+                end
+            else
+                self.GoalPoint = self.GoalPoint:Lerp(V{0.2, 0.25}, dt*3)
+            end
+
             local p = self.Position:Clone()
             local torso = self:GetParent().Torso
-            self:MoveTo(torso:GetPoint(0.2,0.25))
+            self:MoveTo(torso:GetPoint(self.GoalPoint.X,self.GoalPoint.Y))
             local dist = self.Position - p
-            local goalRot = dist:Magnitude()>0.1 and V{dist[1], -dist[2]}:ToAngle()+torso.Rotation*1.5 or self:GetParent().Rotation
+            local goalRot = dist:Magnitude()>0.1 and -V{dist[1], -dist[2]}:ToAngle()*self:GetParent().Direction+torso.Rotation*1.5 or (self:GetParent().LandedOnBack and math.rad(0) or self:GetParent().Rotation)
             
-            self.Rotation = math.lerp(self.Rotation, goalRot, dt*6, 0.05)
+            if self:GetParent().Floor then
+                goalRot = self:GetParent().LandedOnBack and math.rad(-50) or math.rad(0)
+            end
+            
+            self.Rotation = math.lerp(self.Rotation, goalRot, dt*6, 0.1)
             -- self.Rotation = math.lerp(self.Rotation, torso.Rotation, dt*2, 0.05)
         end,
     })
@@ -194,18 +318,34 @@ function PlayerRagdoll.new()
         AnchorPoint = V{0.5,0.2},
         Texture = Texture.new("game/assets/images/player/ragdoll/back_arm.png"),
         ZIndex = 2,
-    
+        GoalPoint = V{0.75, 0.25},
+
         Update = function (self, dt)
             -- local p = self.Position:Clone()
             -- local torso = self:GetParent().Torso
             -- self:MoveTo(torso:GetPoint(0.9,0.2))
+
+            if self:GetParent().Floor then
+                if self:GetParent().LandedOnBack then
+                    self.GoalPoint = self.GoalPoint:Lerp(V{0.9, 0.1}, dt*5)
+                else
+                    self.GoalPoint = self.GoalPoint:Lerp(V{0.85, 0.25}, dt*5)
+                end
+            else
+                self.GoalPoint = self.GoalPoint:Lerp(V{0.75, 0.25}, dt*5)
+            end
+
             local p = self.Position:Clone()
             local torso = self:GetParent().Torso
-            self:MoveTo(torso:GetPoint(0.9,0.25))
+            self:MoveTo(torso:GetPoint(self.GoalPoint.X, self.GoalPoint.Y))
             local dist = self.Position - p
-            local goalRot = dist:Magnitude()>0.1 and V{dist[1], -dist[2]}:ToAngle()+torso.Rotation or self:GetParent().Rotation
+            local goalRot = dist:Magnitude()>0.1 and -V{dist[1], -dist[2]}:ToAngle()*self:GetParent().Direction+torso.Rotation or self:GetParent().Rotation
             
-            self.Rotation = math.lerp(self.Rotation, goalRot, dt*6, 0.05)
+            if self:GetParent().Floor then
+                goalRot = self:GetParent().LandedOnBack and math.rad(-100) or goalRot
+            end
+
+            self.Rotation = math.lerp(self.Rotation, goalRot, dt*6, 0.1)
             -- self.Rotation = math.lerp(self.Rotation, torso.Rotation, dt*2, 0.05)
         end,
     })
@@ -215,16 +355,28 @@ function PlayerRagdoll.new()
         Size = V{6,8},
         Visible = false,
         AnchorPoint = V{0.5,0.2},
+        GoalPoint = V{0.3,0.85},
         Texture = Texture.new("game/assets/images/player/ragdoll/front_leg.png"),
         ZIndex = 4,
     
         Update = function (self, dt)
+            if self:GetParent().Floor then
+                if self:GetParent().LandedOnBack then
+                    self.GoalPoint = self.GoalPoint:Lerp(V{0.45, 0.9}, dt*3)
+                else
+                    self.GoalPoint = self.GoalPoint:Lerp(V{0.7, 0.85}, dt*3)
+                end
+                
+            else
+                self.GoalPoint = self.GoalPoint:Lerp(V{0.3, 0.85}, dt*3)
+            end
+
             local p = self.Position:Clone()
             local torso = self:GetParent().Torso
-            self:MoveTo(torso:GetPoint(0.2,0.85))
+            self:MoveTo(torso:GetPoint(self.GoalPoint.X,self.GoalPoint.Y))
             local dist = self.Position - p
-            local goalRot = dist:Magnitude()>0.1 and V{dist[1], -dist[2]}:ToAngle()+torso.Rotation*1.5 or self:GetParent().Rotation
-            self.Rotation = math.lerp(self.Rotation, goalRot, dt*3, 0.05)
+            local goalRot = dist:Magnitude()>0.1 and V{dist[1], -dist[2]}:ToAngle()+torso.Rotation*1.5 or (0)
+            self.Rotation = math.lerp(self.Rotation, goalRot, dt*3, 0.1)
             -- self:MoveTo(torso:GetPoint(0.2,0.85))
             -- self.Rotation = math.lerp(self.Rotation, torso.Rotation, dt*3, 0.05)
         end,
@@ -235,16 +387,28 @@ function PlayerRagdoll.new()
         Size = V{6,8},
         Visible = false,
         AnchorPoint = V{0.5,0.2},
+        GoalPoint = V{0.7,0.85},
         Texture = Texture.new("game/assets/images/player/ragdoll/back_leg.png"),
         ZIndex = 2,
     
         Update = function (self, dt)
+            if self:GetParent().Floor then
+                if self:GetParent().LandedOnBack then
+                    self.GoalPoint = self.GoalPoint:Lerp(V{1.1, 0.75}, dt*3)
+                else
+                    self.GoalPoint = self.GoalPoint:Lerp(V{0.3, 0.85}, dt*3)
+                end
+                
+            else
+                self.GoalPoint = self.GoalPoint:Lerp(V{0.7, 0.85}, dt*3)
+            end
+
             local p = self.Position:Clone()
             local torso = self:GetParent().Torso
-            self:MoveTo(torso:GetPoint(0.8,0.85))
+            self:MoveTo(torso:GetPoint(self.GoalPoint.X,self.GoalPoint.Y))
             local dist = self.Position - p
             local goalRot = dist:Magnitude()>0.1 and V{dist[1], -dist[2]}:ToAngle()+torso.Rotation or self:GetParent().Rotation
-            self.Rotation = math.lerp(self.Rotation, goalRot, dt*3, 0.05)
+            self.Rotation = math.lerp(self.Rotation, goalRot, dt*3, 0.1)
         end,
     })
 
