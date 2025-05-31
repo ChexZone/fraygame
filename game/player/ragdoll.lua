@@ -14,8 +14,13 @@ function PlayerRagdoll.new(dir)
         Velocity = V{0,0},
         DrawInForeground = true,
         LandedOnBack = false,
+
+        StunColor = V{1,0.4,0.4,1},
+        IsStunned = true,
+
         RandomBackHeadAngle = math.rad(-90),
         Shader = Shader.new("game/assets/shaders/outline.glsl"):Send("step",{1/64,1/64}),
+        StunShader = Shader.new("game/assets/shaders/custom-outline.glsl"):Send("step",{1/64,1/64}),
         Size = V{10,9},
         CollisionSize = V{10,8},
         AnchorPoint = V{0.5,0.5},
@@ -24,6 +29,11 @@ function PlayerRagdoll.new(dir)
         ZIndex = 5,
     
         Draw = function (self, tx, ty)
+            local stunProgress = self.Player.StunTimer / self.Player.CurrentStunTotalLength
+            print(stunProgress)
+            self.StunColor = V{1,0.5*stunProgress ,0.5*stunProgress, stunProgress+0.5}
+            self.StunShader:Send("outlineColor", V{self.StunColor[1],self.StunColor[2],self.StunColor[3],self.StunColor[4] or 1})
+
             self.Canvas:Activate()
             love.graphics.clear()
             -- love.graphics.circle("fill", 32, 32, 5)
@@ -82,6 +92,7 @@ function PlayerRagdoll.new(dir)
             local sx = 64 * (self.DrawScale[1]-1)
             local sy = 64 * (self.DrawScale[2]-1)
 
+
             self.Canvas:DrawToScreen(
                 32, 32, 0,
                 64*self.Direction + sx*self.Direction, 64 + sy,
@@ -94,31 +105,52 @@ function PlayerRagdoll.new(dir)
             
             
 
-            
-            self.HelperCanvas:DrawToScreen(
-                math.floor(self.Position[1] - tx),
-                math.floor(self.Position[2] - ty),
-                0, -- self.Rotation,
-                64,
-                64,
-                0.5,
-                0.5
-            )
+            if self.IsStunned then
+                self.Canvas:Activate()
+                love.graphics.clear()
+                self.StunShader:Activate()
+                self.HelperCanvas:DrawToScreen(
+                    32, 32, 0,
+                    64, 64,
+                    0.5,0.5
+                )
+                self.StunShader:Deactivate()
+                self.Canvas:Deactivate()
+
+                self.Canvas:DrawToScreen(
+                    math.floor(self.Position[1] - tx),
+                    math.floor(self.Position[2] - ty),
+                    0, -- self.Rotation,
+                    64,
+                    64,
+                    0.5,
+                    0.5
+                )
+            else
+                self.HelperCanvas:DrawToScreen(
+                    math.floor(self.Position[1] - tx),
+                    math.floor(self.Position[2] - ty),
+                    0, -- self.Rotation,
+                    64,
+                    64,
+                    0.5,
+                    0.5
+                )
+            end
+
             
         end,
 
         Update = function (self, dt)
             if not self.IsActive then return end
-            self.DrawScale = self.DrawScale:Lerp(V{1,1},5*dt)
+            self.DrawScale = self.DrawScale:Lerp(V{1,1},8*dt)
             self.Color = self.Color:Lerp(V{1,1,1},2.5*dt)
             if not self.MouseDropped then
                 local newMousePos = self:GetLayer():GetMousePosition()
     
                 self:MoveTo(newMousePos)
                 
-                
                 local vel = newMousePos - (self.MousePos or newMousePos)
-                
     
                 self.MousePos = newMousePos
     
@@ -148,6 +180,11 @@ function PlayerRagdoll.new(dir)
                     self.Velocity.X = math.clamp(math.abs(self.Velocity.X) - 0.1, 0, math.huge) * sign(self.Velocity.X)
                     self.GoalRotation = self.LandedOnBack and self.RandomBackHeadAngle*self.Direction or math.rad(0)
                     self:ValidateFloor()
+                end
+
+                if self.Wall then
+                    self:SetEdge(self.WallDirection, self.Wall:GetEdge(self.WallDirection=="left" and "right" or "left", self.WallTileNo, self.WallTileLayer))
+                    self:ValidateWall()
                 end
 
                 local MAX_Y_DIST = 1
@@ -180,10 +217,9 @@ function PlayerRagdoll.new(dir)
                 end
 
 
+                self.Velocity.Y = math.clamp(self.Velocity.Y, -10, 5)
+                self.Velocity.X = math.clamp(self.Velocity.X, -7, 7)
 
-                self.Velocity = self.Velocity:Filter(function (v)
-                    return math.clamp(v, -5, 5)
-                end)
                 
             end
     
@@ -192,6 +228,8 @@ function PlayerRagdoll.new(dir)
             if self.FramesSinceActive > -1 then
                 self.FramesSinceActive = self.FramesSinceActive + 1
             end
+
+            self.Player:UpdateTouchEvents(self)
         end,
 
         Unclip = function (self, axis)
@@ -217,10 +255,11 @@ function PlayerRagdoll.new(dir)
                     clipped = true
                     
                     if axis == "y" then
-                        if face == "top" then
+                        
+                        if self.Velocity.Y <= 0 and not surfaceInfo.Bottom.Passthrough and face == "top" then
                             self.Velocity.Y = 0
                             self:SetEdge("top", solid:GetEdge("bottom", tileNo, tileLayer))
-                        elseif face == "bottom" then -- floor
+                        elseif (self.Velocity.Y >= 0) and not surfaceInfo.Top.Passthrough and face == "bottom" then
                             self.Velocity.Y = 0
                             self.Floor = solid
                             if self.Direction == -sign(self.Velocity.X) then
@@ -233,20 +272,38 @@ function PlayerRagdoll.new(dir)
                             self.GoalRotation = math.rad(270)
                         end
                     else -- x axis
-                        if face == "right" and math.abs(hDist)>1 then
-                            self.Velocity.X = math.abs(self.Velocity.X) > 2 and -self.Velocity.X/2 or 0
-                            self.Rotation = 0
+                        if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) and math.abs(hDist)>1 then
+                            if math.abs(self.Velocity.X) > 2 then -- bounce
+                                self.Velocity.X =  -self.Velocity.X/2
+                                self.Wall = solid
+                                self.WallTileNo = tileNo
+                                self.WallTileLayer = tileLayer
+                                self.WallDirection = "right"
+                            else
+                                self.Rotation = 0
+                                self.Velocity.X =  0
+                            end
+                            
+
+                            
                             self:SetEdge("right", solid:GetEdge("left", tileNo, tileLayer))
-                        elseif face == "left" and math.abs(hDist)>1 then
-                            self.Velocity.X = math.abs(self.Velocity.X) > 2 and -self.Velocity.X/2 or 0
-                            self.Rotation = 0
+                        elseif (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) and math.abs(hDist)>1 then
+                            if math.abs(self.Velocity.X) > 2 then -- bounce
+                                self.Velocity.X =  -self.Velocity.X/2
+                                self.Wall = solid
+                                self.WallTileNo = tileNo
+                                self.WallTileLayer = tileLayer
+                                self.WallDirection = "left"
+                            else
+                                self.Rotation = 0
+                                self.Velocity.X =  0
+                            end
                             self:SetEdge("left", solid:GetEdge("right", tileNo, tileLayer))
                         end
                     end
                 end
-                -- Damage handling
                 
-
+                self.Player:ProcessTouchInteraction(self, solid)
             end
 
 
@@ -269,6 +326,22 @@ function PlayerRagdoll.new(dir)
                 self.Floor = nil
             end
             self.Position.Y = self.Position.Y - 1
+        end,
+
+        ValidateWall = function (self)
+            local hit = false
+            self.Position.X = self.Position.X + 1 * (self.WallDirection=="left" and -1 or 1)
+            for solid, hDist, vDist, tileID, tileNo, tileLayer in self:CollisionPass(self.Wall, true, false, true) do
+                local surfaceInfo = solid:GetSurfaceInfo(tileID)
+                local face = Prop.GetHitFace(hDist,vDist)
+                if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) or ((face=="left" or face=="right")) then
+                    hit = solid
+                end
+            end
+            if not hit then
+                self.Wall = nil
+            end
+            self.Position.X = self.Position.X - 1 * (self.WallDirection=="left" and -1 or 1)
         end
     }
 

@@ -159,6 +159,7 @@ end
     newGameScene.HealthBar = newGameScene.GuiLayer:Adopt(Prop.new{
         Name = "HealthBar",
         Health = 3,
+        AnimationState = 0,     -- updates over time for Timer.Schedule overrides
         Size = V{100, 80},
         FramesAlive = 0,
         Texture = Texture.new("game/assets/images/gui/hud/healthbar_base.png"),
@@ -208,6 +209,9 @@ end
                 end
             end
             self:GetChild("FacePlate").BlinkTimer = 2
+
+            local newAnimState = self.AnimationState + 1
+            
 
             Timer.Schedule(3, function ()
                 self.GoalOverhangPosition = V{0,0}
@@ -354,21 +358,21 @@ end
     --     Timer.Schedule(2, f)
     -- end f()
 
-    Timer.Schedule(7, function ()
-        newGameScene.HealthBar:Damage(1)
-    end)
+    -- Timer.Schedule(7, function ()
+    --     newGameScene.HealthBar:Damage(1)
+    -- end)
 
-    Timer.Schedule(14, function ()
-        newGameScene.HealthBar:Damage(1)
-    end)
+    -- Timer.Schedule(14, function ()
+    --     newGameScene.HealthBar:Damage(1)
+    -- end)
 
-    Timer.Schedule(21, function ()
-        newGameScene.HealthBar:Damage(-1)
-    end)
+    -- Timer.Schedule(21, function ()
+    --     newGameScene.HealthBar:Damage(-1)
+    -- end)
 
-    Timer.Schedule(28, function ()
-        newGameScene.HealthBar:Damage(-1)
-    end)
+    -- Timer.Schedule(28, function ()
+    --     newGameScene.HealthBar:Damage(-1)
+    -- end)
 
     
 
@@ -647,6 +651,7 @@ function GameScene:Update(dt)
             self.fallGuiTop.Visible = true
 
             Timer.Schedule(0.5, function ()
+                if self.Player.IsInRagdoll then self.Player:EndRagdoll() end
                 self.Player:Respawn(self.Player.LastSafePosition)
                 self.Camera.Position = self.Player.LastSafePosition
             end)

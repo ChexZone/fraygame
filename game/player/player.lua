@@ -16,6 +16,9 @@ local Player = {
     Size = V{24,24},
     ZIndex = 1,
 
+    Health = 3,
+    MaxHealth = 3,
+
     FramesSinceInit = 0,                -- how many frames since the Player object was created
 
     VelocityLastFrame = V{0,0},         -- the velocity of the player the previous frame (valid after Player:UpdatePhysics())
@@ -1095,36 +1098,15 @@ function Player:UnclipY(forTesting, returnFirstHit)
             end
     
             
+            self:ProcessTouchInteraction(collider, solid)
             
-            if collider ~= self.HeldItem and not self.TouchEvents[solid] and not solid:IsA("Tilemap") then
-                self.TouchEvents[solid] = true
-                if solid.OnTouchEnter then solid:OnTouchEnter(self) end
-                if solid.OnTouchStay then solid:OnTouchStay(self) end
-                if solid.InteractActivate then
-                    if self.NearbyInteractable and self.NearbyInteractable.InteractLeave then
-                        -- overlapping interactables; leave current one
-                        self.NearbyInteractable:InteractLeave(self)
-                    end
-                    self.NearbyInteractable = solid
-                    if solid.InteractEnter then solid:InteractEnter(self) end
-
-                    -- set up interact notifier
-                    local indicator = self:GetChild("InteractIndicator")
-                    indicator.Position = solid.Position + (solid.InteractIndicatorOffset or V{30,-30})
-                    indicator.Visible = true
-                    indicator.Texture:Properties{
-                        Clock = 0,
-                        LeftBound = 1, RightBound = 10,
-                        IsPlaying = true
-                    }
-
-                end
-            end
+            
+            
 
             -- Damage handling
             local capFace = type(otherFace)=="string" and otherFace:sub(1,1):upper() .. otherFace:sub(2,#otherFace)
             if (face=="top" or face=="bottom") and surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.InTransition then
-                
+                if self.StunTimer == 0 then self:Damage(1) end
                 self:StartRagdoll(surfaceInfo[capFace])
             end
         end
@@ -1228,7 +1210,9 @@ function Player:UnclipX(forTesting)
 
             -- Damage handling
             local capFace = type(otherFace)=="string" and otherFace:sub(1,1):upper() .. otherFace:sub(2,#otherFace)
-            if surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.InTransition and (sign(self.Velocity.X) ~= (sign(hDist))) then
+            local hDistSign = type(hDist)=="number" and sign(hDist) or 0
+            if surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.InTransition and (sign(self.Velocity.X) ~= (hDistSign)) then
+                if self.StunTimer == 0 then self:Damage(1) end
                 self:StartRagdoll(surfaceInfo[capFace])
             end
         end
@@ -1257,6 +1241,32 @@ function Player:UnclipX(forTesting)
     return pushX
 end
 
+function Player:ProcessTouchInteraction(collider, solid)
+    if collider ~= self.HeldItem and not self.TouchEvents[solid] and not solid:IsA("Tilemap") then
+        self.TouchEvents[solid] = true
+        if solid.OnTouchEnter then solid:OnTouchEnter(self) end
+        if solid.OnTouchStay then solid:OnTouchStay(self) end
+        if solid.InteractActivate then
+            if self.NearbyInteractable and self.NearbyInteractable.InteractLeave then
+                -- overlapping interactables; leave current one
+                self.NearbyInteractable:InteractLeave(self)
+            end
+            self.NearbyInteractable = solid
+            if solid.InteractEnter then solid:InteractEnter(self) end
+
+            -- set up interact notifier
+            local indicator = self:GetChild("InteractIndicator")
+            indicator.Position = solid.Position + (solid.InteractIndicatorOffset or V{30,-30})
+            indicator.Visible = true
+            indicator.Texture:Properties{
+                Clock = 0,
+                LeftBound = 1, RightBound = 10,
+                IsPlaying = true
+            }
+
+        end
+    end
+end
 local TILE_SIZE_LEDGE_LUNGE = 16
 function Player:ValidateFloor()
     local wasOnGroundAfterLedgeLunge = self.OnGroundAfterLedgeLunge
@@ -1449,14 +1459,24 @@ function Player:ValidateWall()
     self:AlignHitboxes()
 end
 
+function Player:Damage(amt)
+    self.Health = self.Health - amt
+    local healthbar = self:GetScene().HealthBar
+    local diff = healthbar.Health - self.Health
+    healthbar:Damage(diff)
+end
+
 function Player:StartRagdoll(surfaceInfo, alreadyInRagdoll)
 
     self:GetParent():Adopt(self.Ragdoll)
+
+
     self.Ragdoll.FramesSinceActive = 0
     self.Velocity = V{0,0}
     self.FramesSinceDive = -1
     self.FramesSinceDoubleJump = -1
     self.FramesSinceRoll = -1
+    self.FramesSinceParry = -1
     self.FramesSinceJump = -1
     self.FramesSinceCrouch = 0
     self:GetScene().Camera.ShakeIntensity = V{5,5}
@@ -1479,14 +1499,26 @@ function Player:StartRagdoll(surfaceInfo, alreadyInRagdoll)
         self.Ragdoll.Velocity = surfaceInfo.DamageVelocity:Clone()
     end
 
-    self.StunTimer = surfaceInfo.DamageStunTimer or 1
+
+
+    local stunTime = surfaceInfo.DamageStunTimer or 1
+
+    if self.StunTimer == 0 then
+        self.StunTimer = stunTime
+        self.CurrentStunTotalLength = self.StunTimer
+    end
+
 
     self.Ragdoll.Velocity.X = type(surfaceInfo.DamageVelocity.X) == "string" and self.Velocity.X or surfaceInfo.DamageVelocity.X
     self.Ragdoll.Velocity.Y = type(surfaceInfo.DamageVelocity.Y) == "string" and self.Velocity.Y or surfaceInfo.DamageVelocity.Y
 
-    
+    if self.HeldItem then
+        local item = self.HeldItem
+        self:PutDownItem()
+        item.Velocity = self.Ragdoll.Velocity:Clone()
+    end
 
-    self.Ragdoll.DrawScale = V{1.5,1.5}
+    self.Ragdoll.DrawScale = V{1.15,1.15}
     self.Ragdoll.Color = V{1,0.5,0.5}
     self.IsInRagdoll = true
     -- if sign(self.Ragdoll.Velocity.X) == 1 then
@@ -1507,6 +1539,7 @@ function Player:EndRagdoll()
     self.IsInRagdoll = false
     self.Floor = self.Ragdoll.Floor
     self.Ragdoll.Floor = nil
+    self.Ragdoll.Wall = nil
     self:GetScene().Camera.Focus = self
     self:GetScene().Camera.Reeling = V{true,true}
     self:MoveTo(self.Ragdoll.Position)
@@ -1522,9 +1555,15 @@ function Player:ProcessRagdollInput(dt)
     if not self.Ragdoll.Floor then
         if input:IsDown("move_left") then
             self.Ragdoll.Velocity.X = self.Ragdoll.Velocity.X - 0.05
+            if self.Ragdoll.Wall and self.Ragdoll.WallDirection == "right" then
+                self.Ragdoll.Wall = nil
+            end
         end
         if input:IsDown("move_right") then
             self.Ragdoll.Velocity.X = self.Ragdoll.Velocity.X + 0.05
+            if self.Ragdoll.Wall and self.Ragdoll.WallDirection == "left" then
+                self.Ragdoll.Wall = nil
+            end
         end
     end
 
@@ -1990,7 +2029,7 @@ function Player:Jump(noSFX)
 
     self.FloorPositionAtJump = self.LastFloor and self.LastFloor.Position:Clone() or V{0,0}
 
-    if self.LastFloor.LockPlayerVelocity then
+    if self.LastFloor and self.LastFloor.LockPlayerVelocity then
         -- lock in the player to the floor's movement arc
         self.AerialMovementLockedToFloorPos = true
         
@@ -2562,11 +2601,11 @@ function Player:UpdateAnimation()
 
     elseif self.FramesSinceWallKick > -1 and self.FramesSinceWallKick < 9 then
         self.DrawScale.Y = yscale_wallkick[self.FramesSinceWallKick+1]
-        self.DrawScale.X = sign(self.DrawScale.X) * xscale_wallkick[self.FramesSinceWallKick+1]
+        self.DrawScale.X = sign(self.DrawScale.X) * (xscale_wallkick[self.FramesSinceWallKick+1] or 1)
     elseif self.FramesSinceBounce > -1 and self.FramesSinceBounce < #yscale_jump then
         -- just bounced
         self.DrawScale.Y = yscale_jump[self.FramesSinceJump+1]
-        self.DrawScale.X = sign(self.DrawScale.X) * xscale_jump[self.FramesSinceJump+1]
+        self.DrawScale.X = sign(self.DrawScale.X) * (xscale_jump[self.FramesSinceJump+1] or 1)
     elseif self.FramesSinceThrownItem > -1 and self.FramesSinceThrownItem < #xscale_doublejump and not self.Floor then
         self.DrawScale.Y = yscale_doublejump[self.FramesSinceThrownItem+1] or 1
         self.DrawScale.X = sign(self.DrawScale.X) * (xscale_doublejump[self.FramesSinceThrownItem+1] or 1)
@@ -2579,8 +2618,8 @@ function Player:UpdateAnimation()
         self.DrawScale.X = sign(self.DrawScale.X) * (xscale_dive[self.FramesSinceDive+1] or 1)
     elseif self.CrouchTime > 0 and self.FramesSinceFlippedDirection > 0 and self.FramesSinceFlippedDirection <= #xscale_crouch_flip then
         -- crouching, turned around
-        self.DrawScale.Y = yscale_crouch_flip[self.FramesSinceFlippedDirection]
-        self.DrawScale.X = sign(self.DrawScale.X) * xscale_crouch_flip[self.FramesSinceFlippedDirection]
+        self.DrawScale.Y = yscale_crouch_flip[self.FramesSinceFlippedDirection] or 1
+        self.DrawScale.X = sign(self.DrawScale.X) * (xscale_crouch_flip[self.FramesSinceFlippedDirection] or 1)
     elseif not self.Floor and self.FramesSincePounce > -1 then
         -- just pounced
         self.DrawScale.Y = yscale_pounce[self.FramesSincePounce+1] or 1
@@ -2588,31 +2627,31 @@ function Player:UpdateAnimation()
     elseif self.Floor and self.CrouchTime > 0 and self.CrouchTime < #xscale_crouch then
         -- just crouched
         
-        self.DrawScale.Y = yscale_crouch[self.CrouchTime]
-        self.DrawScale.X = sign(self.DrawScale.X) * xscale_crouch[self.CrouchTime]
+        self.DrawScale.Y = yscale_crouch[self.CrouchTime] or 12
+        self.DrawScale.X = sign(self.DrawScale.X) * (xscale_crouch[self.CrouchTime] or 1)
         
     elseif self.FramesSinceDoubleJump > -1 and self.FramesSinceDoubleJump < #yscale_doublejump then
         -- just double jumped
-        self.DrawScale.Y = yscale_doublejump[self.FramesSinceDoubleJump+1]
-        self.DrawScale.X = sign(self.DrawScale.X) * xscale_doublejump[self.FramesSinceDoubleJump+1]
+        self.DrawScale.Y = yscale_doublejump[self.FramesSinceDoubleJump+1] or 1
+        self.DrawScale.X = sign(self.DrawScale.X) * (xscale_doublejump[self.FramesSinceDoubleJump+1] or 1)
     elseif self.FramesSinceJump > -1 and self.FramesSinceJump < #yscale_jump then
         -- just jumped
-        self.DrawScale.Y = yscale_jump[self.FramesSinceJump+1]
-        self.DrawScale.X = sign(self.DrawScale.X) * xscale_jump[self.FramesSinceJump+1]
+        self.DrawScale.Y = yscale_jump[self.FramesSinceJump+1] or 1
+        self.DrawScale.X = sign(self.DrawScale.X) * (xscale_jump[self.FramesSinceJump+1] or 1)
     elseif self.FramesSinceRoll > -1 and self.FramesSinceRoll < #yscale_roll then
         -- just rolled
         
-        self.DrawScale.Y = yscale_roll[self.FramesSinceRoll+1]
-        self.DrawScale.X = sign(self.DrawScale.X) * xscale_roll[self.FramesSinceRoll+1]
+        self.DrawScale.Y = yscale_roll[self.FramesSinceRoll+1] or 1
+        self.DrawScale.X = sign(self.DrawScale.X) * (xscale_roll[self.FramesSinceRoll+1] or 1)
     elseif self.FramesSinceGrounded > -1 and self.FramesSinceGrounded < #yscale_land then
         
         -- just landed on the ground
         if self.VelocityBeforeHittingGround >= self.TerminalVelocity then
             -- player was falling at terminal velocity (bigger visual impact)
-            self.DrawScale.Y = yscale_land[self.FramesSinceGrounded+1]
+            self.DrawScale.Y = yscale_land[self.FramesSinceGrounded+1] or 1
         elseif self.VelocityBeforeHittingGround > 0.5 then
             -- player was falling less than terminal velocity (smaller visual impact)
-            self.DrawScale.Y = yscale_land_small[self.FramesSinceGrounded+1]
+            self.DrawScale.Y = yscale_land_small[self.FramesSinceGrounded+1] or 1
         else
             -- player was not falling (no visual impact)
             self.DrawScale.Y = 1
@@ -3608,20 +3647,7 @@ function Player:UpdatePhysics()
     end
 
     
-    -- make sure touched objects are still being touched
-    for solid in pairs(self.TouchEvents) do
-        local hit, hDist, vDist = solid:CollisionInfo(self.YHitbox)
-        if hit then
-            if solid.OnTouchStay then solid:OnTouchStay(self, hDist, vDist) end
-        else
-            if solid.OnTouchLeave then solid:OnTouchLeave(self) end
-            if self.NearbyInteractable == solid then
-                self:DisconnectNearbyInteractable()
-                if solid.InteractLeave then solid:InteractLeave(self) end
-            end
-            self.TouchEvents[solid] = false
-        end
-    end
+    self:UpdateTouchEvents()
     
     -- account for sliding against a wall
     local wallDir = self.WallDirection == "left" and -1 or 1
@@ -3742,7 +3768,7 @@ function Player:UpdatePhysics()
     -- the solution I think is just to force the movement and pray it doesn't create any edge case collision bugs
     
     if pushedY and not self.HeldItem and self.Velocity.X == 0 and self.Acceleration.X == 0 and not self.Floor and math.abs(posAfterMove.Y - posBeforeMove.Y) < 1 then
-        print("HANGING OFF LEDGE!!!")
+        -- print("HANGING OFF LEDGE!!!")
         self.Position.Y = self.Position.Y + self.Velocity.Y
         self:Unclip()
     end
@@ -3753,6 +3779,24 @@ function Player:UpdatePhysics()
     
     self.Velocity.X = min(max(self.Velocity.X, -self.MaxSpeed.X), self.MaxSpeed.X)
     self.Velocity.Y = min(max(self.Velocity.Y, -self.MaxSpeed.Y), self.MaxSpeed.Y)
+end
+
+function Player:UpdateTouchEvents(collider)
+    -- make sure touched objects are still being touched
+    for solid in pairs(self.TouchEvents) do
+        local hit, hDist, vDist = solid:CollisionInfo(collider or self.YHitbox)
+        if hit then
+            if solid.OnTouchStay then solid:OnTouchStay(self, hDist, vDist) end
+        else
+            print("LEFT!", solid)
+            if solid.OnTouchLeave then solid:OnTouchLeave(self) end
+            if self.NearbyInteractable == solid then
+                self:DisconnectNearbyInteractable()
+                if solid.InteractLeave then solid:InteractLeave(self) end
+            end
+            self.TouchEvents[solid] = nil
+        end
+    end
 end
 
 function Player:Teleport(x, y)
@@ -3827,9 +3871,11 @@ function Player:Update(engine_dt)
         self.Texture:SetFrame(100)
         self.StunTimer = math.max(self.StunTimer - engine_dt, 0)
         
-        if self.StunTimer == 0 and self.Ragdoll.FramesOnFloor > 5 then
+        if self.StunTimer == 0 and self.Ragdoll.FramesOnFloor > 5 and math.abs(self.Ragdoll.Velocity.X) < 1 and self.Health > 0 then
             self:EndRagdoll()
         end
+
+        self:UpdateTouchEvents()
     else -- regular player processing
         -- process the held item, if there is one
         self:UpdateHeldItem()
