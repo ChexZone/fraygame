@@ -642,6 +642,25 @@ function Player.new()
     end}:Nest(newPlayer)
     
     Particles.new{
+        Name = "DamageImpact",
+        IgnoreCulling = true,
+        AnchorPoint = V{0.5, 0.5},
+        ParticleAnchorPoint = V{0.5, 0.5},
+        Texture = Texture.new("chexcore/assets/images/empty.png"),
+        RelativePosition = false,
+        Size = V{4, 4},
+        ParticleSize = V{16, 16},
+        LoopAnim = false,
+        ParticleTexture = Animation.new("game/assets/images/player/damage_action_line.png", 1, 4):Properties{Duration = 0.35},
+        ParticleLifeTime = 0.35,
+        Color = V{0,0,0,1},
+        ParticleColor = V{1,0.75,0.75,1},
+        ParticleColorVelocity = V{0,0,0,-2.5},
+        Update = function (self, dt)
+            self.Position = self:GetParent().Position
+    end}:Nest(newPlayer)
+
+    Particles.new{
         Name = "ForwardLandDust",
         IgnoreCulling = true,
         AnchorPoint = V{0.5, 0.5},
@@ -1105,8 +1124,9 @@ function Player:UnclipY(forTesting, returnFirstHit)
 
             -- Damage handling
             local capFace = type(otherFace)=="string" and otherFace:sub(1,1):upper() .. otherFace:sub(2,#otherFace)
-            if (face=="top" or face=="bottom") and surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.InTransition then
-                if self.StunTimer == 0 then self:Damage(1) end
+            if ((face=="top" and self.Velocity.Y <= 0) or (face=="bottom" and self.Velocity.Y >= 0)) and surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.InTransition then
+                
+                self:StandardDamage(face, surfaceInfo[capFace])
                 self:StartRagdoll(surfaceInfo[capFace])
             end
         end
@@ -1211,8 +1231,9 @@ function Player:UnclipX(forTesting)
             -- Damage handling
             local capFace = type(otherFace)=="string" and otherFace:sub(1,1):upper() .. otherFace:sub(2,#otherFace)
             local hDistSign = type(hDist)=="number" and sign(hDist) or 0
-            if surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.InTransition and (sign(self.Velocity.X) ~= (hDistSign)) then
-                if self.StunTimer == 0 then self:Damage(1) end
+            if ((face=="left" and self.Velocity.X <= 0) or (face=="right" and self.Velocity.X >= 0)) and surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.InTransition then
+                
+                self:StandardDamage(face, surfaceInfo[capFace])
                 self:StartRagdoll(surfaceInfo[capFace])
             end
         end
@@ -1459,11 +1480,46 @@ function Player:ValidateWall()
     self:AlignHitboxes()
 end
 
-function Player:Damage(amt)
-    self.Health = self.Health - amt
-    local healthbar = self:GetScene().HealthBar
-    local diff = healthbar.Health - self.Health
-    healthbar:Damage(diff)
+function Player:StandardDamage(face, surfaceInfo)
+    self:Damage(1, face, surfaceInfo)
+end
+
+function Player:Damage(amt, face, surfaceInfo)
+
+    local stunTime = surfaceInfo.DamageStunTimer or 1
+
+    if self.StunTimer == 0 then
+        self.StunTimer = stunTime
+        self.CurrentStunTotalLength = self.StunTimer
+        self.Health = self.Health - amt
+        local healthbar = self:GetScene().HealthBar
+        local diff = healthbar.Health - self.Health
+        healthbar:Damage(diff)
+
+        local yOfs = self.IsInRagdoll and -18 or 0
+
+        if face == "left" then
+            self:GetChild("DamageImpact"):Emit{
+                Position = self:GetPoint(0.5,1) + V{4,-4 + yOfs},
+                Velocity = V{2,0},
+            }
+        elseif face == "right" then
+            self:GetChild("DamageImpact"):Emit{
+                Position = self:GetPoint(0.5,1) + V{-4,-4 + yOfs},
+                Rotation = math.rad(180),
+                Velocity = V{-2,0},
+            }
+        elseif face == "bottom" then
+            self:GetChild("DamageImpact"):Emit{
+                Position = self:GetPoint(0.5,1) + V{0,-6 + yOfs},
+                Rotation = math.rad(270),
+                Velocity = V{0,-2},
+            }
+        end
+
+    end
+
+    
 end
 
 function Player:StartRagdoll(surfaceInfo, alreadyInRagdoll)
@@ -1496,21 +1552,29 @@ function Player:StartRagdoll(surfaceInfo, alreadyInRagdoll)
         self.Ragdoll:GetChild("RagdollBackArm").Rotation = 0
         self.Ragdoll:GetChild("RagdollFrontLeg").Rotation = 0
         self.Ragdoll:GetChild("RagdollBackLeg").Rotation = 0
-        self.Ragdoll.Velocity = surfaceInfo.DamageVelocity:Clone()
+        -- self.Ragdoll.Velocity = surfaceInfo.DamageVelocity:Clone()
     end
 
 
 
-    local stunTime = surfaceInfo.DamageStunTimer or 1
 
-    if self.StunTimer == 0 then
-        self.StunTimer = stunTime
-        self.CurrentStunTotalLength = self.StunTimer
-    end
+    -- if type(surfaceInfo.DamageVelocity.X) == "string" then
+    --     self.Ragdoll.Velocity.X = self.IsInRagdoll and self.Ragdoll.Velocity.X or self.Velocity.X
+    -- else
+    --     self.Ragdoll.Velocity.X = surfaceInfo.DamageVelocity.X
+    -- end
+
+    -- if type(surfaceInfo.DamageVelocity.Y) == "string" then
+    --     self.Ragdoll.Velocity.Y = self.IsInRagdoll and self.Ragdoll.Velocity.Y or self.Velocity.Y
+    -- else
+    --     print("SETTING TO STRING")
+    --     self.Ragdoll.Velocity.Y = surfaceInfo.DamageVelocity.Y
+    -- end
 
 
-    self.Ragdoll.Velocity.X = type(surfaceInfo.DamageVelocity.X) == "string" and self.Velocity.X or surfaceInfo.DamageVelocity.X
-    self.Ragdoll.Velocity.Y = type(surfaceInfo.DamageVelocity.Y) == "string" and self.Velocity.Y or surfaceInfo.DamageVelocity.Y
+    self.Ragdoll.Velocity.X = type(surfaceInfo.DamageVelocity.X) == "string" and (self.IsInRagdoll and self.Ragdoll.Velocity.X or self.Velocity.X) or surfaceInfo.DamageVelocity.X
+    self.Ragdoll.Velocity.Y = type(surfaceInfo.DamageVelocity.Y) == "string" and (self.IsInRagdoll and self.Ragdoll.Velocity.Y or self.Velocity.Y) or surfaceInfo.DamageVelocity.Y
+
 
     if self.HeldItem then
         local item = self.HeldItem
@@ -1552,7 +1616,7 @@ end
 ------------------------ INPUT PROCESSING -----------------------------
 function Player:ProcessRagdollInput(dt)
     local input = self.InputListener
-    if not self.Ragdoll.Floor then
+    if not self.Ragdoll.Floor and self.Health > 0 then
         if input:IsDown("move_left") then
             self.Ragdoll.Velocity.X = self.Ragdoll.Velocity.X - 0.05
             if self.Ragdoll.Wall and self.Ragdoll.WallDirection == "right" then
@@ -3875,7 +3939,7 @@ function Player:Update(engine_dt)
             self:EndRagdoll()
         end
 
-        self:UpdateTouchEvents()
+        -- self:UpdateTouchEvents()
     else -- regular player processing
         -- process the held item, if there is one
         self:UpdateHeldItem()

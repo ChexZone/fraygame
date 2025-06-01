@@ -30,8 +30,8 @@ function PlayerRagdoll.new(dir)
     
         Draw = function (self, tx, ty)
             local stunProgress = self.Player.StunTimer / self.Player.CurrentStunTotalLength
-            print(stunProgress)
-            self.StunColor = V{1,0.5*stunProgress ,0.5*stunProgress, stunProgress+0.5}
+            
+            self.StunColor = V{1,0.5*stunProgress ,0.5*stunProgress, stunProgress+0.4}
             self.StunShader:Send("outlineColor", V{self.StunColor[1],self.StunColor[2],self.StunColor[3],self.StunColor[4] or 1})
 
             self.Canvas:Activate()
@@ -244,10 +244,19 @@ function PlayerRagdoll.new(dir)
                 local capFace = type(otherFace)=="string" and otherFace:sub(1,1):upper() .. otherFace:sub(2,#otherFace)
 
                 -- damage handling
-                if surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.Player.InTransition then
-                    print(solid, face, tileID)
+                if (
+                    (face=="left" and self.Velocity.X <= 0) or
+                    (face=="right" and self.Velocity.X >= 0) or
+                    (face=="top" and self.Velocity.Y <= 0 ) or
+                    (face=="bottom" and self.Velocity.Y >= 0)
+                ) and surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.Player.InTransition and self.Player.Health > 0 then
+                    
                     self.Player:SetEdge("top", self:GetEdge("top"))
-                    self.Player:StartRagdoll(surfaceInfo[capFace], true)
+                    if self.Player.Health > 0 then
+                        self.Player:StandardDamage(face, surfaceInfo[capFace])
+                        self.Player:StartRagdoll(surfaceInfo[capFace], true)
+                    end
+
                     if face == "bottom" then
                         self:MoveTo(self.Position.X, self.Position.Y-1)
                     end
@@ -261,6 +270,7 @@ function PlayerRagdoll.new(dir)
                             self:SetEdge("top", solid:GetEdge("bottom", tileNo, tileLayer))
                         elseif (self.Velocity.Y >= 0) and not surfaceInfo.Top.Passthrough and face == "bottom" then
                             self.Velocity.Y = 0
+                            
                             self.Floor = solid
                             if self.Direction == -sign(self.Velocity.X) then
                                 self.LandedOnBack = true
@@ -283,8 +293,6 @@ function PlayerRagdoll.new(dir)
                                 self.Rotation = 0
                                 self.Velocity.X =  0
                             end
-                            
-
                             
                             self:SetEdge("right", solid:GetEdge("left", tileNo, tileLayer))
                         elseif (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) and math.abs(hDist)>1 then

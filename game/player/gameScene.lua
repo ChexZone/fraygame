@@ -211,10 +211,12 @@ end
             self:GetChild("FacePlate").BlinkTimer = 2
 
             local newAnimState = self.AnimationState + 1
-            
+            self.AnimationState = newAnimState
 
             Timer.Schedule(3, function ()
-                self.GoalOverhangPosition = V{0,0}
+                if self.AnimationState == newAnimState then -- only round off the tween if another tween didn't start
+                    self.GoalOverhangPosition = V{0,0}
+                end
             end)
         end
     })

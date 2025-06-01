@@ -1,5 +1,5 @@
 uniform vec2 step;
-uniform vec4 outlineColor; // this is your new customizable outline color
+uniform vec4 outlineColor;
 
 vec4 effect(vec4 col, Image texture, vec2 texturePos, vec2 screenPos) {
     float alpha = Texel(texture, texturePos + vec2(step.x, 0.0)).a +
@@ -10,7 +10,8 @@ vec4 effect(vec4 col, Image texture, vec2 texturePos, vec2 screenPos) {
     vec4 texColor = Texel(texture, texturePos);
 
     if (alpha > 0.0 && texColor.a == 0.0) {
-        return outlineColor * col; // use the passed-in color for outline
+        vec4 premult = vec4(outlineColor.rgb * outlineColor.a, outlineColor.a);
+        return premult * col;
     } else {
         return texColor * col;
     }
