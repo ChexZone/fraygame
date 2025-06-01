@@ -12,6 +12,10 @@ function PlayerRagdoll.new(dir)
         FramesSinceActive = -1,
         FramesOnFloor = 0,
         Velocity = V{0,0},
+
+        MaxSpeed = 7,
+        MaxInputSpeed = 2,
+
         DrawInForeground = true,
         LandedOnBack = false,
 

@@ -432,6 +432,31 @@ local Player = {
             Sound.new("game/assets/sounds/wallkick_2.wav", "static"):Set("Volume", 0.4),
         },
 
+        PainSqueak = {
+            Sound.new("game/assets/sounds/health/hurt_squeak1.wav"):Set("Volume", 0.5),
+            Sound.new("game/assets/sounds/health/hurt_squeak2.wav"):Set("Volume", 0.5),
+            Sound.new("game/assets/sounds/health/hurt_squeak3.wav"):Set("Volume", 0.5)
+        },
+
+        Damage2 = {
+            Sound.new("game/assets/sounds/health/2hp_damage1.wav"):Set("Volume", 0.25),
+            Sound.new("game/assets/sounds/health/2hp_damage2.wav"):Set("Volume", 0.25)
+        },
+
+        Damage1 = {
+            Sound.new("game/assets/sounds/health/1hp_damage1.wav"):Set("Volume", 0.25),
+            Sound.new("game/assets/sounds/health/1hp_damage2.wav"):Set("Volume", 0.25)
+        },
+
+        Death = {
+            Sound.new("game/assets/sounds/health/death1.wav"):Set("Volume", 0.25),
+            Sound.new("game/assets/sounds/health/death2.wav"):Set("Volume", 0.25)
+        },
+
+        Heartbeat = {
+            Sound.new("game/assets/sounds/health/death_heartbeat.wav"):Set("Volume", 0.25),
+        },
+
         Footstep = {
             Sound.new("game/assets/sounds/footstep/default/footstep-01.wav", "static"):Set("Volume", 0.075),
             Sound.new("game/assets/sounds/footstep/default/footstep-02.wav", "static"):Set("Volume", 0.075),
@@ -1517,9 +1542,17 @@ function Player:Damage(amt, face, surfaceInfo)
             }
         end
 
+        if self.Health == 2 then
+            self:PlaySFX("Damage2", 1, 0.5)
+        elseif self.Health == 1 then
+            self:PlaySFX("Damage1", 1, 0.5)
+        elseif self.Health == 0 then
+            self:PlaySFX("Death", 1, 0.5)
+            Timer.Schedule(0.6, function() self:PlaySFX("Heartbeat", 0.75, 1) end)
+        end
+        self:PlaySFX("PainSqueak", 1, 0.25)
     end
-
-    
+    self:PlaySFX("FailParry") -- punch
 end
 
 function Player:StartRagdoll(surfaceInfo, alreadyInRagdoll)
@@ -1528,7 +1561,7 @@ function Player:StartRagdoll(surfaceInfo, alreadyInRagdoll)
 
 
     self.Ragdoll.FramesSinceActive = 0
-    self.Velocity = V{0,0}
+    
     self.FramesSinceDive = -1
     self.FramesSinceDoubleJump = -1
     self.FramesSinceRoll = -1
@@ -1572,9 +1605,10 @@ function Player:StartRagdoll(surfaceInfo, alreadyInRagdoll)
     -- end
 
 
-    self.Ragdoll.Velocity.X = type(surfaceInfo.DamageVelocity.X) == "string" and (self.IsInRagdoll and self.Ragdoll.Velocity.X or self.Velocity.X) or surfaceInfo.DamageVelocity.X
-    self.Ragdoll.Velocity.Y = type(surfaceInfo.DamageVelocity.Y) == "string" and (self.IsInRagdoll and self.Ragdoll.Velocity.Y or self.Velocity.Y) or surfaceInfo.DamageVelocity.Y
+    self.Ragdoll.Velocity.X = type(surfaceInfo.DamageVelocity.X) == "string" and (self.IsInRagdoll and self.Ragdoll.Velocity.X or self.Velocity.X/2) or surfaceInfo.DamageVelocity.X
+    self.Ragdoll.Velocity.Y = type(surfaceInfo.DamageVelocity.Y) == "string" and (self.IsInRagdoll and self.Ragdoll.Velocity.Y or self.Velocity.Y/2) or surfaceInfo.DamageVelocity.Y
 
+    self.Velocity = V{0,0}
 
     if self.HeldItem then
         local item = self.HeldItem
@@ -1622,13 +1656,13 @@ function Player:ProcessRagdollInput(dt)
     local input = self.InputListener
     if not self.Ragdoll.Floor and self.Health > 0 then
         if input:IsDown("move_left") then
-            self.Ragdoll.Velocity.X = self.Ragdoll.Velocity.X - 0.05
+            self.Ragdoll.Velocity.X = math.min(math.max(self.Ragdoll.Velocity.X - 0.05, -self.Ragdoll.MaxInputSpeed), self.Ragdoll.Velocity.X)
             if self.Ragdoll.Wall and self.Ragdoll.WallDirection == "right" then
                 self.Ragdoll.Wall = nil
             end
         end
         if input:IsDown("move_right") then
-            self.Ragdoll.Velocity.X = self.Ragdoll.Velocity.X + 0.05
+            self.Ragdoll.Velocity.X = math.max(math.min(self.Ragdoll.Velocity.X + 0.05, self.Ragdoll.MaxInputSpeed), self.Ragdoll.Velocity.X)
             if self.Ragdoll.Wall and self.Ragdoll.WallDirection == "left" then
                 self.Ragdoll.Wall = nil
             end
