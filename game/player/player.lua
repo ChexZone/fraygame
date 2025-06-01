@@ -1609,7 +1609,11 @@ function Player:EndRagdoll()
     self:MoveTo(self.Ragdoll.Position)
     self:SetEdge("bottom", self.Ragdoll:GetEdge("bottom"))
     self.TailPoints = {}
-    self:Jump()
+    if self.InputListener:IsDown("action") then
+        self:Roll()
+    else
+        self:Jump()
+    end
 end
 ---------------------------------------------------------------------------------
 
