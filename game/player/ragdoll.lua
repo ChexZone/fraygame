@@ -29,6 +29,7 @@ function PlayerRagdoll.new(dir)
         ZIndex = 5,
     
         Draw = function (self, tx, ty)
+            if not self.Player then return end
             local stunProgress = self.Player.StunTimer / self.Player.CurrentStunTotalLength
             
             self.StunColor = V{1,0.5*stunProgress ,0.5*stunProgress, stunProgress+0.4}
@@ -142,7 +143,7 @@ function PlayerRagdoll.new(dir)
         end,
 
         Update = function (self, dt)
-            if not self.IsActive then return end
+            if not self.IsActive or not self.Player then return end
             self.DrawScale = self.DrawScale:Lerp(V{1,1},8*dt)
             self.Color = self.Color:Lerp(V{1,1,1},2.5*dt)
             if not self.MouseDropped then
