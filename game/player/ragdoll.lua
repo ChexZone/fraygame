@@ -223,7 +223,7 @@ function PlayerRagdoll.new(dir)
 
 
                 self.Velocity.Y = math.clamp(self.Velocity.Y, -10, 5)
-                self.Velocity.X = math.clamp(self.Velocity.X, -7, 7)
+                self.Velocity.X = math.clamp(self.Velocity.X, -self.MaxSpeed, self.MaxSpeed)
 
                 
             end

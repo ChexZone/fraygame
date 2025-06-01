@@ -155,10 +155,94 @@ end
     newGameScene.OverlayLayer = newGameScene:Adopt(Layer.new("Overlay", 1280, 720, true))
     newGameScene.GuiLayer = newGameScene:Adopt(Layer.new("GUI", 640, 360, true))
 
+    local Ease = {
+        OutQuad = function(t) return 1 - (1 - t)^2 end,
+        InOutCubic = function(t)
+            return t < 0.5 and 4 * t^3 or 1 - ((-2 * t + 2)^3) / 2
+        end,
+        -- etc
+    }
+
+    -- fade out screen
+    newGameScene.FadeOutScreen = newGameScene.GuiLayer:Adopt(Prop.new{
+        Size = V{640, 360},
+        Color = V{0,0,0},
+        DrawInForeground = true,
+        Texture = Canvas.new(640,360),
+
+        CurrentAnimation = "None",
+        AnimationProgress = 0,
+        FocusPos = V{640,360}/2,
+
+        Start = function (self, animName, focusPos)
+            self.CurrentAnimation = animName or "Basic"
+            self.AnimationProgress = 0
+            self.FocusPos = focusPos or V{640,360}/2
+        end,
+
+        SetFocusPos = function (self, focusPos)
+            self.FocusPos = focusPos
+        end,
+
+        DrawFuncs = {
+            Basic = function (self)
+                if self.AnimationProgress == 0 then
+                    self.CircleRadius = 1000
+
+
+                elseif self.AnimationProgress < 100 then
+                    self.CircleRadius = tween("outBounce", 700, 200, (self.AnimationProgress)/100)
+
+                    -- self.TweenSpeed = math.lerp(self.TweenSpeed, 0, 0.05*self.TweenAccel)
+                    -- self.CircleRadius = math.lerp(self.CircleRadius, 300, 0.2*(1-self.TweenSpeed))
+                elseif self.AnimationProgress < 150 then
+                    self.CircleRadius = tween("inOutCubic", 200, 0, (self.AnimationProgress-100)/50)
+                    -- self.TweenSpeed = math.lerp(self.TweenSpeed, 1, 0.01*(1-self.TweenAccel))
+                    -- self.TweenAccel = math.lerp(self.TweenAccel, 0, 0.05)
+                    -- self.CircleRadius = math.lerp(self.CircleRadius, 0, 0.2*(self.TweenSpeed))
+                elseif self.AnimationProgress >= 160 and self.AnimationProgress <= 250 then
+                    if self.AnimationProgress == 160 then
+                        newGameScene.Player.Health = 3
+                        -- newGameScene.HealthBar.Health = newGameScene.Player.Health
+                        newGameScene.HealthBar:Damage(-3)
+                        if newGameScene.Player.IsInRagdoll then newGameScene.Player:EndRagdoll() end
+                        newGameScene.Player:Respawn(newGameScene.Player.LastSafePosition)
+                        newGameScene.Camera.Position = newGameScene.Player.LastSafePosition
+                    end
+                    self.CircleRadius = tween("inOutCubic", 0, 700, (self.AnimationProgress-160)/50)
+                end
+
+
+
+                self.Texture:Activate()
+            
+                love.graphics.clear(0,0,0,1)
+                love.graphics.setBlendMode("replace", "premultiplied")
+        
+                love.graphics.setColor(0,0,0,0)
+
+                love.graphics.circle("fill", self.FocusPos.X, self.FocusPos.Y, self.CircleRadius)
+
+                love.graphics.setBlendMode("alpha")
+                self.Texture:Deactivate()
+            end,
+        },
+
+        Draw = function (self, tx, ty)
+            if self.CurrentAnimation ~= "None" then
+                if self.DrawFuncs[self.CurrentAnimation] then self.DrawFuncs[self.CurrentAnimation](self) end
+                Prop.Draw(self, tx, ty)
+    
+                self.AnimationProgress = self.AnimationProgress + 1
+            end
+        end
+    })
+
 
     newGameScene.HealthBar = newGameScene.GuiLayer:Adopt(Prop.new{
         Name = "HealthBar",
         Health = 3,
+
         AnimationState = 0,     -- updates over time for Timer.Schedule overrides
         Size = V{100, 80},
         FramesAlive = 0,
@@ -168,7 +252,15 @@ end
         GoalOverhangPosition = V{0,0},
 
         Update = function (self, dt)
-            
+            local baseZoom =  newGameScene.GameplaySize.X / 640
+            if self.Health <= 0 then
+                local focus = (newGameScene.Player.Ragdoll.Position - newGameScene.Camera.Position)*(newGameScene.Camera.Zoom/baseZoom) + V{640, 360} / 2
+                newGameScene.FadeOutScreen:SetFocusPos(focus)
+            else
+                local focus = (newGameScene.Player.Position - newGameScene.Camera.Position)*(newGameScene.Camera.Zoom/baseZoom) + V{640, 360} / 2
+                newGameScene.FadeOutScreen:SetFocusPos(focus)
+            end
+
             if self.ShakeIntensity == 0 or self.FramesAlive%2==0 then
                 self.Position = V{-14 + math.random(-3,3) * self.ShakeIntensity*2, 0} + self.OverhangPosition
                 self:GetChild("FacePlate").Position = self.Position + V{60,47}
@@ -212,6 +304,13 @@ end
 
             local newAnimState = self.AnimationState + 1
             self.AnimationState = newAnimState
+
+            if self.Health <= 0 then
+                local baseZoom =  newGameScene.GameplaySize.X / 640
+                local focus = (newGameScene.Player.Position - newGameScene.Camera.Position)*(newGameScene.Camera.Zoom/baseZoom) + V{640, 360} / 2
+                print(baseZoom)
+                newGameScene.FadeOutScreen:Start("Basic", focus)
+            end
 
             Timer.Schedule(3, function ()
                 if self.AnimationState == newAnimState then -- only round off the tween if another tween didn't start
@@ -376,6 +475,7 @@ end
     --     newGameScene.HealthBar:Damage(-1)
     -- end)
 
+
     
 
     newGameScene.fallGuiTop = newGameScene.OverlayLayer:Adopt(Prop.new{
@@ -425,7 +525,6 @@ end
             if self.timePressed < 0.3 and (self.originPos - self.Position):Magnitude() < 20 then
                 self.Position = self.originPos
                 self.drawChildren = not self.drawChildren
-
             end
             self.timePressed = 0
         end,

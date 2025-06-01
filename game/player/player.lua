@@ -1570,6 +1570,8 @@ function Player:StartRagdoll(surfaceInfo, alreadyInRagdoll)
     self.FramesSinceCrouch = 0
     self:GetScene().Camera.ShakeIntensity = V{5,5}
     self.JumpBuffer = 0
+    self.LungeBuffer = 0
+    self.CoyoteBuffer = 0
     self.ActionBuffer = 0
     self.InteractBuffer = 0
     self.Wall = nil
@@ -1643,6 +1645,7 @@ function Player:EndRagdoll()
     self:MoveTo(self.Ragdoll.Position)
     self:SetEdge("bottom", self.Ragdoll:GetEdge("bottom"))
     self.TailPoints = {}
+    self:SetBodyOrientation(self.InputListener:IsDown("move_left") and -1 or self.InputListener:IsDown("move_right") and 1 or self:GetBodyOrientation())
     if self.InputListener:IsDown("action") then
         self:Roll()
     else
