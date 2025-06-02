@@ -254,10 +254,10 @@ end
         Update = function (self, dt)
             local baseZoom =  newGameScene.GameplaySize.X / 640
             if self.Health <= 0 then
-                local focus = (newGameScene.Player.Ragdoll.Position - newGameScene.Camera.Position)*(newGameScene.Camera.Zoom/baseZoom) + V{640, 360} / 2
+                local focus = (newGameScene.Player.Ragdoll:GetPoint(0.5,0.5) - newGameScene.Camera.Position)*(newGameScene.Camera.Zoom/baseZoom) + V{640, 360} / 2
                 newGameScene.FadeOutScreen:SetFocusPos(focus)
             else
-                local focus = (newGameScene.Player.Position - newGameScene.Camera.Position)*(newGameScene.Camera.Zoom/baseZoom) + V{640, 360} / 2
+                local focus = (newGameScene.Player:GetPoint(0.5,0.5) - newGameScene.Camera.Position)*(newGameScene.Camera.Zoom/baseZoom) + V{640, 360} / 2
                 newGameScene.FadeOutScreen:SetFocusPos(focus)
             end
 

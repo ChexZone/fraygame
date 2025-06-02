@@ -1658,6 +1658,9 @@ end
 function Player:ProcessRagdollInput(dt)
     local input = self.InputListener
     if not self.Ragdoll.Floor and self.Health > 0 then
+        self.Ragdoll.HoldingLeft = input:IsDown("move_left")
+        self.Ragdoll.HoldingRight = input:IsDown("move_right")
+        
         if input:IsDown("move_left") then
             self.Ragdoll.Velocity.X = math.min(math.max(self.Ragdoll.Velocity.X - 0.05, -self.Ragdoll.MaxInputSpeed), self.Ragdoll.Velocity.X)
             if self.Ragdoll.Wall and self.Ragdoll.WallDirection == "right" then

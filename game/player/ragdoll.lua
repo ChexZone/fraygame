@@ -288,28 +288,34 @@ function PlayerRagdoll.new(dir)
                         end
                     else -- x axis
                         if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) and math.abs(hDist)>1 then
-                            if math.abs(self.Velocity.X) > 2 then -- bounce
+                            if math.abs(self.Velocity.X) > 2.25 then -- bounce
                                 self.Velocity.X =  -self.Velocity.X/2
-                                self.Wall = solid
-                                self.WallTileNo = tileNo
-                                self.WallTileLayer = tileLayer
-                                self.WallDirection = "right"
+
                             else
                                 self.Rotation = 0
                                 self.Velocity.X =  0
+                                if self.HoldingRight then
+                                    self.Wall = solid
+                                    self.WallTileNo = tileNo
+                                    self.WallTileLayer = tileLayer
+                                    self.WallDirection = "right"
+                                end
                             end
                             
                             self:SetEdge("right", solid:GetEdge("left", tileNo, tileLayer))
                         elseif (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) and math.abs(hDist)>1 then
-                            if math.abs(self.Velocity.X) > 2 then -- bounce
+                            if math.abs(self.Velocity.X) > 2.25 then -- bounce
                                 self.Velocity.X =  -self.Velocity.X/2
-                                self.Wall = solid
-                                self.WallTileNo = tileNo
-                                self.WallTileLayer = tileLayer
-                                self.WallDirection = "left"
+
                             else
                                 self.Rotation = 0
                                 self.Velocity.X =  0
+                                if self.HoldingLeft then
+                                    self.Wall = solid
+                                    self.WallTileNo = tileNo
+                                    self.WallTileLayer = tileLayer
+                                    self.WallDirection = "left"
+                                end
                             end
                             self:SetEdge("left", solid:GetEdge("right", tileNo, tileLayer))
                         end
