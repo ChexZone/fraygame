@@ -2705,11 +2705,11 @@ function Player:UpdateAnimation()
     if false then
 
     elseif self.FramesSinceWallKick > -1 and self.FramesSinceWallKick < 9 then
-        self.DrawScale.Y = yscale_wallkick[self.FramesSinceWallKick+1]
+        self.DrawScale.Y = yscale_wallkick[self.FramesSinceWallKick+1] or 1
         self.DrawScale.X = sign(self.DrawScale.X) * (xscale_wallkick[self.FramesSinceWallKick+1] or 1)
     elseif self.FramesSinceBounce > -1 and self.FramesSinceBounce < #yscale_jump then
         -- just bounced
-        self.DrawScale.Y = yscale_jump[self.FramesSinceJump+1]
+        self.DrawScale.Y = yscale_jump[self.FramesSinceJump+1] or 1
         self.DrawScale.X = sign(self.DrawScale.X) * (xscale_jump[self.FramesSinceJump+1] or 1)
     elseif self.FramesSinceThrownItem > -1 and self.FramesSinceThrownItem < #xscale_doublejump and not self.Floor then
         self.DrawScale.Y = yscale_doublejump[self.FramesSinceThrownItem+1] or 1
@@ -2732,7 +2732,7 @@ function Player:UpdateAnimation()
     elseif self.Floor and self.CrouchTime > 0 and self.CrouchTime < #xscale_crouch then
         -- just crouched
         
-        self.DrawScale.Y = yscale_crouch[self.CrouchTime] or 12
+        self.DrawScale.Y = yscale_crouch[self.CrouchTime] or 1
         self.DrawScale.X = sign(self.DrawScale.X) * (xscale_crouch[self.CrouchTime] or 1)
         
     elseif self.FramesSinceDoubleJump > -1 and self.FramesSinceDoubleJump < #yscale_doublejump then
