@@ -129,13 +129,13 @@ function love.load()
         Name = "PlayerLight",
         -- AnchorPoint = V{0,0},
 
-        Radius = 400,
+        Radius = 100,
         Sharpness = 0.5,
-        Color = V{1,1,1,0},
+        Color = V{1,1,1,1},
         Update = function (self, dt)
             self:MoveTo(player:GetPoint(0.5,0.5))
             -- collectgarbage("stop")
-            self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
+            -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
         end
         -- Color = V{0,0,0,1}
     })
