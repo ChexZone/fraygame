@@ -202,12 +202,13 @@ end
                     -- self.CircleRadius = math.lerp(self.CircleRadius, 0, 0.2*(self.TweenSpeed))
                 elseif self.AnimationProgress >= 160 and self.AnimationProgress <= 250 then
                     if self.AnimationProgress == 160 then
-                        newGameScene.Player.Health = 3
+                        -- newGameScene.Player:Heal(3)
                         -- newGameScene.HealthBar.Health = newGameScene.Player.Health
-                        newGameScene.HealthBar:Damage(-3)
-                        if newGameScene.Player.IsInRagdoll then newGameScene.Player:EndRagdoll() end
-                        newGameScene.Player:Respawn(newGameScene.Player.LastSafePosition)
-                        newGameScene.Camera.Position = newGameScene.Player.LastSafePosition
+                        -- newGameScene.HealthBar:Damage(-3)
+
+                        newGameScene.Player:RespawnToLastCheckpoint()
+
+
                     end
                     self.CircleRadius = tween("inOutCubic", 0, 700, (self.AnimationProgress-160)/50)
                 end

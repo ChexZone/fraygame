@@ -18,6 +18,9 @@ local Player = {
 
     Health = 3,
     MaxHealth = 3,
+    CurrentCheckpoint = nil,            -- reference to the buoy
+    TimeAlive = 0,                      -- goes up over time, resets on death
+    SessionDeathCount = 0,              -- how many times this instance of the Player has died
 
     FramesSinceInit = 0,                -- how many frames since the Player object was created
 
@@ -433,24 +436,38 @@ local Player = {
         },
 
         PainSqueak = {
-            Sound.new("game/assets/sounds/health/hurt_squeak1.wav"):Set("Volume", 0.5),
-            Sound.new("game/assets/sounds/health/hurt_squeak2.wav"):Set("Volume", 0.5),
-            Sound.new("game/assets/sounds/health/hurt_squeak3.wav"):Set("Volume", 0.5)
+            Sound.new("game/assets/sounds/health/hurt_squeak1.wav"):Set("Volume", 0.35),
+            Sound.new("game/assets/sounds/health/hurt_squeak2.wav"):Set("Volume", 0.35),
+            Sound.new("game/assets/sounds/health/hurt_squeak3.wav"):Set("Volume", 0.35)
+        },
+
+        HealSqueak = {
+            Sound.new("game/assets/sounds/health/heal_squeak1.wav"):Set("Volume", 0.35),
+            Sound.new("game/assets/sounds/health/heal_squeak2.wav"):Set("Volume", 0.35),
+            Sound.new("game/assets/sounds/health/heal_squeak3.wav"):Set("Volume", 0.35)
         },
 
         Damage2 = {
-            Sound.new("game/assets/sounds/health/2hp_damage1.wav"):Set("Volume", 0.25),
-            Sound.new("game/assets/sounds/health/2hp_damage2.wav"):Set("Volume", 0.25)
+            Sound.new("game/assets/sounds/health/2hp_damage1.wav"):Set("Volume", 0.15),
+            Sound.new("game/assets/sounds/health/2hp_damage2.wav"):Set("Volume", 0.15)
         },
 
         Damage1 = {
-            Sound.new("game/assets/sounds/health/1hp_damage1.wav"):Set("Volume", 0.25),
-            Sound.new("game/assets/sounds/health/1hp_damage2.wav"):Set("Volume", 0.25)
+            Sound.new("game/assets/sounds/health/1hp_damage1.wav"):Set("Volume", 0.15),
+            Sound.new("game/assets/sounds/health/1hp_damage2.wav"):Set("Volume", 0.15)
+        },
+
+        Heal2 = {
+            Sound.new("game/assets/sounds/health/2hp_heal1.wav"):Set("Volume", 0.15),
+        },
+
+        Heal3 = {
+            Sound.new("game/assets/sounds/health/3hp_heal1.wav"):Set("Volume", 0.15),
         },
 
         Death = {
-            Sound.new("game/assets/sounds/health/death1.wav"):Set("Volume", 0.25),
-            Sound.new("game/assets/sounds/health/death2.wav"):Set("Volume", 0.25)
+            Sound.new("game/assets/sounds/health/death1.wav"):Set("Volume", 0.15),
+            Sound.new("game/assets/sounds/health/death2.wav"):Set("Volume", 0.15)
         },
 
         Heartbeat = {
@@ -1102,7 +1119,7 @@ function Player:UnclipY(forTesting, returnFirstHit)
 
                 if returnFirstHit and (face == "none" or (face == "bottom" and not surfaceInfo.Bottom.Passthrough) or (face == "top" and not surfaceInfo.Top.Passthrough) or (face == "right" and not surfaceInfo.Right.Passthrough) or (face == "left" and not surfaceInfo.Left.Passthrough)) then
 
-                    return solid
+                    return solid, surfaceInfo
                 end
                 
                 if (self.Velocity.Y >= 0) and not surfaceInfo.Top.Passthrough and face == "bottom" and not (collider == self.HeldItem and not collider.CanBeOverhang) then
@@ -1381,7 +1398,7 @@ function Player:ValidateFloor()
                 -- set up coyote frames
                 self.CoyoteBuffer = self.CoyoteFrames
     
-                if self.FramesSinceLastLunge < self.LedgeLungeWindow and self:IsHoldingCrouch() and self.InputListener:IsDown("action") then
+                if self.FramesSinceLastLunge < self.LedgeLungeWindow and self:IsHoldingCrouch() and self.InputListener:IsDown("action") and not self.Floor.PreventLedgeLunge then
                     
                     -- next step: only ledge lunge when there's a tile below the player
                     local oldPosY = self.Position.Y
@@ -1505,6 +1522,65 @@ function Player:ValidateWall()
     self:AlignHitboxes()
 end
 
+function Player:RespawnToLastCheckpoint()
+    self:Heal(3)
+
+    if self.CurrentCheckpoint then
+        local lp = self.CurrentCheckpoint:GetChild("LifePreserver")
+        local spawnBodyOrientation = 1
+        -- self.Ragdoll.Active = false
+        
+
+        if self.TimeAlive < 60 and self.SessionDeathCount > 1 then -- if alive for less than 60s and this isn't the first time they've died, skip climbing animation
+            self.ClimbingOutOfLifePreserver = true
+            self.Ragdoll:MoveTo(lp.Position)
+            self.Ragdoll.Visible = false
+            -- self:MoveTo(lp.Position)
+            Timer.Schedule(0.5, function()
+                self:CancelLifePreserverAnimation()
+                -- self.ClimbingOutOfLifePreserver = false
+                -- self:SetBodyOrientation(spawnBodyOrientation)
+                -- if self.IsInRagdoll then self:EndRagdoll() end
+            end)
+            
+        else
+            self.ClimbingOutOfLifePreserver = true
+            lp.Texture.Clock = 0
+            lp.Texture.IsPlaying = true
+            self.Ragdoll.Visible = false
+
+            Timer.Schedule(2, function()
+                self:CancelLifePreserverAnimation(V{30,-3})
+            end)
+        end
+
+        self.TimeAlive = 0
+    else
+        if self.IsInRagdoll then self:EndRagdoll() end
+        self:Respawn(self.LastSafePosition)
+        self:GetScene().Camera.Position = self.LastSafePosition
+    end
+end
+
+function Player:CancelLifePreserverAnimation(ofs)
+    if self.CurrentCheckpoint and self.ClimbingOutOfLifePreserver then
+        local lp = self.CurrentCheckpoint:GetChild("LifePreserver")
+        local spawnBodyOrientation = 1
+        self.ClimbingOutOfLifePreserver = false
+        if self.IsInRagdoll then
+            self:EndRagdoll()
+            self:MoveTo(lp.Position + (ofs or V{0,0}))
+            lp.Texture.Clock = 0
+            lp.Texture.IsPlaying = false
+            self:SetBodyOrientation(spawnBodyOrientation)
+        end
+    end
+end
+
+function Player:ActivateCheckpoint(buoy)
+    self.CurrentCheckpoint = buoy
+end
+
 function Player:StandardDamage(face, surfaceInfo)
     self:Damage(1, face, surfaceInfo)
 end
@@ -1542,17 +1618,38 @@ function Player:Damage(amt, face, surfaceInfo)
             }
         end
 
-        if self.Health == 2 then
-            self:PlaySFX("Damage2", 1, 0.5)
-        elseif self.Health == 1 then
-            self:PlaySFX("Damage1", 1, 0.5)
-        elseif self.Health == 0 then
-            self:PlaySFX("Death", 1, 0.5)
-            Timer.Schedule(0.6, function() self:PlaySFX("Heartbeat", 0.75, 1) end)
+        if amt > 0 then
+            if self.Health == 2 then
+                self:PlaySFX("Damage2", 1, 0.5)
+            elseif self.Health == 1 then
+                self:PlaySFX("Damage1", 1, 0.5)
+            elseif self.Health == 0 then
+                self:PlaySFX("Death", 1, 0.5)
+                self.SessionDeathCount = self.SessionDeathCount + 1
+                Timer.Schedule(0.6, function() self:PlaySFX("Heartbeat", 0.75, 1) end)
+            end
         end
+
         self:PlaySFX("PainSqueak", 1, 0.25)
     end
     self:PlaySFX("FailParry") -- punch
+end
+
+function Player:Heal(amt)
+
+        self.Health = math.min(self.Health + amt, self.MaxHealth)
+        local healthbar = self:GetScene().HealthBar
+        local diff = healthbar.Health - self.Health
+        healthbar:Damage(diff)
+
+
+        if amt > 0 then
+            self:PlaySFX("HealSqueak", 1, 0.25)
+            self:PlaySFX("Heal2", 1, 0)
+        end
+
+        
+    -- self:PlaySFX("FailParry") -- punch
 end
 
 function Player:StartRagdoll(surfaceInfo, alreadyInRagdoll)
@@ -2616,9 +2713,12 @@ function Player:EndCrouch() -- returns true if crouch could successfully end; fa
     local px, py = self.Position()
     self:GrowHitbox(true)
     self.BlockCrouchEnd = false
-    local solid = self:UnclipY(true, true)
+    local solid, surfaceInfo = self:UnclipY(true, true)
 
-    if type(solid)=="table" then
+    
+
+    if type(solid)=="table" and not surfaceInfo.Bottom.Passthrough then
+        
         self:ShrinkHitbox()
         self.BlockCrouchEnd = true
         self.Position.X = px; self.Position.Y = py
@@ -3431,10 +3531,8 @@ function Player:UpdateFrameValues()
 
         local success
     end
-
     
 
-    self.FramesSinceInit = self.FramesSinceInit + 1
 end
 
 -- physics updates
@@ -3960,6 +4058,7 @@ end
 
 ------------------------ MAIN UPDATE LOOP -----------------------------
 function Player:Update(engine_dt)
+    print("TIME ALIVE", self.TimeAlive)
     self._usingPerformanceMode = self:GetLayer():GetParent().PerformanceMode
     -- also, engine_dt will be 1/60 in normal mode and 1/30 in performance mode
     
@@ -3973,15 +4072,29 @@ function Player:Update(engine_dt)
     
 
     if self.IsInRagdoll then
-        self:GetScene().Camera.Focus = self.Ragdoll
-        self:ProcessRagdollInput(engine_dt)
-        self:MoveTo(self.Ragdoll.Position)
-        self.Texture:SetFrame(100)
-        self.StunTimer = math.max(self.StunTimer - engine_dt, 0)
-        
-        if self.StunTimer == 0 and self.Ragdoll.FramesOnFloor > 5 and math.abs(self.Ragdoll.Velocity.X) < 1 and self.Health > 0 then
-            self:EndRagdoll()
+
+        if self.ClimbingOutOfLifePreserver and self.CurrentCheckpoint then -- currently climbing out of a checkpoint's life preserver
+            
+            self.Texture:SetFrame(100)
+            self:GetScene().Camera.Focus = self.CurrentCheckpoint:GetChild("LifePreserver")
+            self:MoveTo(self.CurrentCheckpoint:GetChild("LifePreserver").Position)
+            self.Ragdoll:MoveTo(self.Position)
+
+            if self.InputListener:JustPressed("jump") then
+                self:CancelLifePreserverAnimation(V{20,-3})
+            end
+        else
+            self:GetScene().Camera.Focus = self.Ragdoll
+            self:ProcessRagdollInput(engine_dt)
+            self:MoveTo(self.Ragdoll.Position)
+            self.Texture:SetFrame(100)
+            self.StunTimer = math.max(self.StunTimer - engine_dt, 0)
+            
+            if self.StunTimer == 0 and self.Ragdoll.FramesOnFloor > 5 and math.abs(self.Ragdoll.Velocity.X) < 1 and self.Health > 0 then
+                self:EndRagdoll()
+            end
         end
+
 
         -- self:UpdateTouchEvents()
     else -- regular player processing
@@ -4038,12 +4151,8 @@ function Player:Update(engine_dt)
         self:Update(engine_dt)
     end
     
-    local l = self:GetLayer()
-    -- if self:HasChildren() then
-    --     for child in self:EachChild() do
-    --         l:SetPartitions(child)
-    --     end
-    -- end
+    if self.Health > 0 then self.TimeAlive = self.TimeAlive + 1/60 end
+    self.FramesSinceInit = self.FramesSinceInit + 1
 end
 
 function Player:DrawTrail()
