@@ -1410,7 +1410,8 @@ function Player:ValidateFloor()
                     if pushY ~= 0 then
                         local vx = self.Velocity.X
                         self:Dive()
-                        Chexcore._frameDelay = Chexcore._frameDelay + 0.03333333
+                        Chexcore._skipFrames = Chexcore._skipFrames + 2
+                        -- Chexcore._frameDelay = Chexcore._frameDelay + 0.03333333
                         self.DiveExpired = false
                         self.Velocity.Y = self.TerminalLedgeLungeVelocity
                         -- self.Velocity.X = self.Velocity.X * 1.3 --(math.abs(self.Velocity.X) + 1) * sign(self.Velocity.X)
@@ -1950,7 +1951,6 @@ function Player:ProcessInput(dt)
         end
 
         if self.JumpBuffer > 0 and not blockJump then
-            print("JUMPED")
             if (self.Floor or self.CoyoteBuffer > 0) and not self:FloorPreventsJumping() then
                 self:Jump()
                 
@@ -3429,13 +3429,16 @@ function Player:UpdateFrameValues()
     
     end
 
+    
 
     if self.FramesSinceDive > -1 then
         self.FramesSinceDive = self.FramesSinceDive + 1
         
         if self.Floor then
             self.FramesSinceDive = -1
-            self.DiveWasLunge = false
+            if self.DiveWasLunge then
+                self.DiveWasLunge = false
+            end
         end
 
         self:SetBodyOrientation(sign(self.Velocity.X))
@@ -4058,7 +4061,6 @@ end
 
 ------------------------ MAIN UPDATE LOOP -----------------------------
 function Player:Update(engine_dt)
-    print("TIME ALIVE", self.TimeAlive)
     self._usingPerformanceMode = self:GetLayer():GetParent().PerformanceMode
     -- also, engine_dt will be 1/60 in normal mode and 1/30 in performance mode
     

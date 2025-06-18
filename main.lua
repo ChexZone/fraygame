@@ -130,10 +130,26 @@ function love.load()
         -- AnchorPoint = V{0,0},
 
         Radius = 100,
-        Sharpness = 0.5,
+        Sharpness = 1,
         Color = V{1,1,1,1},
         Update = function (self, dt)
             self:MoveTo(player:GetPoint(0.5,0.5))
+            -- collectgarbage("stop")
+            -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
+        end
+        -- Color = V{0,0,0,1}
+    })
+
+    player:Adopt(LightSource.new():Properties{
+        Name = "CameraLight",
+        -- AnchorPoint = V{0,0},
+
+        Radius = 50,
+        Size = V{200, 150},
+        Sharpness = 0,
+        Color = V{1,1,1,0.5},
+        Update = function (self, dt)
+            self:MoveTo(scene.Camera.Position)
             -- collectgarbage("stop")
             -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
         end
@@ -321,7 +337,7 @@ function love.load()
             end
         end,
 
-        OnTouchEnter = function (self,other)
+        VirtualTouchEvent = function (self,other)
             if other.ActivateCheckpoint then other:ActivateCheckpoint(self) end
 
             if self.Activated and other.Health == 3 then
@@ -356,12 +372,24 @@ function love.load()
 
         OnTouchStay = function (self, other)
             local vel = other.Velocity.X/50
-            print(vel)
             if math.abs(vel) > 0.035 then
                 self.Rotation = math.lerp(self.Rotation, self.Rotation + vel, 0.1*math.abs(vel*30))
             end
         end
-    }:With(LightSource.new():Properties{
+    }:With(Prop.new{
+        Name = "CollisionBox",
+        Update = function (self)
+            self:MoveTo(self:GetParent().Position)
+        end,
+
+        OnTouchEnter = function (self,other)
+            self:GetParent():VirtualTouchEvent(other)
+        end,
+
+        Size = V{20,60},
+        AnchorPoint = V{0.5,0.825},
+        Solid = true, Passthrough = true, Visible = false
+    }):With(LightSource.new():Properties{
         Name = "PointLight",
         Radius = 250,
         Sharpness = 1,
