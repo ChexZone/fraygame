@@ -8,7 +8,7 @@ local Door = {
     Texture = Texture.new("game/assets/images/cave-door.png"),
     TransitionTime = 0,
     Position = V{348,2560},
-    Goal = nil, -- can be another door, or a Position
+    Goal = nil, -- can be another door, or a Position, or "SCENE:path.to.scene.init"
     Solid = true,
     Passthrough = true,
     ZIndex = 0,
@@ -61,12 +61,32 @@ local Door = {
         self.TransitionSizeCurve = transitionCurve
         self.TransitionTime = 0
         self.TransitionEffect.GoalRadius = 1400
+        local sceneTransition = false
+        local newScene
+
         -- self.Goal.TransitionEffect.Visible = true
         -- self.Goal.TransitionEffect.Size = V{self.TransitionEffect.GoalRadius, self.TransitionEffect.GoalRadius}
         Timer.Schedule(1, function ()
             -- player.DisablePlayerControl = false
             local goalPos
-            if self.Goal:IsA("Vector") then
+            if type(self.Goal)=="string" then
+                local _,p = string.find(self.Goal, "SCENE:")
+                local sceneName = string.sub(self.Goal, p + 1)
+                package.loaded[sceneName] = nil
+                package.loaded[self:GetScene()._requirePath] = nil
+                newScene = require(sceneName)
+                Chexcore.MountScene(newScene)
+                -- newScene:GetLayer("Gameplay"):Adopt(player)
+                player.Texture.IsPlaying = false
+                newScene.Camera = self:GetScene().Camera
+                local newPlayer = Player.new():Nest(newScene:GetLayer("Gameplay"))
+                newScene.Camera.Focus = newPlayer
+                Chexcore.UnmountScene(self:GetScene())
+                local playerSpawn = newScene:GetDescendant("PlayerSpawn")
+                goalPos = playerSpawn and playerSpawn.Position or V{0,0}
+                sceneTransition = true
+                player = newPlayer
+            elseif self.Goal:IsA("Vector") then
                 goalPos = self.Goal
             else
                 -- goalPos is another Door
@@ -84,14 +104,17 @@ local Door = {
             local diff = player.Position - goalPos
             -- player.Position = self.GoalPos:Clone()
             Timer.ScheduleFrames(1, function ()
+
                 player:Teleport(goalPos)
-                self:GetLayer():SetPartitions(self.Goal.TransitionEffect)
-                self.SFX.MarimbaEnd[1+player.TransitionUses%#self.SFX.MarimbaEnd]:Play()
+                self.SFX.MarimbaEnd[1+(player.TransitionUses or 0)%#self.SFX.MarimbaEnd]:Play()
                 self.TransitionEffect.Size = V{0,0}
                 self.TransitionEffect.GoalRadius = 0
-                local cam = player:GetLayer():GetParent().Camera
-                cam.TrackingPosition = cam.TrackingPosition - diff
-                cam.Position = cam.Position - diff
+                if not sceneTransition then
+                    self:GetLayer():SetPartitions(self.Goal.TransitionEffect)
+                    local cam = player:GetLayer():GetParent().Camera
+                    cam.TrackingPosition = cam.TrackingPosition - diff
+                    cam.Position = cam.Position - diff
+                end
             end)
         end)
 
@@ -109,6 +132,10 @@ local Door = {
             end
             self.TransitionEffect.Size = V{0,0}
             
+            if newScene then
+                newScene.Camera.Focus = player
+            end
+
             player.InInteraction = false
         end)
     end,

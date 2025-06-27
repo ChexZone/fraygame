@@ -41,6 +41,9 @@ function GameScene.new(properties)
         end
     end
 
+    
+    newGameScene._requirePath = _G.__requirePath
+ 
     newGameScene.LightingQueue = {
         focalPoints = {},
         radii = {},

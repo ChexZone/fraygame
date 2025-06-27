@@ -10,7 +10,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 6,
-  nextobjectid = 28,
+  nextobjectid = 30,
   properties = {},
   tilesets = {
     {
@@ -22,6 +22,11 @@ return {
       name = "cave-door",
       firstgid = 1025,
       filename = "../../../tiled/cave-door.tsx"
+    },
+    {
+      name = "cave-door",
+      firstgid = 1026,
+      filename = "../../../../chexcore/tiled/cave-door.tsx"
     }
   },
   layers = {
@@ -1227,6 +1232,22 @@ return {
             ["LeftSurface"] = false,
             ["RightSurface"] = false,
             ["TopSurface"] = true
+          }
+        },
+        {
+          id = 29,
+          name = "Door4",
+          type = "Door",
+          shape = "rectangle",
+          x = 912,
+          y = 2560,
+          width = 48,
+          height = 32,
+          rotation = 0,
+          gid = 1026,
+          visible = true,
+          properties = {
+            ["Goal"] = "SCENE:game.scenes.intro.init"
           }
         }
       }

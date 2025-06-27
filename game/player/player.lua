@@ -554,6 +554,8 @@ local xHitboxBASE = Prop.new{
 function Player.new()
     local newPlayer = setmetatable({}, Player)
     
+
+    
     newPlayer.Texture = Animation.new("chexcore/assets/images/test/player-sprite.png", 12, 12):AddProperties{Duration = .72, LeftBound = 5, RightBound = 10}
     
     -- set animation callbacks
@@ -842,6 +844,37 @@ function Player.new()
         newPlayer.JustPressed[key] = true
     end
 
+    newPlayer:Adopt(LightSource.new():Properties{
+        Name = "PlayerLight",
+        -- AnchorPoint = V{0,0},
+
+        Radius = 100,
+        Sharpness = 0.5,
+        Color = V{1,1,1,0.5},
+        Update = function (self, dt)
+            self:MoveTo(newPlayer:GetPoint(0.5,0.5))
+            -- collectgarbage("stop")
+            -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
+        end
+        -- Color = V{0,0,0,1}
+    })
+
+    newPlayer:Adopt(LightSource.new():Properties{
+        Name = "CameraLight",
+        -- AnchorPoint = V{0,0},
+
+        Radius = 50,
+        Size = V{200, 150},
+        Sharpness = 0,
+        Color = V{1,1,1,0.5},
+        Update = function (self, dt)
+            self:MoveTo(self:GetScene().Camera.Position)
+            -- collectgarbage("stop")
+            print(collectgarbage("count"))  -- memory in KB
+            -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
+        end
+        -- Color = V{0,0,0,1}
+    })
 
     return newPlayer
 end
@@ -1167,7 +1200,7 @@ function Player:UnclipY(forTesting, returnFirstHit)
             -- Damage handling
             local capFace = type(otherFace)=="string" and otherFace:sub(1,1):upper() .. otherFace:sub(2,#otherFace)
             if ((face=="top" and self.Velocity.Y <= 0) or (face=="bottom" and self.Velocity.Y >= 0)) and surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.InTransition then
-                
+                Chexcore._skipFrames = Chexcore._skipFrames + 3
                 self:StandardDamage(face, surfaceInfo[capFace])
                 self:StartRagdoll(surfaceInfo[capFace])
             end
@@ -1274,7 +1307,7 @@ function Player:UnclipX(forTesting)
             local capFace = type(otherFace)=="string" and otherFace:sub(1,1):upper() .. otherFace:sub(2,#otherFace)
             local hDistSign = type(hDist)=="number" and sign(hDist) or 0
             if ((face=="left" and self.Velocity.X <= 0) or (face=="right" and self.Velocity.X >= 0)) and surfaceInfo[capFace] and surfaceInfo[capFace].DamageType and not self.InTransition then
-                
+                Chexcore._skipFrames = Chexcore._skipFrames + 3
                 self:StandardDamage(face, surfaceInfo[capFace])
                 self:StartRagdoll(surfaceInfo[capFace])
             end
@@ -1410,7 +1443,7 @@ function Player:ValidateFloor()
                     if pushY ~= 0 then
                         local vx = self.Velocity.X
                         self:Dive()
-                        Chexcore._skipFrames = Chexcore._skipFrames + 2
+                        Chexcore._skipFrames = Chexcore._skipFrames + 3
                         -- Chexcore._frameDelay = Chexcore._frameDelay + 0.03333333
                         self.DiveExpired = false
                         self.Velocity.Y = self.TerminalLedgeLungeVelocity
@@ -2118,6 +2151,7 @@ function Player:GetWallMaterial()
 end
 
 function Player:PlayQuietFootstepSound()
+    print("quiet", self.Name, self:GetScene())
     local bank = ("Footstep"..self:GetFloorMaterial())
     self:PlaySFX(self.SFX[bank] and bank or "Footstep", 0.7, 0, 0.5*2)
 end
@@ -4061,6 +4095,7 @@ end
 
 ------------------------ MAIN UPDATE LOOP -----------------------------
 function Player:Update(engine_dt)
+    
     self._usingPerformanceMode = self:GetLayer():GetParent().PerformanceMode
     -- also, engine_dt will be 1/60 in normal mode and 1/30 in performance mode
     

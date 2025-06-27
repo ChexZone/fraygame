@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="200" height="300" tilewidth="16" tileheight="16" infinite="0" nextlayerid="6" nextobjectid="28">
+<map version="1.10" tiledversion="1.11.0" orientation="orthogonal" renderorder="right-down" width="200" height="300" tilewidth="16" tileheight="16" infinite="0" nextlayerid="6" nextobjectid="30">
  <editorsettings>
   <export target="../game/scenes/debug/tilemap.lua" format="lua"/>
  </editorsettings>
  <tileset firstgid="1" source="tilemap2.tsx"/>
  <tileset firstgid="1025" source="cave-door.tsx"/>
+ <tileset firstgid="1026" source="../../chexcore/tiled/cave-door.tsx"/>
  <layer id="3" name="bg'" width="200" height="300" tintcolor="#755b5b" offsetx="0" offsety="12">
   <properties>
    <property name="IgnoreCollision" type="bool" value="true"/>
@@ -1016,6 +1017,11 @@
     <property name="LeftSurface" type="bool" value="false"/>
     <property name="RightSurface" type="bool" value="false"/>
     <property name="TopSurface" type="bool" value="true"/>
+   </properties>
+  </object>
+  <object id="29" name="Door4" type="Door" gid="1026" x="912" y="2560" width="48" height="32">
+   <properties>
+    <property name="Goal" value="SCENE:game.scenes.intro.init"/>
    </properties>
   </object>
  </objectgroup>

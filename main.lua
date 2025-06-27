@@ -23,9 +23,10 @@ function love.load()
     Chexcore:AddType(require"game.objects.water")
     Chexcore:AddType(require"game.objects.lightSource")
     Chexcore:AddType(require"game.objects.cube")
+    Chexcore:AddType(require"game.objects.torch")
     Chexcore:AddType(require"game.player.gameScene")
     Chexcore:AddType(require"game.player.gameCamera")
-    local scene = require"game.scenes.debug.init"
+    local scene = require"game.scenes.intro.init"
 
     local cube = Cube.new({":)","aA","D","D","]][[","F","G"},60):Nest(scene:GetLayer("Gameplay"))
     cube.Size = V{64,64}
@@ -101,7 +102,7 @@ function love.load()
     
     scene:GetLayer("Gameplay"):Adopt(PlayerRagdoll.new(1))
 
-     player = Player.new():Nest(scene:GetLayer("Gameplay"))
+    player = Player.new():Nest(scene:GetLayer("Gameplay"))
     -- local player2 = Player.new():Nest(scene:GetLayer("Gameplay"))
 
 
@@ -125,36 +126,7 @@ function love.load()
     -- })
 
     
-    player:Adopt(LightSource.new():Properties{
-        Name = "PlayerLight",
-        -- AnchorPoint = V{0,0},
 
-        Radius = 100,
-        Sharpness = 1,
-        Color = V{1,1,1,1},
-        Update = function (self, dt)
-            self:MoveTo(player:GetPoint(0.5,0.5))
-            -- collectgarbage("stop")
-            -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
-        end
-        -- Color = V{0,0,0,1}
-    })
-
-    player:Adopt(LightSource.new():Properties{
-        Name = "CameraLight",
-        -- AnchorPoint = V{0,0},
-
-        Radius = 50,
-        Size = V{200, 150},
-        Sharpness = 0,
-        Color = V{1,1,1,0.5},
-        Update = function (self, dt)
-            self:MoveTo(scene.Camera.Position)
-            -- collectgarbage("stop")
-            -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
-        end
-        -- Color = V{0,0,0,1}
-    })
 
     -- for i,v in pairs(love) do
     --     print(i)
@@ -170,7 +142,7 @@ function love.load()
     -- })
 
     scene.Camera.Focus = player
-    
+    player.Name="PLAYER1"
     local spawn = scene:GetDescendant("PlayerSpawn")
     if spawn then
         player.Position = spawn.Position
@@ -179,7 +151,7 @@ function love.load()
     scene.Camera.Position = player.Position
     scene.FrameLimit = 5
 
-    -- local scene = Scene.new{}
+    -- local scene = Scene.new{}d
     
 
 
