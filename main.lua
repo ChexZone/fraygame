@@ -12,7 +12,7 @@ function love.load()
 
     
 
-
+    
 
 
     -- Load the Chexcore example Scene!
@@ -20,6 +20,7 @@ function love.load()
     Chexcore:AddType(require"game.player.player")
     Chexcore:AddType(require"game.player.ragdoll")
     Chexcore:AddType(require"game.objects.basketball")
+    Chexcore:AddType(require"game.objects.npcs.candle")
     Chexcore:AddType(require"game.objects.water")
     Chexcore:AddType(require"game.objects.lightSource")
     Chexcore:AddType(require"game.objects.cube")
@@ -102,6 +103,24 @@ function love.load()
     
     scene:GetLayer("Gameplay"):Adopt(PlayerRagdoll.new(1))
 
+    -- Timer.Schedule(0.1, function ()
+    --     Chexcore.testSound = StreamSound.new("loop_test.ogg")
+    --     Chexcore.testSound:Play()
+    --     -- Chexcore.testSound2:Play()
+    -- end)
+
+
+    --     Timer.Schedule(0.1, function ()
+    --     Chexcore.testSound = StreamSound.new{
+    --         start = {
+    --             "p1.mp3"
+    --         },
+            
+    --     }
+    --     Chexcore.testSound:Play()
+    -- end)
+
+
     player = Player.new():Nest(scene:GetLayer("Gameplay"))
     -- local player2 = Player.new():Nest(scene:GetLayer("Gameplay"))
 
@@ -141,6 +160,82 @@ function love.load()
     --     Color = V{1,1,0,1}
     -- })
 
+
+    local testParticles = scene:GetLayer("Gameplay"):Adopt(Particles.new{
+        Name = "Test",
+        ParticleLifeTime = 10,
+        ParticleAnchorPoint = V{0.5,0.5},
+        ParticleColor = V{1,1,1,1},
+        ParticleRotVelocity = 1,
+        Visible = false,
+        ParticleTexture = Texture.new("chexcore/assets/images/square.png"),
+        -- Particle
+    })
+
+    local f f = function ()
+        testParticles:Emit{CustomFunc = function (emitter, slot, dt)
+            local lifetime = emitter:GetLifetime(slot)
+            local radius = lifetime * 20
+            local angle = lifetime * 2
+            emitter:SetPosition(slot, V{math.cos(angle) * radius, math.sin(angle) * radius})
+            
+
+            -- emitter:SetColor(1, )
+
+            local s = 10 * ((math.sin(Chexcore._clock*20)+1)/2 +1)
+            emitter:SetSize(slot, V{s, s})
+            -- Fade out over time
+            -- emitter:SetColorA(slot, 1 - lifetime / 2)
+        end}
+        Timer.Schedule(0.1, f)
+    end f()
+
+
+    local testNormalProp = scene:GetLayer("Gameplay"):Adopt(Prop.new{
+        Name = "TestNormieProp",
+        Position = V{300,-120},
+        Color = HSV{1,1,1},
+        ZIndex = -1000
+    })
+    local testNormalProp2 = Prop.new{
+        Name = "TestNormieProp",
+        Position = V{300,-120},
+        Color = HSV{0.5,1,1}
+    }
+    -- local testFancyProp = scene:GetLayer("Gameplay"):Adopt(RenderMask.new{
+    --     Name = "TestFancyProp",
+    --     Position = V{300,-120},
+    --     RenderPipeline = {--testParticles,
+    --         --testNormalProp2, testParticles, player, 
+    --     -- Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{1,0,0,1}):Send("thickness", 4), player
+    --     -- Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{0,1,0,1}):Send("thickness", 6),
+    --     -- Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{0,0,1,1}):Send("thickness", 8),
+    --     --         Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{1,0,0,1}):Send("thickness", 4),
+    --     -- Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{0,1,0,1}):Send("thickness", 6),
+    --     -- Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{0,0,1,1}):Send("thickness", 8),
+    --     --         Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{1,0,0,1}):Send("thickness", 4),
+    --     -- Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{0,1,0,1}):Send("thickness", 6),
+    --     -- Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{0,0,1,1}):Send("thickness", 8),
+    --     --         Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{1,0,0,1}):Send("thickness", 4),
+    --     -- Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{0,1,0,1}):Send("thickness", 6),
+    --     -- Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{0,0,1,1}):Send("thickness", 8),
+    --     --         Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{1,0,0,1}):Send("thickness", 4),
+    --     -- Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{0,1,0,1}):Send("thickness", 6),
+    --     -- Shader.new("game/assets/shaders/custom-outline-thick.glsl"):Send("outlineColor", V{0,0,1,1}):Send("thickness", 8),
+    --     },
+
+    --     Update = function (self, dt)
+    --         self.Position.X = -120 + math.sin(Chexcore._clock)*100
+    --     end
+    -- })
+
+
+    local testCandle = scene:GetLayer("Gameplay"):Adopt(Candle.new():Properties{
+        Position = V{250, -20},
+        Target = player
+    })
+
+    -- player.Visible = false
     scene.Camera.Focus = player
     player.Name="PLAYER1"
     local spawn = scene:GetDescendant("PlayerSpawn")
@@ -385,6 +480,7 @@ function love.load()
         ParticleSizeAcceleration = V{-24,-24},
         -- ParticleAcceleration = V{-45,60},
         Size = V{0,0},
+        
         ParticleColor =V{1,0,0,1},
         ParticleAnchorPoint = V{0.5,0.5},
 
@@ -672,7 +768,10 @@ function love.load()
 
 
 
-
+        
 
 
 end
+
+
+

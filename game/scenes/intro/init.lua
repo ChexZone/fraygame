@@ -23,18 +23,38 @@ local mainLayer = scene:GetLayer("Gameplay")
 
 scene:SwapChildOrder(bgLayer, mainLayer)
 
-local tilemap = Tilemap.import("game.scenes.intro.tiles", "game/assets/images/area/intro/spritesheet.png", {Scale = 1 }):Nest(mainLayer):Properties{
+local tilemap = Tilemap.importFull("game.scenes.intro.laketown_tiles", "game.scenes.intro.laketown-tileset", "game/assets/images/area/laketown/tileset.png", {Scale = 1 }):Nest(mainLayer):Properties{
     LockPlayerVelocity = false,
-    TileSurfaceMapping = {},
+    -- TileSurfaceMapping = {
+    --     [233] = "HalfTileLeft", [234] = "HalfTileRight",
+    --     [265] = "HalfTileLeft", [266] = "HalfTileRight",
+    --     [297] = "HalfTileLeft", [298] = "HalfTileRight",
+    --     [329] = "HalfTileLeft", [330] = "HalfTileRight",
+
+    --     [9] = "HalfTileLeft", [41] = "HalfTileLeft", [73] = "HalfTileLeft", [105] = "HalfTileLeft",
+
+    --     [5] = "HalfTileTop",
+    --     [225] = "HalfTileTop",
+    --     [226] = "HalfTileTop",
+    --     [227] = "HalfTileTop",
+    --     [228] = "HalfTileTop",
+    --     [231] = "HalfTileTop",
+    --     [232] = "HalfTileTop",
+
+    --     [393] = "HalfTileLeft",
+    -- },
     Update = function (self,dt)
         
         -- self.Position = V{100*math.sin(Chexcore._clock), 0}
         -- self.LayerColors[3].H = (self.LayerColors[2].H + dt/2)%1 
         -- self.LayerColors[1].S = math.sin(Chexcore._clock)/2 + 0.5 
-    end
+    end,
+
+
 }
 
-
+print("_____________________________________________________________________TILES")
+print(tilemap.TileSurfaceMapping)
 local layer = scene:AddLayer(Layer.new("Test", 640, 360)):Properties{
     TranslationInfluence = V{0,0}
 }

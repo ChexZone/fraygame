@@ -870,7 +870,7 @@ function Player.new()
         Update = function (self, dt)
             self:MoveTo(self:GetScene().Camera.Position)
             -- collectgarbage("stop")
-            print(collectgarbage("count"))  -- memory in KB
+            -- print(collectgarbage("count"))  -- memory in KB
             -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
         end
         -- Color = V{0,0,0,1}
@@ -2013,6 +2013,7 @@ function Player:ProcessInput(dt)
         end
 
 
+    local oldMoveDir = self.MoveDir
     -- left/right input
     self.MoveDir = (input:IsDown("move_left") and -1 or 0) + (input:IsDown("move_right") and 1 or 0)
 
@@ -2020,6 +2021,10 @@ function Player:ProcessInput(dt)
         self.FramesSinceHoldingLeft = 0
     elseif self.MoveDir == 1 then
         self.FramesSinceHoldingRight = 0
+    end
+
+    if oldMoveDir == 0 and self.MoveDir ~= 0 and self.Floor then
+        self.Texture.Clock = 0.15
     end
 
     if self.CrouchTime > 0 and self.Floor then
@@ -2151,7 +2156,7 @@ function Player:GetWallMaterial()
 end
 
 function Player:PlayQuietFootstepSound()
-    print("quiet", self.Name, self:GetScene())
+    -- print("quiet", self.Name, self:GetScene())
     local bank = ("Footstep"..self:GetFloorMaterial())
     self:PlaySFX(self.SFX[bank] and bank or "Footstep", 0.7, 0, 0.5*2)
 end
