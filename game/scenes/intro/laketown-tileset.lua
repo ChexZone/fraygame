@@ -2440,6 +2440,94 @@ return {
       }
     },
     {
+      id = 1920,
+      animation = {
+        {
+          tileid = 1920,
+          duration = 100
+        },
+        {
+          tileid = 1921,
+          duration = 100
+        },
+        {
+          tileid = 1922,
+          duration = 200
+        },
+        {
+          tileid = 1923,
+          duration = 1000
+        },
+        {
+          tileid = 1921,
+          duration = 200
+        },
+        {
+          tileid = 1922,
+          duration = 100
+        }
+      }
+    },
+    {
+      id = 1921,
+      animation = {
+        {
+          tileid = 1920,
+          duration = 100
+        },
+        {
+          tileid = 1922,
+          duration = 100
+        },
+        {
+          tileid = 1923,
+          duration = 100
+        },
+        {
+          tileid = 1921,
+          duration = 100
+        },
+        {
+          tileid = 1923,
+          duration = 100
+        },
+        {
+          tileid = 1922,
+          duration = 100
+        },
+        {
+          tileid = 1920,
+          duration = 100
+        }
+      }
+    },
+    {
+      id = 1922,
+      animation = {
+        {
+          tileid = 1922,
+          duration = 500
+        },
+        {
+          tileid = 1923,
+          duration = 500
+        }
+      }
+    },
+    {
+      id = 1923,
+      animation = {
+        {
+          tileid = 1923,
+          duration = 1000
+        },
+        {
+          tileid = 1921,
+          duration = 150
+        }
+      }
+    },
+    {
       id = 1934,
       type = "Tile",
       properties = {

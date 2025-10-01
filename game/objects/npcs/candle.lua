@@ -53,7 +53,7 @@ function Candle.new()
             local posChange = self.Position - self.OldPosition
             self.AverageVelocity = (self.AverageVelocity or V{0,0}):Lerp(posChange, 0.1)
 
-            print(self.AverageVelocity)
+            -- print(self.AverageVelocity)
             -- print(posChange, self.Position, self.OldPosition)
         end
     }, Candle)
@@ -80,7 +80,7 @@ function Candle.new()
         Update = function (self, dt)
             self.Status = self.Status and self.Status + 1 or 0
             local moveSpeed = newCandle.AverageVelocity:Magnitude()
-            print((10 - math.ceil(moveSpeed-0.75)))
+            -- print((10 - math.ceil(moveSpeed-0.75)))
             if self.Status % (10 - math.ceil(moveSpeed-0.75)) == 0 then
                 -- local dir = math.random(2)==1 and -1 or 1
                 self.Dir = self.Dir == -1 and 1 or -1
