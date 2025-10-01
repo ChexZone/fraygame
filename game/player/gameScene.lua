@@ -814,10 +814,12 @@ function GameScene:Update(dt)
     if self.Camera.Update then
         self.Camera:Update(dt)
     end
+
+    
 end
 
 function GameScene:Draw(tx, ty)
-    
+    print(self.Player)
     self.CameraBounds:PrepareToDraw()
 
     -- flush lighting queue

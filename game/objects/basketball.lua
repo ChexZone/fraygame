@@ -413,9 +413,9 @@ function Basketball.new()
             self.Position = newBall:GetPoint(0.5,0.5)
         end,
         
-        Radius = 128,
+        Radius = 64,
         Sharpness = 0,
-        Color = V{1,0,1,1}
+        Color = V{1,1,1,1}
     })
 
     return newBall

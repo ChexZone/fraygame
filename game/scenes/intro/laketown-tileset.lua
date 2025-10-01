@@ -2588,6 +2588,45 @@ return {
       }
     },
     {
+      id = 2048,
+      type = "Tile",
+      properties = {
+        ["-Left__DamageVelocity__X"] = -3,
+        ["-Left__DamageVelocity__Y"] = -3,
+        ["-Right__DamageVelocity__Y"] = 0,
+        ["-Top__DamageVelocity__X"] = -3,
+        ["-Top__DamageVelocity__Y"] = -3,
+        ["CollisionInset__Left"] = 12,
+        ["CollisionInset__Top"] = 12,
+        ["DamageType__Left"] = "Spike",
+        ["DamageType__Top"] = "Spike"
+      }
+    },
+    {
+      id = 2049,
+      type = "Tile",
+      properties = {
+        ["-Top__DamageVelocity__X"] = 0,
+        ["-Top__DamageVelocity__Y"] = -3,
+        ["CollisionInset__Top"] = 12,
+        ["DamageType__Top"] = "Spike"
+      }
+    },
+    {
+      id = 2050,
+      type = "Tile",
+      properties = {
+        ["-Right__DamageVelocity__X"] = 3,
+        ["-Right__DamageVelocity__Y"] = -3,
+        ["-Top__DamageVelocity__X"] = 3,
+        ["-Top__DamageVelocity__Y"] = -3,
+        ["CollisionInset__Right"] = 12,
+        ["CollisionInset__Top"] = 12,
+        ["DamageType__Right"] = "Spike",
+        ["DamageType__Top"] = "Spike"
+      }
+    },
+    {
       id = 2062,
       type = "Tile",
       properties = {
@@ -2650,6 +2689,30 @@ return {
       }
     },
     {
+      id = 2176,
+      type = "Tile",
+      properties = {
+        ["-Left__DamageVelocity__X"] = -3,
+        ["-Left__DamageVelocity__Y"] = 0,
+        ["CollisionInset__Left"] = 12,
+        ["DamageType__Left"] = "Spike"
+      }
+    },
+    {
+      id = 2177,
+      type = "Tile"
+    },
+    {
+      id = 2178,
+      type = "Tile",
+      properties = {
+        ["-Right__DamageVelocity__X"] = 3,
+        ["-Right__DamageVelocity__Y"] = 0,
+        ["CollisionInset__Right"] = 12,
+        ["DamageType__Right"] = "Spike"
+      }
+    },
+    {
       id = 2195,
       type = "Tile",
       properties = {
@@ -2687,6 +2750,44 @@ return {
         ["Material__Left"] = "Grass",
         ["Material__Right"] = "Grass",
         ["Material__Top"] = "Grass"
+      }
+    },
+    {
+      id = 2304,
+      type = "Tile",
+      properties = {
+        ["-Bottom__DamageVelocity__X"] = -3,
+        ["-Bottom__DamageVelocity__Y"] = 3,
+        ["-Left__DamageVelocity__X"] = -3,
+        ["-Left__DamageVelocity__Y"] = 3,
+        ["CollisionInset__Bottom"] = 12,
+        ["CollisionInset__Left"] = 12,
+        ["DamageType__Bottom"] = "Spike",
+        ["DamageType__Left"] = "Spike"
+      }
+    },
+    {
+      id = 2305,
+      type = "Tile",
+      properties = {
+        ["-Bottom__DamageVelocity__X"] = 0,
+        ["-Bottom__DamageVelocity__Y"] = 3,
+        ["CollisionInset__Bottom"] = 12,
+        ["DamageType__Bottom"] = "Spike"
+      }
+    },
+    {
+      id = 2306,
+      type = "Tile",
+      properties = {
+        ["-Bottom__DamageVelocity__X"] = 3,
+        ["-Bottom__DamageVelocity__Y"] = 3,
+        ["-Right__DamageVelocity__X"] = 3,
+        ["-Right__DamageVelocity__Y"] = 3,
+        ["CollisionInset__Bottom"] = 12,
+        ["CollisionInset__Right"] = 12,
+        ["DamageType__Bottom"] = "Spike",
+        ["DamageType__Right"] = "Spike"
       }
     },
     {
