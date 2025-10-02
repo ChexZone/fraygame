@@ -172,7 +172,7 @@ end
         Color = V{0,0,0},
         DrawInForeground = true,
         Texture = Canvas.new(640,360),
-
+        
         CurrentAnimation = "None",
         AnimationProgress = 0,
         FocusPos = V{640,360}/2,
@@ -819,7 +819,6 @@ function GameScene:Update(dt)
 end
 
 function GameScene:Draw(tx, ty)
-    print(self.Player)
     self.CameraBounds:PrepareToDraw()
 
     -- flush lighting queue

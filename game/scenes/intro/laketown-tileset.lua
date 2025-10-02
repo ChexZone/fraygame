@@ -2713,6 +2713,22 @@ return {
       }
     },
     {
+      id = 2179,
+      type = "Tile",
+      properties = {
+        ["-Left__DamageVelocity__X"] = -3,
+        ["-Left__DamageVelocity__Y"] = -3,
+        ["-Top__DamageVelocity__X"] = -3,
+        ["-Top__DamageVelocity__Y"] = -3,
+        ["CollisionInset__Left"] = 6,
+        ["CollisionInset__Top"] = 6
+      }
+    },
+    {
+      id = 2180,
+      type = "Tile"
+    },
+    {
       id = 2195,
       type = "Tile",
       properties = {
@@ -2789,6 +2805,24 @@ return {
         ["DamageType__Bottom"] = "Spike",
         ["DamageType__Right"] = "Spike"
       }
+    },
+    {
+      id = 2307,
+      type = "Tile",
+      properties = {
+        ["-Bottom__DamageVelocity__X"] = -3,
+        ["-Bottom__DamageVelocity__Y"] = 3,
+        ["-Left__DamageVelocity__X"] = -3,
+        ["-Left__DamageVelocity__Y"] = 3,
+        ["CollisionInset__Bottom"] = 6,
+        ["CollisionInset__Left"] = 6,
+        ["DamageType__Bottom"] = "Spike",
+        ["DamageType__Left"] = "Spike"
+      }
+    },
+    {
+      id = 2308,
+      type = "Tile"
     },
     {
       id = 2323,
