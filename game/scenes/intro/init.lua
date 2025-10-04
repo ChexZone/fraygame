@@ -21,6 +21,25 @@ local bgLayer = Prop.new{Size = V{640, 360},
 , Texture = Texture.new("chexcore/assets/images/square.png")}:Into(scene:AddLayer(Layer.new("BG", 640, 360, true):Properties{TranslationInfluence = 0}))
 local mainLayer = scene:GetLayer("Gameplay")
 
+for i = 1, 100 do
+mainLayer:Adopt(Prop.new{
+    Texture = Texture.new(
+        "chexcore/assets/images/test/star.png",
+        "chexcore/assets/images/test/star_n.png"
+    ),    
+    -- DrawOverShaders = true,
+    Position = V{math.random(-250,250),math.random(-250,250)}  
+})
+end
+
+-- mainLayer:Adopt(Prop.new{
+--     Texture = Texture.new(
+--         "chexcore/assets/images/test/star_s.png"
+--     ),
+--     Position = V{0,-16},
+--     -- DrawOverShaders = true,
+-- })
+
 scene:SwapChildOrder(bgLayer, mainLayer)
 
 local tilemap = Tilemap.importFull("game.scenes.intro.laketown_tiles", "game.scenes.intro.laketown-tileset", "game/assets/images/area/laketown/tileset.png", {Scale = 1 }):Nest(mainLayer):Properties{
@@ -53,8 +72,6 @@ local tilemap = Tilemap.importFull("game.scenes.intro.laketown_tiles", "game.sce
 
 }
 
-print("_____________________________________________________________________TILES")
-print(tilemap.TileSurfaceMapping)
 local layer = scene:AddLayer(Layer.new("Test", 640, 360)):Properties{
     TranslationInfluence = V{0,0}
 }
@@ -72,7 +89,6 @@ layer:Adopt(Prop.new{
         -- self.Rotation = math.sin(Chexcore._clock/4)/20
     end
 })
-
 
 
 

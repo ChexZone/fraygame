@@ -125,6 +125,11 @@ function love.load()
     -- local player2 = Player.new():Nest(scene:GetLayer("Gameplay"))
 
 
+    Timer.Schedule(1, function ()
+        scene:GetLayer("Gameplay").Canvases[1]:RecordMatMap(30, "matmaptest")
+    end)
+
+
     -- player:Adopt(LightSource.new():Properties{
     --     Name = "PlayerLight",
     --     -- AnchorPoint = V{0,0},
@@ -230,10 +235,10 @@ function love.load()
     -- })
 
 
-    local testCandle = scene:GetLayer("Gameplay"):Adopt(Candle.new():Properties{
-        Position = V{250, -20},
-        Target = player
-    })
+    -- local testCandle = scene:GetLayer("Gameplay"):Adopt(Candle.new():Properties{
+    --     Position = V{250, -20},
+    --     Target = player
+    -- })
 
     -- player.Visible = false
     scene.Camera.Focus = player
@@ -243,7 +248,7 @@ function love.load()
         player.Position = spawn.Position
         -- player2.Position = spawn.Position + V{50,0}
     end
-    scene.Camera.Position = player.Position
+    -- scene.Camera.Position = player.Position
     scene.FrameLimit = 5
 
     -- local scene = Scene.new{}d

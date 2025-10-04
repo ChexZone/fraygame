@@ -9,6 +9,10 @@ extern int lightCount;                 // number of active lights
 extern vec2 aspectRatio;               // e.g. {16, 9}
 extern vec3 baseShadowColor;           // base dark color when no light is applied
 extern float darkenFactor;             // controls how dark the darkest shade is (0.0 = pure base, 1.0 = no darkening)
+extern Image materialMap;              // RG = normal XY, B = emissive, A = specular
+extern float normalStrength;           // multiplier for normal map effect (0.0 = disabled)
+extern float specularPower;            // specular highlight power/shininess
+extern vec3 viewDirection;             // normalized view direction for specular calculation
 
 // Signed distance function for an axis–aligned box.
 float sdfBox(vec2 p, vec2 b) {
@@ -16,15 +20,32 @@ float sdfBox(vec2 p, vec2 b) {
     return length(max(d, vec2(0.0))) + min(max(d.x, d.y), 0.0);
 }
 
+// Reconstruct normal from RG channels (assuming Z is calculated)
+vec3 reconstructNormal(vec2 normalRG) {
+    vec2 normal2D = normalRG * 2.0 - 1.0; // Convert from [0,1] to [-1,1]
+    normal2D *= normalStrength;
+    float normalZ = sqrt(max(0.0, 1.0 - dot(normal2D, normal2D)));
+    return normalize(vec3(normal2D, normalZ));
+}
+
 vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
 {
     vec4 texColor = Texel(texture, texture_coords);
+    
+    // Sample material map only if normal mapping is enabled
+    vec4 materialSample = (normalStrength > 0.0) ? Texel(materialMap, texture_coords) : vec4(0.5, 0.5, 0.0, 0.0);
+    
+    // Extract material properties
+    vec3 normal = (normalStrength > 0.0) ? reconstructNormal(materialSample.rg) : vec3(0.0, 0.0, 1.0);
+    float emissive = materialSample.b;
+    float specular = materialSample.a;
     
     // Determine the base minimum color.
     vec3 minColor = mix(baseShadowColor, texColor.rgb, darkenFactor);
     
     float totalIntensity = 0.0;
     vec3 weightedColor = vec3(0.0);
+    vec3 totalSpecular = vec3(0.0);
     
     // Adjust coordinates for aspect ratio.
     vec2 aspectCorrectedCoords = texture_coords * aspectRatio;
@@ -51,12 +72,40 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
             baseContribution = 1.0 - smoothstep(0.0, fadeWidth, d);
         }
         
+        // Calculate normal mapping and specular only if enabled (normalStrength > 0)
+        float normalContribution = baseContribution;
+        float specularContribution = 0.0;
+        
+        if (normalStrength > 0.0) {
+            // Calculate light direction (from fragment to light source)
+            vec2 lightPos2D = center / aspectRatio; // Convert back to texture space
+            vec2 lightOffset = lightPos2D - texture_coords;
+            lightOffset.y = -lightOffset.y; // Flip Y to match lighting coordinate system
+            vec3 lightDir = normalize(vec3(lightOffset, 0.1)); // Small Z offset for 2.5D effect
+            
+            // Check if this pixel has material data (alpha > 0 means it has material properties)
+            float materialMask = step(0.001, materialSample.a + materialSample.b); // Has specular OR emissive data
+            
+            if (materialMask > 0.0) {
+                // Use normal mapping for surfaces with material data
+                float normalDot = max(0.0, dot(normal, lightDir));
+                normalContribution = baseContribution * normalDot;
+                
+                // Specular calculation
+                vec3 halfVector = normalize(lightDir + viewDirection);
+                float specularDot = max(0.0, dot(normal, halfVector));
+                specularContribution = baseContribution * pow(specularDot, specularPower) * specular;
+            }
+            // else: normalContribution remains as baseContribution (original lighting)
+        }
+        
         // Scale contribution by brightness.
         float brightness = lightChannels[i].a;
-        float c = brightness * baseContribution;
+        float c = brightness * normalContribution;
         
         totalIntensity += c;
         weightedColor += c * lightChannels[i].rgb;
+        totalSpecular += brightness * specularContribution * lightChannels[i].rgb;
     }
     
     // Clamp overall light intensity and compute composite tint.
@@ -65,6 +114,12 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
     
     // Blend final color from dark base to tinted texture.
     vec3 finalColor = mix(minColor, texColor.rgb * compositeTint, intensity);
+    
+    // Add emissive contribution (self-illuminating areas)
+    finalColor += texColor.rgb * emissive;
+    
+    // Add specular highlights
+    finalColor += totalSpecular;
     
     return vec4(finalColor, texColor.a);
 }

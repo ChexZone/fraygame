@@ -848,9 +848,10 @@ function Player.new()
         Name = "PlayerLight",
         -- AnchorPoint = V{0,0},
 
-        Radius = 100,
-        Sharpness = 0.5,
-        Color = V{1,1,1,0.5},
+        Radius = 250,
+        Sharpness = .8,
+        -- Size = V{1,1},
+        Color = V{1,1,1,1},
         Update = function (self, dt)
             self:MoveTo(newPlayer:GetPoint(0.5,0.5))
             -- collectgarbage("stop")
@@ -859,22 +860,22 @@ function Player.new()
         -- Color = V{0,0,0,1}
     })
 
-    newPlayer:Adopt(LightSource.new():Properties{
-        Name = "CameraLight",
-        -- AnchorPoint = V{0,0},
+    -- newPlayer:Adopt(LightSource.new():Properties{
+    --     Name = "CameraLight",
+    --     -- AnchorPoint = V{0,0},
 
-        Radius = 50,
-        Size = V{200, 150},
-        Sharpness = 0,
-        Color = V{1,1,1,0.5},
-        Update = function (self, dt)
-            self:MoveTo(self:GetScene().Camera.Position)
-            -- collectgarbage("stop")
-            -- print(collectgarbage("count"))  -- memory in KB
-            -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
-        end
-        -- Color = V{0,0,0,1}
-    })
+    --     Radius = 50,
+    --     Size = V{200, 150},
+    --     Sharpness = 0,
+    --     Color = V{1,1,1,0.5},
+    --     Update = function (self, dt)
+    --         self:MoveTo(self:GetScene().Camera.Position)
+    --         -- collectgarbage("stop")
+    --         -- print(collectgarbage("count"))  -- memory in KB
+    --         -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
+    --     end
+    --     -- Color = V{0,0,0,1}
+    -- })
 
     return newPlayer
 end
@@ -4202,12 +4203,10 @@ function Player:DrawTrail()
         self.HelperCanvas = self.Canvas:Clone()
         self.HelperCanvas.AlphaMode = "premultiplied"
         self.HelperCanvas.BlendMode = "lighten"
+        
     end
     
-
-    
     self.HelperCanvas:Activate()
-
     local points = {}
     love.graphics.clear()
     love.graphics.setColor(1,1,1,1)
@@ -4226,16 +4225,12 @@ function Player:DrawTrail()
         for i = 3, len, 2 do
             -- cdrawcircle("fill", points[i-2], points[i-1], (#points-i)/3)
             local width = ((len-i)/4) * self.TrailLength + 0.5
-            -- if width < 0.5 then width = 0 end
 
-            -- love.graphics.setColor(1, 1, 1, 0.1)
             cdrawlinethick(points[i-2], points[i-1], points[i], points[i+1], width)
-            -- cdrawlinethick(points[i-2], points[i-1]+1, points[i], points[i+1]+1, width)
-            -- cdrawlinethick(points[i-2]+c, points[i-1], points[i]+c, points[i+1], width)
-            -- cdrawlinethick(points[i-2]+c, points[i-1]+1, points[i]+c, points[i+1]+1, width)
         end
 
     self.HelperCanvas:Deactivate()
+    
 end
 
 function Player:Draw(tx, ty)
@@ -4289,7 +4284,6 @@ function Player:Draw(tx, ty)
             if self.FramesSincePounce > -1 then
                 ofs_y = -3
             end
-
             if self.FramesSinceDive > -1 then
                 ofs_y = -3
             end
