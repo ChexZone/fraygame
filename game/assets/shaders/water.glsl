@@ -13,7 +13,13 @@ extern float backWaveSpeed;
 // NEW: external offset for wave sine phase (x, y)
 extern vec2 waveOffset;
 
-vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen_coords) {
+uniform sampler2DArray MainTex;
+
+void effect() {
+    vec4 color = VaryingColor;
+    vec2 uv = VaryingTexCoord.xy;
+    vec2 screen_coords = love_PixelCoord.xy;
+    
     // base coordinate for water box calculations (without waveOffset)
     vec2 baseCoord = uv * aspectRatio;
 
@@ -153,7 +159,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen_coords) {
     vec2 ruv = uv;
     if (isInFrontWater>0.0 || isInBackWater>0.0)
         ruv.x += sin(ruv.y*150.+clock*4.)*0.001;
-    vec4 tx = Texel(tex, ruv);
+    
+    // Sample all 3 layers
+    vec4 layer0 = Texel(MainTex, vec3(ruv, 0.0));
+    vec4 layer1 = Texel(MainTex, vec3(ruv, 1.0));
+    vec4 layer2 = Texel(MainTex, vec3(ruv, 2.0));
+
+    // Apply water effect to layer 0
+    vec4 tx = layer0;
 
     // colors
     vec4 colO = vec4(139./255.,0.,1.,1.),    // purple shadow
@@ -171,5 +184,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen_coords) {
     outC = mix(outC, colS, isOnFrontSurface);
     outC = mix(outC, colS, isOnBackSurface*clr);
 
-    return outC;
+    // Output water effect to canvas 0, and pass through layers 1 and 2
+    love_Canvases[0] = outC;
+    love_Canvases[1] = layer1 * color;
+    love_Canvases[2] = layer2 * color;
 }

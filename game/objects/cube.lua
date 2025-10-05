@@ -101,7 +101,7 @@ function Cube.new(letters)
     local i = 0
     local function createFaceCanvas()
         i = i + 1
-        local canvas = love.graphics.newCanvas(100, 100)
+        local canvas = love.graphics.newCanvas(100, 100, Chexcore._canvasSettings)
         love.graphics.setCanvas(canvas)
         love.graphics.clear(1,1,1,1)  -- Off-white yellow background
         

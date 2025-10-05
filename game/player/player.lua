@@ -849,7 +849,7 @@ function Player.new()
         -- AnchorPoint = V{0,0},
 
         Radius = 250,
-        Sharpness = .8,
+        Sharpness = 1,
         -- Size = V{1,1},
         Color = V{1,1,1,1},
         Update = function (self, dt)
@@ -4200,13 +4200,12 @@ end
 
 function Player:DrawTrail()
     if not self.HelperCanvas then
-        self.HelperCanvas = self.Canvas:Clone()
+        self.HelperCanvas = Canvas.new(self.CanvasSize())
         self.HelperCanvas.AlphaMode = "premultiplied"
         self.HelperCanvas.BlendMode = "lighten"
-        
     end
-    
-    self.HelperCanvas:Activate()
+    print(love.graphics.getShader()==MULTI_RENDER_SHADER._realShader)
+    self.HelperCanvas:Activate{1}
     local points = {}
     love.graphics.clear()
     love.graphics.setColor(1,1,1,1)
@@ -4264,7 +4263,7 @@ function Player:Draw(tx, ty)
         self:DrawTrail()
     end
 
-    self.Canvas:Activate()
+    self.Canvas:Activate{1}
 
         self.DiveExpiredGoalColor = self.DiveExpiredGoalColor:Lerp((self.DiveExpired) and self.DiveExpiredColor or Constant.COLOR.WHITE, 0.1)
 
@@ -4349,6 +4348,11 @@ function Player:Draw(tx, ty)
             )
         end
 
+
+        
+    self.Canvas:Deactivate()
+
+    self.Canvas:Activate{1}
         love.graphics.setColor(self.Color * self.DiveExpiredGoalColor)
         self.Texture:DrawToScreen(
             self.Canvas:GetWidth()/2,
@@ -4359,10 +4363,12 @@ function Player:Draw(tx, ty)
             0.5, 0.5
         )
     self.Canvas:Deactivate()
-
     -- love.graphics.draw(self.HelperCanvas._drawable, 0, 0)
     if self.TrailLength > 0.1 then
         love.graphics.setColor(self.TrailColor)
+        
+        
+        -- love.graphics.setCanvas({CurrentCanvas[1]})
         self.HelperCanvas:DrawToScreen(
             math.floor(self.Position[1] - tx),
             math.floor(self.Position[2] - ty + self.Canvas:GetHeight()/2 - self.Size.Y*self.DrawScale.Y/2),
@@ -4372,6 +4378,8 @@ function Player:Draw(tx, ty)
             self.AnchorPoint[1],
             self.AnchorPoint[2]
         )
+        -- love.graphics.setCanvas(CurrentCanvas)
+        
     end
 
     if self.Shader then self.Shader:Activate() end

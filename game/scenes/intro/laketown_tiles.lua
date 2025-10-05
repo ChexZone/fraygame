@@ -557,7 +557,7 @@ return {
       parallaxx = 0.75,
       parallaxy = 0.75,
       properties = {
-        ["DrawOverShaders"] = false,
+        ["DrawOverShaders"] = true,
         ["Foreground"] = true
       },
       encoding = "lua",

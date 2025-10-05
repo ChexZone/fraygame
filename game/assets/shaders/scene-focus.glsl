@@ -9,10 +9,11 @@ extern int lightCount;                 // number of active lights
 extern vec2 aspectRatio;               // e.g. {16, 9}
 extern vec3 baseShadowColor;           // base dark color when no light is applied
 extern float darkenFactor;             // controls how dark the darkest shade is (0.0 = pure base, 1.0 = no darkening)
-extern Image materialMap;              // RG = normal XY, B = emissive, A = specular
 extern float normalStrength;           // multiplier for normal map effect (0.0 = disabled)
 extern float specularPower;            // specular highlight power/shininess
 extern vec3 viewDirection;             // normalized view direction for specular calculation
+
+uniform sampler2DArray MainTex;
 
 // Signed distance function for an axis–aligned box.
 float sdfBox(vec2 p, vec2 b) {
@@ -28,14 +29,22 @@ vec3 reconstructNormal(vec2 normalRG) {
     return normalize(vec3(normal2D, normalZ));
 }
 
-vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
+void effect()
 {
-    vec4 texColor = Texel(texture, texture_coords);
+    vec4 color = VaryingColor;
+    vec2 texture_coords = VaryingTexCoord.xy;
+    vec2 screen_coords = love_PixelCoord.xy;
     
-    // Sample material map only if normal mapping is enabled
-    vec4 materialSample = (normalStrength > 0.0) ? Texel(materialMap, texture_coords) : vec4(0.5, 0.5, 0.0, 0.0);
+    // Sample all 3 layers
+    vec4 layer0 = Texel(MainTex, vec3(texture_coords, 0.0));
+    vec4 layer1 = Texel(MainTex, vec3(texture_coords, 1.0));
+    vec4 layer2 = Texel(MainTex, vec3(texture_coords, 2.0));
     
-    // Extract material properties
+    // Apply lighting effect to layer 0
+    vec4 texColor = layer0;
+    
+    // Extract material properties from layer1 (was previously materialMap)
+    vec4 materialSample = layer1;
     vec3 normal = (normalStrength > 0.0) ? reconstructNormal(materialSample.rg) : vec3(0.0, 0.0, 1.0);
     float emissive = materialSample.b;
     float specular = materialSample.a;
@@ -121,5 +130,8 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
     // Add specular highlights
     finalColor += totalSpecular;
     
-    return vec4(finalColor, texColor.a);
+    // Output lighting effect to canvas 0, and pass through layers 1 and 2
+    love_Canvases[0] = vec4(finalColor, texColor.a);
+    love_Canvases[1] = layer1 * color;
+    love_Canvases[2] = layer2 * color;
 }

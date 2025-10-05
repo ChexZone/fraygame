@@ -22,14 +22,17 @@ local bgLayer = Prop.new{Size = V{640, 360},
 local mainLayer = scene:GetLayer("Gameplay")
 
 for i = 1, 100 do
-mainLayer:Adopt(Prop.new{
-    Texture = Texture.new(
-        "chexcore/assets/images/test/star.png",
-        "chexcore/assets/images/test/star_n.png"
-    ),    
-    -- DrawOverShaders = true,
-    Position = V{math.random(-250,250),math.random(-250,250)}  
-})
+    mainLayer:Adopt(Prop.new{
+        Texture = Texture.new(
+            "chexcore/assets/images/test/star.png",
+            "chexcore/assets/images/test/star_n.png",
+            "chexcore/assets/images/test/star_s.png",
+            "chexcore/assets/images/test/star_e.png"
+        ),    
+        -- DrawOverShaders = true,
+        Position = V{math.random(-250,250),math.random(-250,250)},
+        Solid = math.random(2)==1 and true or false
+    })
 end
 
 -- mainLayer:Adopt(Prop.new{

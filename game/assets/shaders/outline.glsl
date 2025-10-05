@@ -1,22 +1,31 @@
 uniform vec2 step;
+uniform sampler2DArray MainTex;
 
-vec4 effect(vec4 col, Image texture, vec2 texturePos, vec2 screenPos) {
-    float alpha = Texel(texture, texturePos + vec2(step.x, 0.0)).a +
-                  Texel(texture, texturePos + vec2(-step.x, 0.0)).a +
-                  Texel(texture, texturePos + vec2(0.0, step.y)).a +
-                  Texel(texture, texturePos + vec2(0.0, -step.y)).a;
+void effect() {
+    vec2 texturePos = VaryingTexCoord.xy;
+    vec4 col = VaryingColor;
+    
+    // Calculate alpha for outline detection using layer 0
+    float alpha = Texel(MainTex, vec3(texturePos + vec2(step.x, 0.0), 0.0)).a +
+                  Texel(MainTex, vec3(texturePos + vec2(-step.x, 0.0), 0.0)).a +
+                  Texel(MainTex, vec3(texturePos + vec2(0.0, step.y), 0.0)).a +
+                  Texel(MainTex, vec3(texturePos + vec2(0.0, -step.y), 0.0)).a;
 
-    // Uncomment if rendering directly from the spritesheet
-    // if (mod(texturePos.y, 1.0 / 12.0) <= 0.005) {
-    //     return Texel(texture, texturePos) * col;
-    // } else 
+    // Sample all 3 layers
+    vec4 layer0 = Texel(MainTex, vec3(texturePos, 0.0));
+    vec4 layer1 = Texel(MainTex, vec3(texturePos, 1.0));
+    vec4 layer2 = Texel(MainTex, vec3(texturePos, 2.0));
 
-    if (alpha > 0.0 && Texel(texture, texturePos).a == 0.0) {
-        return vec4(0.0, 0.0, 0.0, 1.0);
-    } else if (Texel(texture, texturePos).a == 0.0) {
-        // return vec4(1.0, 1.0, 1.0, 1.0) * col;
-        return Texel(texture, texturePos) * col;
+    // Apply outline logic to layer 0
+    if (alpha > 0.0 && layer0.a == 0.0) {
+        love_Canvases[0] = vec4(0.0, 0.0, 0.0, 1.0);
+    } else if (layer0.a == 0.0) {
+        love_Canvases[0] = layer0 * col;
     } else {
-        return Texel(texture, texturePos) * col;
+        love_Canvases[0] = layer0 * col;
     }
+    
+    // Transfer layers 1 and 2 directly to their corresponding canvases
+    love_Canvases[1] = layer1 * col;
+    love_Canvases[2] = layer2 * col;
 }
