@@ -4204,7 +4204,6 @@ function Player:DrawTrail()
         self.HelperCanvas.AlphaMode = "premultiplied"
         self.HelperCanvas.BlendMode = "lighten"
     end
-    print(love.graphics.getShader()==MULTI_RENDER_SHADER._realShader)
     self.HelperCanvas:Activate{1}
     local points = {}
     love.graphics.clear()
