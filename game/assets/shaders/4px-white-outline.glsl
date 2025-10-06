@@ -1,3 +1,5 @@
+#pragma language glsl3
+
 uniform vec2 step;
 
 vec4 effect(vec4 col, Image texture, vec2 texturePos, vec2 screenPos) {

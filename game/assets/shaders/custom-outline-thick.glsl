@@ -1,3 +1,6 @@
+#pragma language glsl3
+
+
 uniform vec2 step; // 1.0 / texture width, height
 uniform vec4 outlineColor;
 uniform int thickness; // how many 1px passes to simulate (max ~4)

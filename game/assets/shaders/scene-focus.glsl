@@ -1,6 +1,10 @@
 #pragma language glsl3
 #define MAX_LIGHTS 25
 
+#ifdef GL_ES
+precision mediump float;
+#endif
+
 extern vec4 lightRects[MAX_LIGHTS];  // (topleft_x, topleft_y, bottomright_x, bottomright_y)
 extern float radii[MAX_LIGHTS];        // inset radius (for degenerate rectangle -> circle)
 extern float sharpnesses[MAX_LIGHTS];  // per-light sharpness (0.0 = no gradient, >0 = gradient)

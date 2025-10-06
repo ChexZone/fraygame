@@ -1,3 +1,6 @@
+#pragma language glsl3
+
+
 uniform vec2 step;
 uniform sampler2DArray MainTex;
 
