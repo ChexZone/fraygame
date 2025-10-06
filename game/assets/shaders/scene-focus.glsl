@@ -1,3 +1,4 @@
+#pragma language glsl3
 #define MAX_LIGHTS 25
 
 extern vec4 lightRects[MAX_LIGHTS];  // (topleft_x, topleft_y, bottomright_x, bottomright_y)
