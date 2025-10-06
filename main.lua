@@ -299,7 +299,8 @@ function love.load()
         LightProgress = -1, -- set to 0 to begin light animation
         Texture = Animation.new({"game/assets/images/meta/checkpoint.png",
             normalPath = "game/assets/images/meta/checkpoint_n.png",
-            specularPath = "game/assets/images/meta/checkpoint_o.png"
+            emissionPath = "game/assets/images/meta/checkpoint_l.png",
+            specularPath = "game/assets/images/meta/checkpoint_s.png"
         },1,9):Properties{IsPlaying=false, Loop = true, Duration = 1}:AddCallback(3, function ()
             testCheckpoint:Activate()
         end),
