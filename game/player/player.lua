@@ -848,9 +848,9 @@ function Player.new()
         Name = "PlayerLight",
         -- AnchorPoint = V{0,0},
 
-        Radius = 500,
+        Radius = 100,
         Sharpness = 1,
-        -- Size = V{1,1},
+        Size = V{50,25},
         Color = V{1,1,1,1},
         Update = function (self, dt)
             self:MoveTo(newPlayer:GetPoint(0.5,0.5))
