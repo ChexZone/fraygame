@@ -226,13 +226,14 @@ end
                 love.graphics.setColor(0,0,0,0)
 
                 love.graphics.circle("fill", self.FocusPos.X, self.FocusPos.Y, self.CircleRadius)
-
-                love.graphics.setBlendMode("alpha")
+                
+                love.graphics.setBlendMode("alpha", "premultiplied")
                 self.Texture:Deactivate()
             end,
         },
 
         Draw = function (self, tx, ty)
+            
             if self.CurrentAnimation ~= "None" then
                 if self.DrawFuncs[self.CurrentAnimation] then self.DrawFuncs[self.CurrentAnimation](self) end
                 Prop.Draw(self, tx, ty)

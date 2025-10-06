@@ -848,7 +848,7 @@ function Player.new()
         Name = "PlayerLight",
         -- AnchorPoint = V{0,0},
 
-        Radius = 250,
+        Radius = 500,
         Sharpness = 1,
         -- Size = V{1,1},
         Color = V{1,1,1,1},

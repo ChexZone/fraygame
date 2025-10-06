@@ -26,6 +26,6 @@ void effect() {
     }
     
     // Transfer layers 1 and 2 directly to their corresponding canvases
-    love_Canvases[1] = layer1 * col;
-    love_Canvases[2] = layer2 * col;
+    love_Canvases[1] = layer1;
+    love_Canvases[2] = layer2;
 }

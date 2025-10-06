@@ -186,6 +186,6 @@ void effect() {
 
     // Output water effect to canvas 0, and pass through layers 1 and 2
     love_Canvases[0] = outC;
-    love_Canvases[1] = layer1 * color;
-    love_Canvases[2] = layer2 * color;
+    love_Canvases[1] = layer1;
+    love_Canvases[2] = layer2;
 }

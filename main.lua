@@ -130,26 +130,7 @@ function love.load()
     -- end)
 
 
-    -- player:Adopt(LightSource.new():Properties{
-    --     Name = "PlayerLight",
-    --     -- AnchorPoint = V{0,0},
-    --     Update = function (self, dt)
-    --         self.Position = player:GetPoint(0.5,0.5)
-    --         self.Radius = (math.sin(Chexcore._clock*2)+1)/2 * 128
-    --         self.Sharpness = .5 --(math.cos(Chexcore._clock+math.pi/2)+1)/2
-    --         self.Color = V{100,0,0,1}
-    --         self.Size = V{
-    --             512-(math.sin(Chexcore._clock*2)+1)/2*128,
-    --             128-(math.sin(Chexcore._clock*2)+1)/2*128
-    --         }
-    --     end,
-    --     Radius = 1.0,
-    --     Sharpness = .5,
-    --     Size = V{100,1}
-    --     -- Color = V{0,0,0,1}
-    -- })
 
-    
 
 
     -- for i,v in pairs(love) do
@@ -316,7 +297,10 @@ function love.load()
         Activated = false,
 
         LightProgress = -1, -- set to 0 to begin light animation
-        Texture = Animation.new("game/assets/images/meta/checkpoint.png",1,9):Properties{IsPlaying=false, Loop = true, Duration = 1}:AddCallback(3, function ()
+        Texture = Animation.new({"game/assets/images/meta/checkpoint.png",
+            normalPath = "game/assets/images/meta/checkpoint_n.png",
+            specularPath = "game/assets/images/meta/checkpoint_o.png"
+        },1,9):Properties{IsPlaying=false, Loop = true, Duration = 1}:AddCallback(3, function ()
             testCheckpoint:Activate()
         end),
 

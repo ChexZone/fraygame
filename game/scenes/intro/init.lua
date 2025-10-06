@@ -23,15 +23,23 @@ local mainLayer = scene:GetLayer("Gameplay")
 
 for i = 1, 100 do
     mainLayer:Adopt(Prop.new{
-        Texture = Texture.new(
-            "chexcore/assets/images/test/star.png",
-            "chexcore/assets/images/test/star_e.png",
-            "chexcore/assets/images/test/star_s.png"
-            -- "chexcore/assets/images/test/star_e.png"
-        ),    
+        Texture = Texture.new{
+            "chexcore/assets/images/test/star.png"
+            , normalPath = "chexcore/assets/images/test/star_n.png"
+            , specularPath = "chexcore/assets/images/test/star_s.png"
+            -- , emissionPath = "chexcore/assets/images/test/star_light.png"
+            -- , occlusionPath = "chexcore/assets/images/test/star_shadow.png"
+
+        },    
+        Color = V{math.random(0,1),math.random(0,1),math.random(0,1),1},
         -- DrawOverShaders = true,
         Position = V{math.random(-250,250),math.random(-250,250)},
-        Solid = math.random(2)==1 and true or false
+        Solid = math.random(2)==1 and true or false,
+
+        Update = function (self, dt)
+            -- self.Color.A = (math.sin(Chexcore._clock)+1)/2
+            -- self.Rotation = self.Rotation + 0.01
+        end
     })
 end
 
