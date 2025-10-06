@@ -849,9 +849,9 @@ function Player.new()
         -- AnchorPoint = V{0,0},
 
         Radius = 100,
-        Sharpness = 1,
-        Size = V{50,25},
-        Color = V{1,1,1,1},
+        Sharpness = 0,
+        Size = V{150,75},
+        Color = V{1,1,1,0.5},
         Update = function (self, dt)
             self:MoveTo(newPlayer:GetPoint(0.5,0.5))
             -- collectgarbage("stop")
@@ -860,6 +860,21 @@ function Player.new()
         -- Color = V{0,0,0,1}
     })
 
+        newPlayer:Adopt(LightSource.new():Properties{
+        Name = "PlayerLight2",
+        -- AnchorPoint = V{0,0},
+
+        Radius = 96,
+        Sharpness = 1,
+        Size = V{150,0},
+        Color = V{1,1,1,0.5},
+        Update = function (self, dt)
+            self:MoveTo(newPlayer:GetPoint(0.5,0.5))
+            -- collectgarbage("stop")
+            -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
+        end
+        -- Color = V{0,0,0,1}
+    })
     -- newPlayer:Adopt(LightSource.new():Properties{
     --     Name = "CameraLight",
     --     -- AnchorPoint = V{0,0},
