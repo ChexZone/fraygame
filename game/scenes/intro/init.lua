@@ -31,6 +31,8 @@ for i = 1, 100 do
             -- , occlusionPath = "chexcore/assets/images/test/star_shadow.png"
 
         },    
+        RotRate = math.random(-10,10)/100,
+        AnchorPoint = V{0.5,0.5},
         Color = V{math.random(0,1),math.random(0,1),math.random(0,1),1},
         -- DrawOverShaders = true,
         Position = V{math.random(-250,250),math.random(-250,250)},
@@ -38,10 +40,34 @@ for i = 1, 100 do
 
         Update = function (self, dt)
             -- self.Color.A = (math.sin(Chexcore._clock)+1)/2
-            -- self.Rotation = self.Rotation + 0.01
+            self.Rotation = self.Rotation - self.RotRate
         end
     })
 end
+
+
+local testOctagon = mainLayer:Adopt(Prop.new{
+        Texture = Texture.new{
+            "game/assets/images/meta/test_objects/octagon.png"
+            , normalPath = "game/assets/images/meta/test_objects/octagon_n.png"
+            , specularPath = "game/assets/images/meta/test_objects/octagon_s.png"
+            -- , emissionPath = "chexcore/assets/images/test/star_light.png"
+            -- , occlusionPath = "chexcore/assets/images/test/star_shadow.png"
+
+        },  
+        
+        Size = V{64,64},
+        AnchorPoint = V{0.5,0.5},
+        Color = V{1,0,0},
+        -- DrawOverShaders = true,
+        Position = V{-100,-100},
+        Solid = math.random(2)==1 and true or false,
+
+        Update = function (self, dt)
+            -- self.Color.A = (math.sin(Chexcore._clock)+1)/2
+            self.Rotation = self.Rotation - 0.05
+        end
+    })
 
 -- mainLayer:Adopt(Prop.new{
 --     Texture = Texture.new(
@@ -53,7 +79,12 @@ end
 
 scene:SwapChildOrder(bgLayer, mainLayer)
 
-local tilemap = Tilemap.importFull("game.scenes.intro.laketown_tiles", "game.scenes.intro.laketown-tileset", "game/assets/images/area/laketown/tileset.png", {Scale = 1 }):Nest(mainLayer):Properties{
+local tilemap = Tilemap.importFull("game.scenes.intro.laketown_tiles", "game.scenes.intro.laketown-tileset", {"game/assets/images/area/laketown/tileset.png", 
+occlusionPath="game/assets/images/area/laketown/tileset_shadow.png",
+emissionPath="game/assets/images/area/laketown/tileset_e.png",
+-- normalPath="game/assets/images/area/laketown/tileset_n.png",
+}, 
+{Scale = 1 }):Nest(mainLayer):Properties{
     LockPlayerVelocity = false,
     -- TileSurfaceMapping = {
     --     [233] = "HalfTileLeft", [234] = "HalfTileRight",

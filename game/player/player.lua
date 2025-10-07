@@ -144,7 +144,7 @@ local Player = {
     DiveGravity = 0.2,                  -- how much gravity the player has while diving
     ParryDiveGravity = 0.2,             -- how much gravity the player has 
     DiveLandRollThreshold = 1.8,          -- how fast the player must be moving (X) when landing after a dive to automatically roll 
-    PounceHeight = 2.2,                 -- the upward Y velocity out of a sideways pounce 
+    PounceHeight = 2.38,                 -- the upward Y velocity out of a sideways pounce 
     RolledOutOfDive = false,            -- set to true when rolling out of a dive
     RollLength = 14,                    -- how long the player must wait after a roll before rolling again (how many frames the roll animation lasts) 
     ShimmyLength = 5,                   -- how long the player must wait after a shimmy before shimmying again
@@ -849,25 +849,9 @@ function Player.new()
         -- AnchorPoint = V{0,0},
 
         Radius = 100,
-        Sharpness = 0,
-        Size = V{150,75},
-        Color = V{1,1,1,0.5},
-        Update = function (self, dt)
-            self:MoveTo(newPlayer:GetPoint(0.5,0.5))
-            -- collectgarbage("stop")
-            -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
-        end
-        -- Color = V{0,0,0,1}
-    })
-
-        newPlayer:Adopt(LightSource.new():Properties{
-        Name = "PlayerLight2",
-        -- AnchorPoint = V{0,0},
-
-        Radius = 96,
         Sharpness = 1,
-        Size = V{150,0},
-        Color = V{1,1,1,0.5},
+        Size = V{250,75},
+        Color = V{1,1,1,1},
         Update = function (self, dt)
             self:MoveTo(newPlayer:GetPoint(0.5,0.5))
             -- collectgarbage("stop")
@@ -875,6 +859,22 @@ function Player.new()
         end
         -- Color = V{0,0,0,1}
     })
+
+    --     newPlayer:Adopt(LightSource.new():Properties{
+    --     Name = "PlayerLight2",
+    --     -- AnchorPoint = V{0,0},
+
+    --     Radius = 96,
+    --     Sharpness = 1,
+    --     Size = V{0,0},
+    --     Color = V{1,1,1,1},
+    --     Update = function (self, dt)
+    --         self:MoveTo(newPlayer:GetPoint(0.5,0.5))
+    --         -- collectgarbage("stop")
+    --         -- self.Sharpness = (math.sin(Chexcore._clock)+1.1)/2
+    --     end
+    --     -- Color = V{0,0,0,1}
+    -- })
     -- newPlayer:Adopt(LightSource.new():Properties{
     --     Name = "CameraLight",
     --     -- AnchorPoint = V{0,0},
@@ -2766,26 +2766,41 @@ end
 
 function Player:EndCrouch() -- returns true if crouch could successfully end; false if there was a boundary in the way
     local px, py = self.Position()
-    self:GrowHitbox(true)
-    self.BlockCrouchEnd = false
-    local solid, surfaceInfo = self:UnclipY(true, true)
+    -- self:GrowHitbox(true)
+    -- self.BlockCrouchEnd = false
+    -- local solid, surfaceInfo = self:UnclipY(true, true)
 
     
 
-    if type(solid)=="table" and not surfaceInfo.Bottom.Passthrough then
+    -- if type(solid)=="table" and not surfaceInfo.Bottom.Passthrough then
         
-        self:ShrinkHitbox()
-        self.BlockCrouchEnd = true
-        self.Position.X = px; self.Position.Y = py
-        return false
-    else
-        self.CrouchTime = 0
-        self.TimeSinceCrouching = 0
-        self:PlaySFX("DoubleJump", 1.3, 1, 0.125)
-        return true
-    end
+    --     self:ShrinkHitbox()
+    --     self.BlockCrouchEnd = true
+    --     self.Position.X = px; self.Position.Y = py
+    --     return false
+    -- else
+    --     self.CrouchTime = 0
+    --     self.TimeSinceCrouching = 0
+    --     self:PlaySFX("DoubleJump", 1.3, 1, 0.125)
+    --     return true
+    -- end
     
-
+        self.Position.Y = self.Position.Y - 3
+        local solid, surfaceInfo = self:UnclipY(true, true)
+        if type(solid)=="table" and not surfaceInfo.Bottom.Passthrough then
+            
+            self.Position = V{px,py} -- self.Position.Y = self.Position.Y + 3
+            self.BlockCrouchEnd = true
+            return false
+        else
+            self.CrouchTime = 0
+            self.TimeSinceCrouching = 0
+            self.BlockCrouchEnd = false
+            self:GrowHitbox(true)
+            self.Position = V{px,py} -- self.Position.Y = self.Position.Y + 3
+            self:PlaySFX("DoubleJump", 1.3, 1, 0.125)
+            return true
+        end
     
 end
 

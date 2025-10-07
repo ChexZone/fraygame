@@ -9,6 +9,7 @@ extern vec4 lightRects[MAX_LIGHTS];  // (topleft_x, topleft_y, bottomright_x, bo
 extern float radii[MAX_LIGHTS];        // inset radius (for degenerate rectangle -> circle)
 extern float sharpnesses[MAX_LIGHTS];  // per-light sharpness (0.0 = no gradient, >0 = gradient)
 extern vec4 lightChannels[MAX_LIGHTS]; // vec4: rgb = color, a = brightness (0 = none, 1 = full)
+extern vec4 lightTypes[MAX_LIGHTS];    // vec4: xy = light direction (compressed), z = spotlight cone angle, w = light type (0=point, 1=spotlight)
 extern float blendRange;               // global blend range multiplier
 extern int lightCount;                 // number of active lights
 extern vec2 aspectRatio;               // e.g. {16, 9}
@@ -46,6 +47,13 @@ vec3 reconstructNormal(vec2 normalRG, float rotation) {
     // Blend between flat normal and texture normal based on strength
     return normalize(mix(vec3(0.0, 0.0, 1.0), normal, normalStrength));
 }
+
+// Reconstruct light direction from compressed XY channels
+vec3 reconstructLightDirection(vec2 lightXY) {
+    vec2 dir2D = lightXY * 2.0 - 1.0; // Convert from [0,1] to [-1,1]
+    float dirZ = sqrt(max(0.0, 1.0 - dot(dir2D, dir2D)));
+    return normalize(vec3(dir2D, dirZ));
+}
 void effect()
 {
     vec4 color = VaryingColor;
@@ -62,18 +70,19 @@ void effect()
     
     // Extract material properties from layer1 and layer2
     vec4 materialSample1 = layer1; // RG = normal, B = specular, A = 1.0
-    vec4 materialSample2 = layer2; // R = emission/occlusion, G = height, B = unused, A = 1.0
+    vec4 materialSample2 = layer2; // R = emission/occlusion, G = height, B = rotation, A = 1.0
     
     // Extract properties from new layout
-    float specular = (materialSample2.b > 0.0) ? materialSample2.b : 0.0; // Specular from layer2.b
+    float specular = (materialSample1.b > 0.0) ? materialSample1.b : 0.0; // Specular from layer1.b
     float shadowEmission = materialSample2.r; // Emission/occlusion from layer2.r
     float height = (materialSample2.g > 0.0) ? materialSample2.g : 0.0; // Height from layer2.g
+    float rotation = materialSample2.b * 6.283185307; // Rotation from layer2.b (0-1 mapped to 0-2π)
     
     // Check if normal mapping data exists (both RG channels must be > 0)
     bool hasNormalData = (materialSample1.r > 0.0 || materialSample1.g > 0.0);
     
-    // Reconstruct normal (no rotation, height can be used elsewhere if needed)
-    vec3 normal = (normalStrength > 0.0 && hasNormalData) ? reconstructNormal(materialSample1.rg, 0.0) : vec3(0.0, 0.0, 1.0);
+    // Reconstruct normal with rotation applied (negated to counter-rotate with object)
+    vec3 normal = (normalStrength > 0.0 && hasNormalData) ? reconstructNormal(materialSample1.rg, -rotation) : vec3(0.0, 0.0, 1.0);
     
     // Determine emission strength (values > 0.5 are emissive)
     float emissionStrength = (shadowEmission > 0.5) ? (shadowEmission - 0.5) * 2.0 : 0.0; // Map 0.5-1.0 to 0.0-1.0
@@ -90,22 +99,24 @@ void effect()
     vec2 aspectCorrectedCoords = texture_coords * aspectRatio;
     
     for (int i = 0; i < lightCount; i++) {
-        // Skip lighting calculations for emissive pixels
-        if (isEmissive) {
-            continue;
-        }
-        
         // Convert the rectangle's corners to aspect–corrected space.
         vec2 tl = lightRects[i].xy * aspectRatio;
         vec2 br = lightRects[i].zw * aspectRatio;
         
+        if (lightChannels[i].a <= 0.0) continue;
+
         // Compute center and half–size.
         vec2 center = (tl + br) * 0.5;
         vec2 halfSize = abs(br - tl) * 0.5;
         
-        // Compute signed distance from current fragment to the rectangle's edge.
+        // Compute distance first
         float d = sdfBox(aspectCorrectedCoords - center, halfSize) - radii[i];
         
+        // Early exit if too far from light (before doing expensive calculations)
+        if (d > blendRange * 0.2) continue;
+        
+
+
         float baseContribution;
         if (sharpnesses[i] == 1.0) {
             // Hard edge with no gradient: full contribution if inside, none if outside.
@@ -121,11 +132,39 @@ void effect()
         float specularContribution = 0.0;
         
         if (normalStrength > 0.0 && hasNormalData) {
-            // Calculate light direction (from fragment to light source)
-            vec2 lightPos2D = center / aspectRatio; // Convert back to texture space
-            vec2 lightOffset = lightPos2D - texture_coords;
-            lightOffset.y = -lightOffset.y; // Flip Y to match lighting coordinate system
-            vec3 lightDir = normalize(vec3(lightOffset, 0.1)); // Small Z offset for 2.5D effect
+            // Get light type and direction data
+            float lightType = lightTypes[i].w;
+            vec3 lightDir;
+            float spotlightAttenuation = 1.0;
+            
+            if (lightType < 0.5) {
+                // Point light: calculate direction from fragment to light source
+                vec2 lightPos2D = center / aspectRatio; // Convert back to texture space
+                vec2 lightOffset = lightPos2D - texture_coords;
+                lightOffset.y = -lightOffset.y; // Flip Y to match lighting coordinate system
+                lightDir = normalize(vec3(lightOffset, 0.1)); // Small Z offset for 2.5D effect
+            } else {
+                // Spotlight: use compressed directional data
+                vec3 spotlightDir = reconstructLightDirection(lightTypes[i].xy);
+                
+                // Calculate direction from light source to fragment for cone calculation
+                vec2 lightPos2D = center / aspectRatio;
+                vec2 fragOffset = texture_coords - lightPos2D;
+                fragOffset.y = -fragOffset.y; // Flip Y to match coordinate system
+                vec3 fragDir = normalize(vec3(fragOffset, 0.1));
+                
+                // Calculate cone attenuation
+                float coneAngle = lightTypes[i].z; // Cone angle in radians
+                float spotDot = dot(spotlightDir, fragDir);
+                float cosOuter = cos(coneAngle);
+                float cosInner = cos(coneAngle * 0.5); // Inner cone is half the outer cone
+                
+                // Smooth falloff from inner to outer cone
+                spotlightAttenuation = smoothstep(cosOuter, cosInner, spotDot);
+                
+                // Light direction for normal mapping is still from fragment toward light
+                lightDir = -fragDir;
+            }
             
             // Apply normal mapping to lighting calculation with hard edges
             float normalDot = max(0.0, dot(normal, lightDir));
@@ -146,29 +185,35 @@ void effect()
                 sharpenedDot = wrappedDot;
             }
             
-            normalContribution = baseContribution * sharpenedDot;
+            normalContribution = baseContribution * sharpenedDot * spotlightAttenuation;
             
             // Specular calculation (only if specular data exists)
             if (specular > 0.001) {
                 vec3 halfVector = normalize(lightDir + viewDirection);
                 float specularDot = max(0.0, dot(normal, halfVector));
-                specularContribution = baseContribution * pow(specularDot, specularPower) * specular;
+                float specularValue = pow(specularDot, specularPower);
+                
+                // Apply toon/cel-shading banding to specular highlights
+                // Create discrete bands for a stylized look
+                if (lightingBands > 1.0) {
+                    // Use fewer bands for specular (typically 2-3 bands work well)
+                    float specularBands = max(2.0, lightingBands - 1.0);
+                    specularValue = floor(specularValue * specularBands) / specularBands;
+                }
+                
+                specularContribution = baseContribution * specularValue * specular * spotlightAttenuation;
             }
         }
         
         // Calculate shadow/emission effect
+        // Map shadowEmission range [0.01, 0.5] to light blocking [1.0, 0.0]
+        // where 0.01 = fully block light, 0.5 = allow full light
         float shadowMask = 1.0; // Default: normal lighting
-        if (shadowEmission > 0.0) {
-            if (shadowEmission < 0.5) {
-                // Shadow mode (0-0.5): block lights, will use ambient
-                shadowMask = 0.0;
-            } else if (shadowEmission > 0.5) {
-                // Emission mode (0.5-1): normal lighting + emission
-                shadowMask = 1.0;
-            } else {
-                // Exactly 0.5: neutral, normal lighting
-                shadowMask = 1.0;
-            }
+        if (shadowEmission > 0.01 && shadowEmission < 0.5) {
+            // Remap 0.01-0.5 range to 0.0-1.0 (how much light to allow)
+            shadowMask = (shadowEmission - 0.01) / (0.5 - 0.01);
+        } else if (shadowEmission > 0.0 && shadowEmission <= 0.01) {
+            shadowMask = 0.0; // Fully block light
         }
         
         // Apply shadow effect - reduce contribution for shadow areas
@@ -190,21 +235,15 @@ void effect()
     
     vec3 finalColor;
     
+    // Start with normal lighting for all pixels
+    vec3 litColor = mix(minColor, texColor.rgb * compositeTint, intensity);
+    
     if (isEmissive) {
-        // Emissive pixels ignore lighting and emit their own light
-        // Blend between lit color (for low emission) and full bright original color (for high emission)
-        vec3 litColor = mix(minColor, texColor.rgb * compositeTint, intensity);
+        // Emissive pixels: blend lit color toward full bright based on emission strength
+        // Low emission = mostly lit by lights, high emission = fully bright self-lit
         finalColor = mix(litColor, texColor.rgb, emissionStrength);
     } else {
-        // Check if this pixel is in shadow mode and needs ambient fallback
-        float isShadowMode = (shadowEmission > 0.0) ? step(0.0, 0.5 - shadowEmission) : 0.0; // 1.0 if shadow mode
-        
-        // For shadow areas, provide minimum ambient lighting
-        float ambientIntensity = mix(intensity, 0.3, isShadowMode); // 30% ambient for shadow areas
-        vec3 ambientTint = mix(compositeTint, vec3(1.0), isShadowMode); // Neutral tint for ambient
-        
-        // Blend final color from dark base to tinted texture.
-        finalColor = mix(minColor, texColor.rgb * ambientTint, ambientIntensity);
+        finalColor = litColor;
     }
     
 

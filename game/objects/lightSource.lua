@@ -4,10 +4,33 @@ local LightSource = {
     Radius = 2,         -- idk man just feel it out, start at 1
     Sharpness = 1,      -- 1 is fully sharp, 0 is fully blurred
 
+    LightDirection = V{0.5,0.5, 1, "POINT"},
+
     Color = V{1,1,1,1},   -- 
 
     _super = "Prop", _global = true
 }
+
+-- Input: x, y, z (or a table {x, y, z})
+-- Output: compressed X, Y in [0, 1] range
+function LightSource:SetLightDir(x, y, z)
+    -- Normalize the direction vector
+    local length = math.sqrt(x*x + y*y + z*z)
+    if length > 0.0001 then
+        x = x / length
+        y = y / length
+        z = z / length
+    else
+        -- Default to pointing straight forward if zero vector
+        return 0.5, 0.5
+    end
+    
+    -- Compress to [0, 1] range (shader will expand back to [-1, 1])
+    local compressedX = (x + 1.0) * 0.5
+    local compressedY = (y + 1.0) * 0.5
+    
+    return compressedX, compressedY
+end
 
 function LightSource.new(properties)
 
@@ -38,7 +61,7 @@ local function isLightOnScreen(camPos, camSize, zoom, radius, light_tl, light_br
     return not (camPos[1] + hw < light_tl[1] - radius or camPos[1] - hw > light_br[1] + radius or camPos[2] + hh < light_tl[2] - radius or camPos[2] - hh > light_br[2] + radius)
 end
 
-function shallowcopy(orig)
+local function shallowcopy(orig)
     local orig_type = type(orig)
     local copy
     if orig_type == 'table' then
@@ -72,6 +95,7 @@ function LightSource:Draw(tx, ty)
         self:GetLayer():EnqueueShaderData("lighting", "lightChannels", self.Color)
         self:GetLayer():EnqueueShaderData("lighting", "radii", self.Radius*radFactor)
         self:GetLayer():EnqueueShaderData("lighting", "sharpnesses", self.Sharpness)
+        self:GetLayer():EnqueueShaderData("lighting", "lightTypes", {self.LightDirection.X, self.LightDirection.Y, self.LightDirection.Z, self.LightDirection.W=="POINT" and 0 or 1})
         -- local l = self:GetLayer()
         -- print("L IS", tostring(l == nil))
         -- print("FUCKGHDGHDH", self, self:GetLayer():GetShaderData("lighting", "lightCount"))

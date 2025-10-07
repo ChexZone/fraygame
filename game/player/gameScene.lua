@@ -20,7 +20,7 @@ local GameScene = {
         sharpnesses = {},
         lightColors = {}
     }, -- over the course of the frame, LightSource objects will feed into this
-    Brightness = 1, -- brightness of the overall scene (0=pitch black)
+    Brightness = 0, -- brightness of the overall scene (0=pitch black)
     ShadowColor = HSV{0,0,0},
 
     ShowStats = false,  -- show stats of the player

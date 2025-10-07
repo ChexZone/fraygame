@@ -414,8 +414,8 @@ function Basketball.new()
         end,
         
         Radius = 64,
-        Sharpness = 0,
-        Color = V{1,1,1,1}
+        Sharpness = 1,
+        Color = V{1,1,1,0.5}
     })
 
     return newBall
