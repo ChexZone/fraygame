@@ -3,7 +3,8 @@ local scene = GameScene.new{
 
     Update = function (self, dt)
         Scene.Update(self, dt)
-        self.Camera.Position = (self:GetDescendant("Player").Position - V{0, self:GetDescendant("Player").Size.Y/2})
+        self.Player = self:GetDescendant(Object.IsA,"Player")
+        self.Camera.Position = (self:GetDescendant(Object.IsA,"Player").Position - V{0, self:GetDescendant(Object.IsA,"Player").Size.Y/2})
         self.Camera.Zoom = 2 --+ (math.sin(Chexcore._clock)+1)/2
     end,
 

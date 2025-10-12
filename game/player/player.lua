@@ -112,7 +112,7 @@ local Player = {
     MinPouncePower = 5,                  -- the X velocity out of a sideways pounce
     MaxPouncePower = 6.5,                  -- the X velocity out of a sideways pounce
     
-    SlideThresholdSpeed = 4,            -- X velocity required to enter a slide rather than a crouch
+    SlideThresholdSpeed = 2.5,            -- X velocity required to enter a slide rather than a crouch
     FramesSinceSlide = -1,
     
 
@@ -919,6 +919,9 @@ end
 
 ----------------------- HITBOX ALIGNMENT FUNCTIONS -------------------------------
 function Player:DisconnectFromFloor()
+
+    -- self:AlignWithFloor()
+
     self.Floor = nil
     self.FloorPos = nil
     self.FloorTileNo = nil
@@ -932,7 +935,7 @@ function Player:DisconnectFromFloor()
         
     --     self.LedgeLungeChain = 0
     -- end
-    
+
 
 
     self.OnGroundAfterLedgeLunge = false
@@ -1116,7 +1119,8 @@ local pushX, pushY
 function Player:Unclip(forTesting, ignoreX, ignoreY)
     self.UnclipCount = self.UnclipCount + 1
     if self.Floor and not ignoreY then
-        self.Position.Y = self.Position.Y + 1
+        -- i don't remmeber why this was enabled. but it's breaking shit. try re-enabling it if other stuff breaks but it will re-break running over 1-block ledges which you'll have to fix
+        -- self.Position.Y = self.Position.Y + 1
     end
     justLanded = false
     hitCeiling = false
@@ -1149,7 +1153,6 @@ function Player:Unclip(forTesting, ignoreX, ignoreY)
             end
         end
     end
-    
     
 
     return pushX, pushY
@@ -1196,6 +1199,7 @@ function Player:UnclipY(forTesting, returnFirstHit)
                     if not forTesting and pushX == 0 and pushY >= -4 then
                         
                         if collider ~= self.HeldItem then
+                            
                             self:ConnectToFloor(solid, surfaceInfo, tileNo, tileLayer)
                         elseif self.HeldItem and self.HeldItem.CanBeOverhang and face == "bottom" then
                             self.ShouldCheckForHeldItemOverhang = true
@@ -1308,7 +1312,6 @@ function Player:UnclipX(forTesting)
                 if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
                     pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
                     self:AlignHitboxes()
-                    
                     self:ConnectToWall(solid, face, surfaceInfo, tileNo, tileLayer)
                 end
             end
@@ -1423,7 +1426,7 @@ function Player:ValidateFloor()
             end
         end
         if not hit then
-
+            print("GOING DOWN!")
             self:SetTrailColor(self.DefaultTrailColor)
 
             -- first check to see if there's a ledge or slope right below us
@@ -2293,7 +2296,8 @@ function Player:Jump(noSFX)
         self.FramesSinceRoll = -1
         self.PounceAnimCancelled = false
         self.PounceParticlePower = self.PounceParticlePower + 2.5
-
+        self.Texture.IsPlaying = true
+        self.Texture.Clock = 0
 
         local kickoffdust = self:GetChild("RollKickoffDust")
         kickoffdust:Emit{
@@ -3400,7 +3404,6 @@ function Player:UpdateFrameValues()
             end
         end
     else -- no floor
-        print("CANCELLED", self.InLedgeLunge)
 
         if not self.InLedgeLunge then
             self.FramesSinceSlide = -1
@@ -4223,7 +4226,6 @@ function Player:UpdateTouchEvents(collider)
         if hit then
             if solid.OnTouchStay then solid:OnTouchStay(self, hDist, vDist) end
         else
-            print("LEFT!", solid)
             if solid.OnTouchLeave then solid:OnTouchLeave(self) end
             if self.NearbyInteractable == solid then
                 self:DisconnectNearbyInteractable()

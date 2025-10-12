@@ -2,7 +2,7 @@ local scene = GameScene.new{
     FrameLimit = 60,
     Update = function (self, dt)
         GameScene.Update(self, dt)
-        self.Player = self:GetDescendant("Player")
+        self.Player = self:GetDescendant(Object.IsA, "Player")
         self.Camera.Position = self.Camera.Position:Lerp((self.Player:GetPoint(0.5,0.5)), 1000*dt)
         self.Camera.Zoom = 2 --+ (math.sin(Chexcore._clock)+1)/2
     end
