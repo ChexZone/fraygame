@@ -1,13 +1,14 @@
 local scene = GameScene.new{
     FrameLimit = 60,
-    DeathHeight = 3000,
+    DeathHeight = 10000,
     Update = function (self, dt)
         GameScene.Update(self, dt)
         -- self.Player = self:GetDescendant("Player")
         -- self.Camera.Position = self.Camera.Position:Lerp((self.Player:GetPoint(0.5,0.5)), 1000*dt)
         -- self.Camera.Zoom = 1 --+ (math.sin(Chexcore._clock)+1)/2
     end,
-    Brightness = .25
+    ShadowColor = HSV{0.5,1,0.5,0.25}
+    -- Brightness = .25
 }
 Chexcore:AddType("game.objects.wheel")
 Chexcore:AddType("game.objects.cameraZone")
@@ -82,6 +83,7 @@ scene:SwapChildOrder(bgLayer, mainLayer)
 local tilemap = Tilemap.importFull("game.scenes.intro.laketown_tiles", "game.scenes.intro.laketown-tileset", {"game/assets/images/area/laketown/tileset.png", 
 occlusionPath="game/assets/images/area/laketown/tileset_shadow.png",
 emissionPath="game/assets/images/area/laketown/tileset_e.png",
+specularPath="game/assets/images/area/laketown/tileset_spec.png",
 -- normalPath="game/assets/images/area/laketown/tileset_n.png",
 }, 
 {Scale = 1 }):Nest(mainLayer):Properties{

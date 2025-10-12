@@ -20,8 +20,7 @@ local GameScene = {
         sharpnesses = {},
         lightColors = {}
     }, -- over the course of the frame, LightSource objects will feed into this
-    Brightness = 0, -- brightness of the overall scene (0=pitch black)
-    ShadowColor = HSV{0,0,0},
+    ShadowColor = V{0,0,0,.25},
 
     ShowStats = false,  -- show stats of the player
 
@@ -101,7 +100,6 @@ function GameScene.new(properties)
         self.ShaderQueue = {}
 
         self.ShaderCache.lighting:Send("baseShadowColor", newGameScene.ShadowColor)
-        self.ShaderCache.lighting:Send("darkenFactor", newGameScene.Brightness)
         self.ShaderCache.lighting:Send("lightCount", 0)
         self.ShaderCache.water:Send("waterCount", 0)
         self.ShaderCache.water:Send("waveOffset", V{tx, ty}/65)
@@ -846,7 +844,6 @@ function GameScene:ApplyLighting()
         
         -- self:GetLayer("Gameplay").Shader
         --     :Send("lightCount", 0)
-        --     :Send("darkenFactor", self.Brightness or 0.4)
     else
 
         -- self:GetLayer("Gameplay").Shader
@@ -856,7 +853,6 @@ function GameScene:ApplyLighting()
         --     :Send("sharpnesses", unpack(queue.sharpnesses))
         --     :Send("baseShadowColor", self.ShadowColor or GameScene.ShadowColor)
         --     :Send("lightCount", #queue.sharpnesses)
-        --     :Send("darkenFactor", self.Brightness or 0.4)
 
     end
 

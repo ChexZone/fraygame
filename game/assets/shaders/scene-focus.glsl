@@ -13,8 +13,7 @@ extern vec4 lightTypes[MAX_LIGHTS];    // vec4: xy = light direction (compressed
 extern float blendRange;               // global blend range multiplier
 extern int lightCount;                 // number of active lights
 extern vec2 aspectRatio;               // e.g. {16, 9}
-extern vec3 baseShadowColor;           // base dark color when no light is applied
-extern float darkenFactor;             // controls how dark the darkest shade is (0.0 = pure base, 1.0 = no darkening)
+extern vec4 baseShadowColor;           // base dark color when no light is applied (rgb = color, a = shadow strength: 0.0 = no darkening, 1.0 = full shadow)
 extern float normalStrength;           // multiplier for normal map effect (0.0 = disabled)
 extern float specularPower;            // specular highlight power/shininess
 extern vec3 viewDirection;             // normalized view direction for specular calculation
@@ -89,7 +88,7 @@ void effect()
     bool isEmissive = emissionStrength > 0.0;
     
     // Determine the base minimum color.
-    vec3 minColor = mix(baseShadowColor, texColor.rgb, darkenFactor);
+    vec3 minColor = mix(baseShadowColor.rgb, texColor.rgb, 1.0 - baseShadowColor.a);
     
     float totalIntensity = 0.0;
     vec3 weightedColor = vec3(0.0);
@@ -235,16 +234,25 @@ void effect()
     
     vec3 finalColor;
     
-    // Start with normal lighting for all pixels
-    vec3 litColor = mix(minColor, texColor.rgb * compositeTint, intensity);
-    
-    if (isEmissive) {
-        // Emissive pixels: blend lit color toward full bright based on emission strength
-        // Low emission = mostly lit by lights, high emission = fully bright self-lit
-        finalColor = mix(litColor, texColor.rgb, emissionStrength);
-    } else {
-        finalColor = litColor;
-    }
+    // // Check if pixel is completely black
+    // bool isCompletelyBlack = (texColor.r == 0.0 && texColor.g == 0.0 && texColor.b == 0.0);
+    // if (isCompletelyBlack && !isEmissive) {
+    //     // Invert lighting for black pixels: no light = white, full light = black
+    //     // Scale from white to black based on light intensity
+    //     float invertedIntensity = 1.0 - intensity;
+    //     finalColor = vec3(invertedIntensity);
+    // } else {
+    //     // Start with normal lighting for all pixels
+        vec3 litColor = mix(minColor, texColor.rgb * compositeTint, intensity);
+        
+        if (isEmissive) {
+            // Emissive pixels: blend lit color toward full bright based on emission strength
+            // Low emission = mostly lit by lights, high emission = fully bright self-lit
+            finalColor = mix(litColor, texColor.rgb, emissionStrength);
+        } else {
+            finalColor = litColor;
+        }
+    // }
     
 
     // Add specular highlights (not added to emissive surfaces)

@@ -5,7 +5,7 @@ local Player = {
     Velocity = V{0, 0},
     Acceleration = V{0,0},
     Color = Constant.COLOR["ORANGE"]:Set("S",0.1,  "V",1),
-    TailColor = V{196,223,238}/255,
+    TailColor = Vector.Hex"8fcaec",
     -- DiveExpiredColor = V{0.8,0.8,0.9,1},    -- color to multiply player by when the dive is expired
     DiveExpiredColor = Constant.COLOR.PURPLE:Lerp(Constant.COLOR.WHITE, 0.5),
     DiveExpiredGoalColor = V{0.75, 0.8, 0.9, 1},
@@ -43,6 +43,8 @@ local Player = {
     DefaultTrailColor = V{190/255 + 0.3, 140/255 + 0.3, 100/255 + 0.3, 1},       -- color of trail following player
     IsCrouchedHitbox = false,           -- whether the player's hitbox is in "crouched" state or not
     
+    FramesSinceCrashedIntoWall = -1,           -- if you double-dived into a wall
+
     CrouchTime = 0,                     -- how many frames the player has been crouching for (0 if not crouching)
     TimeSinceCrouching = 0,             -- how many frames since the player last ended a crouch
     CrouchEndBuffer = 0,                -- for animations, pretty much
@@ -110,6 +112,10 @@ local Player = {
     MinPouncePower = 5,                  -- the X velocity out of a sideways pounce
     MaxPouncePower = 6.5,                  -- the X velocity out of a sideways pounce
     
+    SlideThresholdSpeed = 4,            -- X velocity required to enter a slide rather than a crouch
+    FramesSinceSlide = -1,
+    
+
     DisablePlayerControl = false,       -- disables movement input for cutscenes
     InInteraction = false,               -- disables entering new transitions during current ones
 
@@ -181,6 +187,9 @@ local Player = {
     ChargedPounceForwardDeceleration = 0.205,   -- how much the player accelerates while in a pounce
     ChargedPounceIdleDeceleration = 0.16,   -- how mucgh the player decelerates while idle in a pounce
     ChargedPounceBackwardDeceleration = 0.25, -- how much the player decelerates while moving backwards in a pounce
+    SlideIdleDeceleration = 0.03,
+    SlideForwardDeceleration = 0.02,
+    SlideBackwardDeceleration = 0.035,
     PreviousFloorHeight = 0,      -- the last recorded height of the floor
     PounceAnimCancelled = false,        -- during a pounce, whether to transition the player animation back to normal jump
     ConsecutivePouncesSpeedMult = 1.5, -- how much the player's speed is multiplied by during a new pounce (basically, how easily the player can speed up doing chained pounces)
@@ -260,7 +269,11 @@ local Player = {
     
     FramesAgainstWallBeforeDirectionChange = 8,    -- amount of frames against a wall in midair before changing directions
     WallSlideSpeed = 1.5,
+    WallCrashSlideSpeed = 0.5,
+    WallCrashFramesBeforeGravity = 30,
+    WallCrashGravity = 0.02,
     WallSlideDecelerationSpeed = 0.3,
+    WallCrashSlideDecelerationSpeed = 0.3,
 
     PlayingWallSFX = false,             -- whether the wall slide sound is being played currently
     WallSFXVolume = 0,
@@ -556,7 +569,7 @@ function Player.new()
     
 
     
-    newPlayer.Texture = Animation.new("chexcore/assets/images/test/player-sprite.png", 12, 12):AddProperties{Duration = .72, LeftBound = 5, RightBound = 10}
+    newPlayer.Texture = Animation.new("chexcore/assets/images/test/player-sprite.png", 24, 12):AddProperties{Duration = .72, LeftBound = 5, RightBound = 10}
     
     -- set animation callbacks
     newPlayer.Texture:AddCallback({
@@ -850,7 +863,7 @@ function Player.new()
 
         Radius = 100,
         Sharpness = 1,
-        Size = V{250,75},
+        Size = V{75,75},
         Color = V{1,1,1,1},
         Update = function (self, dt)
             self:MoveTo(newPlayer:GetPoint(0.5,0.5))
@@ -1228,8 +1241,13 @@ function Player:UnclipY(forTesting, returnFirstHit)
     if justLanded and self.FramesSinceDive > -1 then
         if math.abs(self.Velocity.X) > self.DiveLandRollThreshold and self.MoveDir == sign(self.Velocity.X) then
             self.PreviousFloorHeight = self.Position.Y
-            self:Roll()
-            self.RolledOutOfDive = true
+            
+            if not self:IsHoldingCrouch() then
+                self:Roll()
+                self.RolledOutOfDive = true
+            else
+                
+            end
             self.FramesSinceDive = -1
         else
             self:StartCrouch()
@@ -1446,8 +1464,9 @@ function Player:ValidateFloor()
                 self.HangStatus = self.DropHangTime+1
                 -- set up coyote frames
                 self.CoyoteBuffer = self.CoyoteFrames
-    
-                if self.FramesSinceLastLunge < self.LedgeLungeWindow and self:IsHoldingCrouch() and self.InputListener:IsDown("action") and not self.Floor.PreventLedgeLunge then
+                -- local ledgeLungeCondition = self.FramesSinceLastLunge < self.LedgeLungeWindow and self.InputListener:IsDown("action")
+                local ledgeLungeCondition = self.FramesSinceSlide > -1
+                if ledgeLungeCondition and not self.Floor.PreventLedgeLunge then
                     
                     -- next step: only ledge lunge when there's a tile below the player
                     local oldPosY = self.Position.Y
@@ -1459,6 +1478,7 @@ function Player:ValidateFloor()
                     if pushY ~= 0 then
                         local vx = self.Velocity.X
                         self:Dive()
+                        
                         Chexcore._skipFrames = Chexcore._skipFrames + 3
                         -- Chexcore._frameDelay = Chexcore._frameDelay + 0.03333333
                         self.DiveExpired = false
@@ -1985,7 +2005,15 @@ function Player:ProcessInput(dt)
         end
     elseif (self.ActionBuffer > 0 or self.LungeBuffer > 0) and (self.Floor or self.CoyoteBuffer > 0 or (self.FramesSinceJump > -1 and self.FramesSinceJump < self.RollWindowPastJump)) and ((self.CrouchTime > self.CrouchShimmyDelay and (self.FramesSinceRoll == -1 or self.FramesSinceRoll >= self.ShimmyLength)) or self.FramesSinceRoll == -1) then
         -- roll
-        blockJump = self:Roll()
+        if self.LungeBuffer > 0 then
+            
+            self.ActionBuffer = 0
+            self.LungeBuffer = 0
+            self.Velocity.X = sign(self.Velocity.X) * (math.abs(self.Velocity.X) + 1)
+        else
+            
+            blockJump = self:Roll()
+        end
     end
 
 
@@ -2055,7 +2083,18 @@ function Player:ProcessInput(dt)
         else -- holding against sliding direction
             amt = self.CrouchDecelerationBackward
         end
-        self:SetBodyOrientation(self.MoveDir)
+        
+        if self.FramesSinceSlide == -1 then
+            local b = self:GetBodyOrientation()
+
+            if sign(self.MoveDir) == -b then
+                self.Texture.Clock = 0
+                self.Texture.IsPlaying = true
+            end
+            self:SetBodyOrientation(self.MoveDir)
+        end
+        
+        
         -- self.DrawScale.X = self.MoveDir == 0 and self.DrawScale.X or self.MoveDir
         self:Decelerate(amt)
 
@@ -2077,6 +2116,7 @@ function Player:ProcessInput(dt)
             elseif self.MoveDir == -self:GetBodyOrientation() then
                 self.Velocity.X = -self.Velocity.X
                 self:SetBodyOrientation(self.MoveDir)
+                
             end
         end
     else
@@ -2236,7 +2276,11 @@ function Player:Jump(noSFX)
     
 
     -- pounce handling
-    if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and self.FramesSinceJump <= self.RollWindowPastJump)) and self.LastRollPower == self.ShimmyPower then
+    -- print("check", self.FramesSinceRoll > -1, self.FramesSinceJump > -1, self.FramesSinceJump <= self.RollWindowPastJump, self.FramesSinceSlide > -1, self.LastRollPower == self.ShimmyPower)
+    -- if (self.FramesSinceRoll > -1 or (self.FramesSinceJump > -1 and (self.FramesSinceJump <= self.RollWindowPastJump or self.FramesSinceSlide > -1))) and self.LastRollPower == self.ShimmyPower then
+    local pounceSpeedMinimum = 2
+    
+    if (math.abs(self.Velocity.X) > pounceSpeedMinimum or (self.FramesSinceRoll > -1 and self.FramesSinceRoll < 20)) and self:IsHoldingCrouch() then
         local heightBoost = math.min((self.LedgeLungeCharge*0.5 + self.LedgeLungeChain*0.25), 3)--math.max((self.LedgeLungeCharge - 6), 0) / 4
         self.LedgeLungeCharge = math.max(self.LedgeLungeCharge - self.LedgeLungePounceDepletionRate, 0)
         self.Velocity.X = sign(self.Velocity.X) * (math.min(math.max(self.MinPouncePower, math.abs(self.Velocity.X)), self.MaxPouncePower))
@@ -2472,11 +2516,14 @@ function Player:Parry()
 
     if not allowedToParry then
         -- can't parry off the same wall twice!
+        self.FramesSinceCrashedIntoWall = 0
         self.FramesSinceDive = -1
+        self.Velocity.Y = 0
         self.FramesSinceDoubleJump = math.max(-1, self.FramesSinceDoubleJump)
         self:PlaySFX("FailParry")
         self:PlaySFX("FailParrySqueak")
         self:PlaySFX("Bonk")
+        self:GetScene().Camera.ShakeIntensity = V{0.5,0}
         return
     end
 
@@ -2656,12 +2703,19 @@ function Player:Dive()
 end
 
 function Player:Roll()
+    
     self.ActionBuffer = 0
     self.LungeBuffer = 0
     local holdingCrouch = self:IsHoldingCrouch()
     local justLunged = self.FramesSinceDive <= 30
     local movementPower = ((self.CrouchTime > self.CrouchShimmyDelay or self.TimeSinceCrouching < 10) and holdingCrouch) and self.ShimmyPower or self.RollPower
     
+    
+    -- don't let player infini-shimmy while sliding
+    if self.FramesSinceSlide > -1 then
+        return
+    end
+
     -- special case for if player just recently lunged to the ground
     if justLunged and holdingCrouch then
         movementPower = self.ShimmyPower
@@ -2756,9 +2810,20 @@ local bounds = {
 }
 
 function Player:StartCrouch()
+    
     self.CrouchTime = 1
     self.TimeSinceCrouching = -1
     self.CrouchAnimBounds = bounds[math.random(#bounds)]
+
+    if math.abs(self.Velocity.X) >= self.SlideThresholdSpeed then
+        self.FramesSinceSlide = 0
+        self.CrouchAnimBounds = V{147,150,0.4}
+        -- print("sliiiide")
+    else
+        self.FramesSinceSlide = -1
+        -- print("crouchhh....")
+    end
+
     self:PlaySFX("DoubleJump", 1.5, 1, 0.2)
     self:PlayCustomFootstepSound(nil, 1.5, 0, 0.4)
     self:ShrinkHitbox()
@@ -2992,7 +3057,30 @@ function Player:UpdateAnimation()
         self.Texture.Clock = self.Texture.Duration
     end
 
-    if self.FramesSinceWallKick > -1 and self.FramesSinceWallKick < 9 then
+    if self.FramesSinceSlide > -1 then
+        -- is in a sliding animation
+        
+        if self.FramesSinceSlide == 0 then
+            -- just started anim
+            self.Texture.Clock = 0
+            self.Texture.IsPlaying = true
+        end
+        if false then
+            -- not moving, just in place
+            if self.Texture.LeftBound ~= 149 then
+                self.Texture.Clock = 0
+                self.Texture.IsPlaying = true
+            end
+            self.Texture:AddProperties{LeftBound = 149, RightBound = 150, Duration = 0.25, PlaybackScaling = 1, Loop = false}
+        else
+            self.Texture:AddProperties{LeftBound = 145, RightBound = 148, Loop = true, Duration = 0.5}
+            self.Texture.PlaybackScaling = math.clamp(math.abs(self.Velocity.X), 0.3, 3)
+            if self.Texture.CurrentFrame >= 147 then
+                self.Texture.LeftBound = 147
+            end
+        end
+    elseif self.FramesSinceWallKick > -1 and self.FramesSinceWallKick < 9 then
+        -- just did a wall kick off a wall
         if self.FramesSinceWallKick == 0 then
             self.Texture.Clock = 0
             self.Texture.IsPlaying = true
@@ -3069,23 +3157,42 @@ function Player:UpdateAnimation()
         -- end
         
     elseif self.Wall and self.ParryStatus == 0 and self.CrouchTime == 0 and sign(self.DrawScale.X) == (self.WallDirection == "left" and -1 or 1) and sign(self.DrawScale.X) == self.MoveDir and self.FramesSinceHoldingItem == -1 then
-         -- in the air against wall
-         self.Texture.IsPlaying = false
-         self.Texture.Clock = 0
-         self.Texture.RightBound = 124
-         if self.Velocity.Y < -self.WallSlideSpeed then
-             -- moving up quickly
-             self.Texture.LeftBound = 121
-         elseif self.Velocity.Y < 0 then
-             -- moving up slowly
-             self.Texture.LeftBound = 122
-         elseif self.Velocity.Y < self.WallSlideSpeed then
-             -- moving down slowly
-             self.Texture.LeftBound = 123
-         else
-             -- moving down quickly
-             self.Texture.LeftBound = 124
-         end
+            -- in the air against wall
+            if self.FramesSinceCrashedIntoWall > -1 then
+                
+              -- failed a parry, crashed into the wall
+                self.Texture.IsPlaying = true
+                self.Texture.Duration = 0.4
+                self.Texture.Loop = true
+                -- self.Texture.Clock = 0
+                if self.Velocity.Y < 0.3 then
+                    -- sliding slowly
+                    self.Texture.LeftBound = 141
+                    self.Texture.RightBound = 142
+                else
+                    self.Texture.LeftBound = 143
+                    self.Texture.RightBound = 144
+                end
+            else
+                -- wall sliding normally
+                self.Texture.IsPlaying = false
+                self.Texture.Clock = 0
+                self.Texture.RightBound = 124
+                if self.Velocity.Y < -self.WallSlideSpeed then
+                    -- moving up quickly
+                    self.Texture.LeftBound = 121
+                elseif self.Velocity.Y < 0 then
+                    -- moving up slowly
+                    self.Texture.LeftBound =122
+                elseif self.Velocity.Y < self.WallSlideSpeed then
+                    -- moving down slowly
+                    self.Texture.LeftBound = 123
+                else
+                    -- moving down quickly
+                    self.Texture.LeftBound = 123
+                end
+            end
+
     
     elseif self.ParryStatus > 0 then
         
@@ -3264,8 +3371,10 @@ function Player:UpdateAnimation()
 end
 
 function Player:UpdateFrameValues()
+    -- print(self.FramesSinceSlide)
     if self.Floor then
         -- self.ShouldCheckForHeldItemOverhang = false
+        self.FramesSinceCrashedIntoWall = -1
         self.InFastJump = false
         self.YPositionAtLedge = self.Position.Y
         self.InLedgeLunge = false
@@ -3281,7 +3390,22 @@ function Player:UpdateFrameValues()
         end
         self.LastParryFace = "none"
         self.FramesSinceParry = -1
+
+        if self.FramesSinceSlide > -1 then
+            if not self.InputListener:IsDown("crouch") or math.abs(self.Velocity.X) == 0 then
+                
+                self.FramesSinceSlide = -1
+            else
+                self.FramesSinceSlide = self.FramesSinceSlide + 1
+            end
+        end
     else -- no floor
+        print("CANCELLED", self.InLedgeLunge)
+
+        if not self.InLedgeLunge then
+            self.FramesSinceSlide = -1
+        end
+        
         self.FramesSinceGrounded = -1
         self.FramesSinceAirborne = self.FramesSinceAirborne + 1
         if self.FramesSinceJump > -1 then
@@ -3324,9 +3448,12 @@ function Player:UpdateFrameValues()
 
     if self.Wall then
         self.FramesSinceAgainstWall = self.FramesSinceAgainstWall + 1
+        if self.FramesSinceCrashedIntoWall > -1 then
+            self.FramesSinceCrashedIntoWall = self.FramesSinceCrashedIntoWall + 1
+        end
     else
         self.FramesSinceAgainstWall = -1
-        
+        self.FramesSinceCrashedIntoWall = -1
     end
 
     if self.FramesSinceDepartedWall > -1 then
@@ -3629,6 +3756,12 @@ function Player:UpdatePhysics()
     -- gravity is dependent on the jump state of the character
     if self.IgnoreGravityThisFrame then
         self.IgnoreGravityThisFrame = false
+    elseif self.FramesSinceCrashedIntoWall > -1 then
+        if self.FramesSinceCrashedIntoWall < self.WallCrashFramesBeforeGravity then
+            self.Velocity.Y = self.Velocity.Y + 0
+        else
+            self.Velocity.Y = self.Velocity.Y + self.WallCrashGravity
+        end
     elseif self.FramesSinceWallKick > -1 and self.FramesSinceWallKick < self.WallKickHangTime and not self.Wall then
         -- self.Velocity.Y = self.Velocity.Y + 0
     elseif self.FramesSinceParry > -1 and self.FramesSinceDoubleJump == -1 and self.FramesSinceDive == -1 then
@@ -3782,8 +3915,21 @@ function Player:UpdatePhysics()
     local decelAmt = 0
     
     if speedOver > 0 then
-        -- player is moving faster than the maximum horizontal speed
-        if self.Floor then
+        -- player is moving faster than the maximum horizontal speed\
+        if self.FramesSinceSlide > -1 then
+            -- player is sliding on the ground
+            
+            if self.MoveDir == 0 then
+                -- not holding a direction
+                decelAmt = self.SlideIdleDeceleration
+            elseif sign(self.Velocity.X) == self.MoveDir then
+                -- player is moving "with" the direction of their momentum; don't slow down as much
+                decelAmt = self.SlideForwardDeceleration
+            else
+                -- player is against the direction of momentum; normal deceleration
+                decelAmt = self.SlideBackwardDeceleration      
+            end
+        elseif self.Floor then
             -- player is running; slow down at ground speed
 
             if sign(self.Velocity.X) ~= self.MoveDir then
@@ -3933,10 +4079,20 @@ function Player:UpdatePhysics()
     if self.Wall and self.MoveDir == wallDir and self.FramesSinceParry ~= 0 and not self.HeldItem and (self.FramesSinceAgainstWall >= self.FramesAgainstWallBeforeDirectionChange or sign(self.DrawScale.X) == wallDir) and not self.Floor then
         self:SetBodyOrientation(wallDir)
 
-        -- if moving too fast, slow 'er down to reach WallSlideSpeed        
-        if self.Velocity.Y > self.WallSlideSpeed then
-            self.Velocity.Y = math.max(self.Velocity.Y - self.WallSlideDecelerationSpeed, self.WallSlideSpeed)
+        -- if moving too fast, slow 'er down to reach WallSlideSpeed 
+        if self.FramesSinceCrashedIntoWall > -1 then
+            if self.Velocity.Y > self.WallCrashSlideSpeed then
+                
+                self.Velocity.Y = math.max(self.Velocity.Y - self.WallCrashSlideDecelerationSpeed, self.WallCrashSlideSpeed)
+                
+            end
+        else
+            if self.Velocity.Y > self.WallSlideSpeed then
+                self.Velocity.Y = math.max(self.Velocity.Y - self.WallSlideDecelerationSpeed, self.WallSlideSpeed)
+            end
         end
+    else
+        self.FramesSinceCrashedIntoWall = -1
     end
     
 
@@ -4238,13 +4394,19 @@ function Player:DrawTrail()
     local points = {}
     love.graphics.clear()
     love.graphics.setColor(1,1,1,1)
+    local ofs_x, ofs_y = 0,0
+
+    if self.FramesSinceSlide > -1 then
+        ofs_y = 3
+    end
+
     local p1 = self.TailPoints[1]
         local cx = self.Canvas:GetWidth()/2
         local cy = self.Canvas:GetHeight()/2 + 4 * self.DrawScale.Y
         for i, point in ipairs(self.TailPoints) do
             -- if i == 1 or i % 2 == 0 then
-                points[#points+1] = point[1] - p1[1] + cx
-                points[#points+1] = point[2] - p1[2] + cy
+                points[#points+1] = point[1] - p1[1] + cx + ofs_x
+                points[#points+1] = point[2] - p1[2] + cy + ofs_y
             -- end
         end
         
@@ -4301,14 +4463,14 @@ function Player:Draw(tx, ty)
         local sx = self.Size[1] * (self.DrawScale[1]-1)
         local sy = self.Size[2] * (self.DrawScale[2]-1)
 
-        local shouldDrawTail = (self.CrouchTime == 0 or not self.Floor) and
+        local shouldDrawTail = (self.FramesSinceSlide > -1 or self.CrouchTime == 0 or not self.Floor) and
                                (self.ParryStatus == 0) and
                                (not self.Floor or self.Velocity:Magnitude() > 1.7)
 
         -- if not (self.Floor and self.Velocity.X == 0) then
         if shouldDrawTail then
             -- draw the tail
-            local ofs_x, ofs_y = 0, 0
+            local ofs_x, ofs_y, length_mult = 0, 0, 1
             if self.FramesSincePounce > -1 then
                 ofs_y = -3
             end
@@ -4316,12 +4478,16 @@ function Player:Draw(tx, ty)
                 ofs_y = -3
             end
 
+            if self.FramesSinceSlide > -1 then
+                length_mult = 1.3
+            end
+
             love.graphics.setColor(self.Color * self.TailColor * self.DiveExpiredGoalColor)
             local points = {}
             local p1 = self.TailPoints[1]
             local cx = self.Canvas:GetWidth()/2
             local cy = self.Canvas:GetHeight()/2 + 6 * self.DrawScale.Y
-            for i = 1, self.TailVisibleLength do
+            for i = 1, math.floor(self.TailVisibleLength*length_mult+0.5) do
                 local point = self.TailPoints[i]
                 if not point then break end
                 -- if i == 1 or i % 2 == 0 then

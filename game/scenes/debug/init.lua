@@ -3,11 +3,10 @@ local scene = GameScene.new{
     DeathHeight = 3000,
     Update = function (self, dt)
         GameScene.Update(self, dt)
-        self.Player = self:GetDescendant("Player")
+        self.Player = self:GetDescendant(Object.IsA, "Player")
         -- self.Camera.Position = self.Camera.Position:Lerp((self.Player:GetPoint(0.5,0.5)), 1000*dt)
         -- self.Camera.Zoom = 1 --+ (math.sin(Chexcore._clock)+1)/2
     end,
-    Brightness = .25
 }
 Chexcore:AddType("game.objects.wheel")
 Chexcore:AddType("game.objects.cameraZone")
