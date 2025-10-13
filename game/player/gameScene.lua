@@ -61,14 +61,15 @@ function GameScene.new(properties)
     mainLayer.ShaderCache = {
         -- water = "game/assets/shaders/water.glsl",
         water = Shader.new("game/assets/shaders/water.glsl"),
-        lighting = Shader.new("game/assets/shaders/scene-focus.glsl"):Send("blendRange", 5):Send("aspectRatio", {16,9})
+        lighting = Shader.new("game/assets/shaders/scene-focus.glsl"):Send("blendRange", 5):Send("aspectRatio", {16,9}),
+        parryShadow = Shader.new("game/assets/shaders/parry-shade.glsl")
     }
 
 
 
     -- mainLayer.ShaderQueue = {}
 
-    mainLayer.OverlayShaders = {"water", "lighting"}
+    mainLayer.OverlayShaders = {"parryShadow","water", "lighting"}
 
 
 

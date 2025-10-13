@@ -79,6 +79,15 @@ local Player = {
     LungeBuffer = 0,                    -- measures above variable
     JumpPower = 3.7,                      -- the base initial upward momentum of a jump
     
+    ExpiredWalls = {
+        --[[ {
+            prop = [Prop] / [Tilemap],
+            tileX = tx, tileY = ty, tileLayer = layer,
+            ofsTop = V{topLeftOfTileMinusTX, topLeftOfTileMinusTY},
+            ofsBottom = V{topLeftOfTileMinusBX, topLeftOfTileMinusBY}
+        } --]]
+    },
+
     FramesSinceHoldingLeft = 0,        -- resets to 0 when left is pressed or held
     FramesSinceHoldingRight = 0,       -- resets to 0 when right is pressed or held
 
@@ -1129,10 +1138,15 @@ function Player:Unclip(forTesting, ignoreX, ignoreY)
 
     if self.HeldItem and self.HeldItem.ExtendsHitbox then
         if not ignoreX then pushX = self:UnclipX(forTesting) end
+        
         if not ignoreY then pushY = self:UnclipY(forTesting) end
     else
-        if not ignoreX then pushX = self:UnclipX(forTesting) end
+        
         if not ignoreY then pushY = self:UnclipY(forTesting) end
+        -- if pushY ~= 0 then print("flooor? pushy", pushY) end
+        if not ignoreX then pushX = self:UnclipX(forTesting) end
+        -- if pushX ~= 0 then print ("walll? pushx", pushX) end
+        -- print("---------------------------------------------------------------")
     end
 
 
@@ -1304,6 +1318,10 @@ function Player:UnclipX(forTesting)
             local otherFace = face=="top" and "bottom" or face=="bottom" and "top" or face=="left" and "right" or face=="right" and "left"
             local surfaceInfo = solid:GetSurfaceInfo(tileID)
             
+            if math.abs(hDist or 0) > 3 then
+                print("SKIP")
+                goto unclipxcont
+            end
             
             if (solid ~= self.YHitbox and solid ~= self.XHitbox and solid ~= self.HeldItem) and not solid.Passthrough then
     
@@ -1354,7 +1372,7 @@ function Player:UnclipX(forTesting)
             activeCollider = collider
             break
         end
-
+        ::unclipxcont::
 
     end
 
@@ -1402,12 +1420,14 @@ function Player:ProcessTouchInteraction(collider, solid)
 end
 local TILE_SIZE_LEDGE_LUNGE = 16
 function Player:ValidateFloor()
+    
     local wasOnGroundAfterLedgeLunge = self.OnGroundAfterLedgeLunge
     
     if self.Floor then
+        
         -- check if we've collided with the current floor or not
         self:AlignHitboxes()
-        self.YHitbox.Position.Y = self.Position.Y + 1
+        self.YHitbox.Position.Y = self.Position.Y + 2
         
         self.Velocity.Y = 0
         local hit --, hDist, vDist = self.Floor:CollisionInfo(self.YHitbox)
@@ -2562,6 +2582,295 @@ function Player:Parry()
     self.LastParryFace = self.WallBumpDirection
     self.FramesSinceParry = 0
 
+    -- calculate the bounds of the wall the player hit (since it's probably a tile)
+    if self.LastParryWall:IsA("Tilemap") then
+        -- self.WallSurfaceInfo = surfaceInfo[direction=="left" and "Left" or "Right"]
+        -- self.LastWallSurfaceInfo = self.WallSurfaceInfo
+        -- self.WallTileNo = tileNo
+        -- self.WallDirection
+        -- self.WallTileLayer = tileLayer
+        wallDir = wallDir -- reminder lol
+        local x, y = self.Wall:GetTileCoordinatesFromIndex(self.WallTileNo)
+        local layer = self.WallTileLayer
+        local wallFace = self.WallBumpDirection == "left" and "right" or "left"
+        local hitTileEdge = self.Wall:GetEdge(wallFace, x, y, layer)
+        print("tilemap kick", wallFace, x, y, layer, hitTileEdge)
+
+        -- travel upward from the current tile until you find a ledge or ceiling
+        local wallTopEdge, wallBottomEdge = 0,0
+        for y_u = y, 1, -1 do
+            
+            local tileEdge = self.Wall:GetEdge(wallFace, x, y_u, layer)
+            local tileId = self.Wall:GetTile(layer, x, y_u)
+
+            print("checking up", x, y, ":", tileId, tileEdge, wallDir)
+
+            
+            if tileId == 0 then -- fail condition 1: wall edge tile is 0
+                print("FOUND TOP: No tile!")
+                -- wallTopEdge = self.Wall:GetEdge("bottom", x, y_u, layer)
+                break
+            elseif math.abs(tileEdge - hitTileEdge) >= 4 then -- fail condition 2: wall inset changed
+                print("FOUND TOP: Edge changed!")
+                wallTopEdge = self.Wall:GetEdge("bottom", x, y_u, layer)
+                break
+            elseif self.Wall:GetEdge("bottom", x, y_u, layer)~=self.Wall:GetEdge("top", x, y_u+1, layer) and y_u ~= y then --(tileSurfaceInfo.Bottom.CollisionInset or 0) > 0
+                print("FOUND TOP: tile bottom cuts off!")
+                wallTopEdge = self.Wall:GetEdge("top", x, y_u+1, layer)
+                break
+            -- elseif self.Wall:GetEdge("bottom", x, y_u, layer)~=self.Wall:GetEdge("top", x, y_u+1, layer) then
+            --     print("FOUND TOP: tile top cuts off!")
+            --     wallTopEdge = self.Wall:GetEdge("top", x, y_u, layer)
+            --     break
+            else
+                -- fail condition 3: adjacent tile may be a ceiling
+                local t2x = x+(1*wallDir)
+                local tileId2 = self.Wall:GetTile(layer, t2x, y_u)
+                
+                if tileId2 ~= 0 then -- need to make sure this isn't a ceiling
+                    -- the adjacent tile is a ceiling if:
+                    -- - the bottom is not passthrough
+                    -- - its opposite X edge is the same as the current tile's X edge
+                    local tile2OppositeEdge = self.Wall:GetEdge(self.WallBumpDirection, t2x, y_u, layer)
+                    local tile2SurfaceInfo = self.Wall:GetSurfaceInfo(tileId2)
+                    if tile2OppositeEdge == hitTileEdge and not tile2SurfaceInfo.Bottom.Passthrough then -- if we parried the right wall, here the tile to the left's right is up against our wall's left edge
+                        print("FOUND TOP: adjacent tile ceiling!")
+                        wallTopEdge = self.Wall:GetEdge("bottom", t2x, y_u, layer)
+                        break
+                    end
+                end
+            end
+            wallTopEdge = self.Wall:GetEdge("top", x, y_u, layer)
+        end
+
+        for y_d = y, self.Wall._dimensions[2] do
+            
+            local tileEdge = self.Wall:GetEdge(wallFace, x, y_d, layer)
+            local tileId = self.Wall:GetTile(layer, x, y_d)
+
+            print("checking down", x, y, ":", tileId, tileEdge, wallDir)
+
+            
+            if tileId == 0 then -- fail condition 1: wall edge tile is 0
+                print("FOUND BOTTOM: No tile!")
+                -- wallBottomEdge = self.Wall:GetEdge("top", x, y_u, layer)
+                break
+            elseif math.abs(tileEdge - hitTileEdge) >= 4 then -- fail condition 2: wall inset changed
+                print("FOUND BOTTOM: Edge changed!")
+                wallBottomEdge = self.Wall:GetEdge("top", x, y_d, layer)
+                break
+            elseif self.Wall:GetEdge("top", x, y_d, layer)~=self.Wall:GetEdge("bottom", x, y_d-1, layer) and y_d ~= y then --(tileSurfaceInfo.Bottom.CollisionInset or 0) > 0
+                print("FOUND BOTTOM: tile top cuts off!")
+                wallBottomEdge = self.Wall:GetEdge("bottom", x, y_d-1, layer)
+                break
+            -- elseif self.Wall:GetEdge("bottom", x, y_u, layer)~=self.Wall:GetEdge("top", x, y_u+1, layer) then
+            --     print("FOUND TOP: tile top cuts off!")
+            --     wallTopEdge = self.Wall:GetEdge("top", x, y_u, layer)
+            --     break
+            else
+                -- fail condition 3: adjacent tile may be a floor
+                local t2x = x+(1*wallDir)
+                local tileId2 = self.Wall:GetTile(layer, t2x, y_d)
+                
+                if tileId2 ~= 0 then -- need to make sure this isn't a floor
+                    -- the adjacent tile is a floor if:
+                    -- - the ceiling is not passthrough
+                    -- - its opposite X edge is the same as the current tile's X edge
+                    local tile2OppositeEdge = self.Wall:GetEdge(self.WallBumpDirection, t2x, y_d, layer)
+                    local tile2SurfaceInfo = self.Wall:GetSurfaceInfo(tileId2)
+                    local tile2TopEdge = self.Wall:GetEdge("top", t2x, y_d, layer)
+                    if tile2OppositeEdge == hitTileEdge and not tile2SurfaceInfo.Top.Passthrough and wallTopEdge < tile2TopEdge then -- if we parried the right wall, here the tile to the left's right is up against our wall's left edge
+                        print("FOUND BOTTOM: adjacent tile ceiling!")
+                        wallBottomEdge = tile2TopEdge
+                        break
+                    end
+                end
+            end
+            wallBottomEdge = self.Wall:GetEdge("bottom", x, y_d, layer)
+        end
+
+        -- COME BACK
+
+        --[[ {
+            prop = [Prop] / [Tilemap],
+            tileX = tx, tileY = ty, tileLayer = layer,
+            ofsTop = V{topLeftOfTileMinusTX, topLeftOfTileMinusTY},
+            ofsBottom = V{topLeftOfTileMinusBX, topLeftOfTileMinusBY}
+        } --]]
+
+
+        local tileTL = V{self.Wall:GetEdge("left", x, y, layer), self.Wall:GetEdge("top", x, y, layer)} -- used as a reference point for indicator
+
+        local newExpiredWall = {
+            prop = self.Wall,
+            tileX = x, tileY = y, tileLayer = layer,
+            ofsTop = V{tileTL.X - hitTileEdge, tileTL.Y - wallTopEdge},
+            ofsBottom = V{tileTL.X - hitTileEdge, tileTL.Y - wallBottomEdge},
+            ofsOrigin = V{tileTL.X - hitTileEdge, tileTL.Y - self.YHitbox:GetPoint(0.5,0.75).Y}
+        }
+        self.ExpiredWalls[#self.ExpiredWalls+1] = newExpiredWall
+        local indicator indicator = self:GetLayer():Adopt(Prop.new{
+            Name = "ExpiredWallIndicator",
+            wall = newExpiredWall,
+            -- Origin = V{hitTileEdge, self.YHitbox:GetPoint(0.5,0.75).Y},
+            Position = V{hitTileEdge, wallTopEdge},
+            Size = V{4,wallBottomEdge-wallTopEdge},
+            AnchorPoint = V{0.5,0},
+            FramesAlive = 0,
+            Color = V{1,1,1,1},
+            DrawOverShaders = true,
+            Update = function(slf, dt)
+                local wall = slf.wall
+                local curTileTL = V{
+                    wall.prop:GetEdge("left", wall.tileX, wall.tileY, wall.tileLayer),
+                    wall.prop:GetEdge("top", wall.tileX, wall.tileY, wall.tileLayer)
+                }
+
+                local topPos = V{
+                    curTileTL.X - wall.ofsTop.X,
+                    curTileTL.Y - wall.ofsTop.Y
+                }
+                local bottomPos = V{
+                    curTileTL.X - wall.ofsBottom.X,
+                    curTileTL.Y - wall.ofsBottom.Y
+                }
+                local originPos = V{
+                    curTileTL.X - wall.ofsOrigin.X,
+                    curTileTL.Y - wall.ofsOrigin.Y
+                }
+
+                
+                
+                slf.Position = topPos
+
+                slf.Shadow.Position = topPos
+
+                
+
+                slf.Shadow.Size.X = tween("outElastic", 0, 9, slf.FramesAlive/60)
+
+                slf.TopEnd.Position = V{
+                    slf.Position.X,
+                    tween("outElastic", originPos.Y, topPos.Y, slf.FramesAlive/80)
+                }
+                slf.BottomEnd.Position = V{
+                    slf.Position.X,
+                    tween("outElastic", originPos.Y, bottomPos.Y, slf.FramesAlive/80)
+                }
+
+                -- slf.BottomEnd.Position = originPos
+
+                slf.FramesAlive = slf.FramesAlive + 1
+            end,
+            Draw = function(slf, tx, ty)
+                love.graphics.setColor(slf.Color * V{1,1,1,0.5})
+                
+                local dashLength = 3
+                local gapLength = 2
+                local cycleLength = dashLength + gapLength
+                local baseOffset = math.floor(slf.TopEnd.Position[2]) % cycleLength
+                local animationOffset = slf.FramesAlive * 0.1 
+                local offset = (baseOffset + animationOffset) % cycleLength
+                
+                -- cdrawline2(
+                --     slf.TopEnd.Position[1] - tx,
+                --     slf.TopEnd.Position[2] - ty,
+                --     slf.BottomEnd.Position[1] - tx,
+                --     slf.BottomEnd.Position[2] - ty,
+                --     dashLength,
+                --     gapLength,
+                --     offset
+                -- )
+                
+                -- cdrawline2(
+                --     slf.TopEnd.Position[1] - 1 - tx,
+                --     slf.TopEnd.Position[2] - ty,
+                --     slf.BottomEnd.Position[1] - 1 - tx,
+                --     slf.BottomEnd.Position[2] - ty,
+                --     dashLength, gapLength,
+                --     offset  
+                -- )
+            end
+        })
+        indicator.TopEnd = indicator:Adopt(Prop.new{
+            Name = "TopEnd",
+            Texture = Texture.new("game/assets/images/meta/parry/parry-indicator-edge.png"),
+            Size = V{4,4}, Visible = false,
+            AnchorPoint = V{0.5,0.5},
+            DrawOverShaders = true,
+            Position = V{hitTileEdge, wallTopEdge},
+            Color = Constant.COLOR.WHITE,
+        })
+        indicator.BottomEnd = indicator:Adopt(Prop.new{
+            Name = "BottomEnd",
+            Texture = Texture.new("game/assets/images/meta/parry/parry-indicator-edge.png"),
+            Size = V{4,4}, Visible = false,
+            AnchorPoint = V{0.5,0.5},
+            DrawOverShaders = true,
+            Position = V{hitTileEdge, wallBottomEdge},
+            Color = Constant.COLOR.WHITE,
+        })
+
+
+        self:GetLayer().ShadowGroup = self:GetLayer().ShadowGroup or self:GetLayer():Adopt(Prop.new{
+            Name = "ShadowGroup",
+            Color = V{0,0,0,.85},
+            -- DrawOverShaders = true,
+            Shader = Shader.new("chexcore/assets/shaders/default-ignorealpha.glsl"),
+            Draw = function(slf, tx, ty)
+                self:GetLayer():SetShaderData("parryShadow", "time", Chexcore._clock/2)
+                self:GetLayer():SetShaderData("parryShadow", "gradientColor", slf.Color)
+                self:GetLayer():SetShaderData("parryShadow", "dashOffset", -self:GetScene().Camera.Position)
+
+                -- self.Shader:Activate()
+                -- love.graphics.setBlendMode("multiply","premultiplied")
+   
+                -- love.graphics.setBlendMode("alpha")
+                -- self.Shader:Deactivate()
+            end
+        })
+        local shadowGroup = self:GetLayer().ShadowGroup
+
+        shadowGroup:MoveTo(self.Position)
+
+        indicator.Shadow = indicator:Adopt(Prop.new{
+            Name = "WallShadow",
+            -- DrawOverShaders = true,
+            Size = V{12, indicator.Size.Y},
+            Color = V{0,0,0,0.75},
+            AnchorPoint = V{wallDir==-1 and 0 or 1, 0},
+            Direction = wallDir,
+            Texture = Texture.new(wallDir==1 and "game/assets/images/meta/parry/wall-shadow-right.png" or "game/assets/images/meta/parry/wall-shadow.png"),
+            Position = indicator.Position,
+            Draw = function(slf,tx,ty)
+                slf:Update()
+                local tl, br = slf:GetPoint(0,0), slf:GetPoint(1,1)
+                local x1, y1 = (((tl) - V{tx,ty}) / self:GetLayer().Canvases[1]:GetSize())()
+                local x2, y2 = (((br) - V{tx,ty}) / self:GetLayer().Canvases[1]:GetSize())()
+                                
+                self:GetLayer():SetShaderData("parryShadow", "gradientCount", (self:GetLayer():GetShaderData("parryShadow", "gradientCount") or 0)+1)
+                self:GetLayer():EnqueueShaderData("parryShadow", "gradientRects", {x1,y1,x2,y2})
+                self:GetLayer():EnqueueShaderData("parryShadow", "gradientDirections", slf.Direction==1 and 1 or 0)
+                -- self:GetLayer():EnqueueShaderData("parryShadow", "gradientColors", slf.Color)
+            end
+        })
+        -- shadowGroup.Shadows[#self:GetLayer().ShadowGroup.Shadows+1]=indicator.Shadow
+        newExpiredWall.visual = indicator
+        -- local p = self:GetLayer():Adopt(Prop.new{
+        --     Position = V{hitTileEdge, wallTopEdge},
+        --     AnchorPoint = V{0.5,0.5},
+        --     DrawOverShaders = true,
+        --     Size = V{4,4},
+        --     Color =  V{1,0,0}
+        -- })
+        -- local p = self:GetLayer():Adopt(Prop.new{
+        --     Position = V{hitTileEdge, wallBottomEdge},
+        --     AnchorPoint = V{0.5,0.5},
+        --     DrawOverShaders = true,
+        --     Size = V{4,4},
+        --     Color =  V{0,1,0}
+        -- })
+    end
     
     self:GetChild("WallKickDust"):Emit{
         Position = self.Position - V{-wallDir*4,5},
@@ -2939,9 +3248,45 @@ local yscale_wall_squish = {1.2, 1.1, 1.1, 1.1, 1.1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
 
 -- Animation picking
 function Player:UpdateAnimation()
-    
+            --[[ {
+            prop = [Prop] / [Tilemap],
+            tileX = tx, tileY = ty, tileLayer = layer,
+            ofsTop = V{topLeftOfTileMinusTX, topLeftOfTileMinusTY},
+            ofsBottom = V{topLeftOfTileMinusBX, topLeftOfTileMinusBY}
+        } --]]
 
-    
+    self._ind = self._ind or {}
+
+    for i, wall in ipairs(self.ExpiredWalls) do
+        local tileTL = V{
+            wall.prop:GetEdge("left", wall.tileX, wall.tileY, wall.tileLayer),
+            wall.prop:GetEdge("top", wall.tileX, wall.tileY, wall.tileLayer)
+        }
+
+        -- self._ind[i*2] = self._ind[i*2] or self:GetLayer():Adopt(Prop.new{
+        --     AnchorPoint = V{0.5,0.5},
+        --     DrawOverShaders = true,
+        --     Size = V{4,4},
+        --     Color =  V{1,0,0}
+        -- })
+        -- self._ind[i*2]:MoveTo(V{
+        --     tileTL.X - wall.ofsTop.X,
+        --     tileTL.Y - wall.ofsTop.Y,
+        -- })
+
+        -- self._ind[i*2-1] = self._ind[i*2-1] or self:GetLayer():Adopt(Prop.new{
+        --     AnchorPoint = V{0.5,0.5},
+        --     DrawOverShaders = true,
+        --     Size = V{4,4},
+        --     Color =  V{0,1,0}
+        -- })
+        -- self._ind[i*2-1]:MoveTo(V{
+        --     tileTL.X - wall.ofsBottom.X,
+        --     tileTL.Y - wall.ofsBottom.Y,
+        -- })
+    end
+
+
     
     -- squash and stretch
     if false then
