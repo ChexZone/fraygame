@@ -1142,9 +1142,10 @@ function Player:Unclip(forTesting, ignoreX, ignoreY)
         if not ignoreY then pushY = self:UnclipY(forTesting) end
     else
         
-        if not ignoreY then pushY = self:UnclipY(forTesting) end
         -- if pushY ~= 0 then print("flooor? pushy", pushY) end
-        if not ignoreX then pushX = self:UnclipX(forTesting) end
+        if not ignoreX then pushX = self:UnclipX(forTesting) end -- YES CHEX IT IS FIRST FOR A REASON
+        if not ignoreY then pushY = self:UnclipY(forTesting) end
+
         -- if pushX ~= 0 then print ("walll? pushx", pushX) end
         -- print("---------------------------------------------------------------")
     end
@@ -2818,9 +2819,7 @@ function Player:Parry()
             -- DrawOverShaders = true,
             Shader = Shader.new("chexcore/assets/shaders/default-ignorealpha.glsl"),
             Draw = function(slf, tx, ty)
-                self:GetLayer():SetShaderData("parryShadow", "time", Chexcore._clock/2)
                 self:GetLayer():SetShaderData("parryShadow", "gradientColor", slf.Color)
-                self:GetLayer():SetShaderData("parryShadow", "dashOffset", -self:GetScene().Camera.Position)
 
                 -- self.Shader:Activate()
                 -- love.graphics.setBlendMode("multiply","premultiplied")
