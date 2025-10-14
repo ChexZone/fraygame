@@ -69,7 +69,7 @@ function GameScene.new(properties)
 
     -- mainLayer.ShaderQueue = {}
 
-    mainLayer.OverlayShaders = {"parryShadow","water", "lighting"}
+    mainLayer.OverlayShaders = {"water", "lighting","parryShadow"}
 
 
 
@@ -822,9 +822,11 @@ function GameScene:Draw(tx, ty)
     self.CameraBounds:PrepareToDraw()
 
     -- flush lighting queue
+    
     self:ApplyLighting()
 
-    return Scene.Draw(self, tx, ty)
+    local r = Scene.Draw(self, tx, ty)
+    return r
 end
 
 function GameScene:ApplyLighting()

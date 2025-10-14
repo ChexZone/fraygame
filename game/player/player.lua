@@ -1127,6 +1127,7 @@ local justLanded, hitCeiling, inParry
 local pushX, pushY
 function Player:Unclip(forTesting, ignoreX, ignoreY)
     self.UnclipCount = self.UnclipCount + 1
+    local op = self.Position:Clone()
     if self.Floor and not ignoreY then
         -- i don't remmeber why this was enabled. but it's breaking shit. try re-enabling it if other stuff breaks but it will re-break running over 1-block ledges which you'll have to fix
         -- self.Position.Y = self.Position.Y + 1
@@ -1146,6 +1147,14 @@ function Player:Unclip(forTesting, ignoreX, ignoreY)
         if not ignoreX then pushX = self:UnclipX(forTesting) end -- YES CHEX IT IS FIRST FOR A REASON
         if not ignoreY then pushY = self:UnclipY(forTesting) end
 
+
+
+        if pushX ~= 0 and pushY ~= 0 then
+            -- it's all fucked
+            print("nah we fucked")
+            self.Positon = op
+            self:StartCrouch()
+        end
         -- if pushX ~= 0 then print ("walll? pushx", pushX) end
         -- print("---------------------------------------------------------------")
     end
@@ -1320,8 +1329,8 @@ function Player:UnclipX(forTesting)
             local surfaceInfo = solid:GetSurfaceInfo(tileID)
             
             if math.abs(hDist or 0) > 3 then
-                print("SKIP")
-                goto unclipxcont
+                -- print("SKIP", self.YHitbox.Size)
+                -- goto unclipxcont
             end
             
             if (solid ~= self.YHitbox and solid ~= self.XHitbox and solid ~= self.HeldItem) and not solid.Passthrough then
@@ -1832,6 +1841,7 @@ function Player:EndRagdoll()
     self.Ragdoll.Floor = nil
     self.Ragdoll.Wall = nil
     self:GetScene().Camera.Focus = self
+    self:StartCrouch(); self:EndCrouch()
     self:GetScene().Camera.Reeling = V{true,true}
     self:MoveTo(self.Ragdoll.Position)
     self:SetEdge("bottom", self.Ragdoll:GetEdge("bottom"))
@@ -2401,7 +2411,7 @@ function Player:Jump(noSFX)
 end
 
 function Player:WallKick()
-    self:GrowHitbox()
+    self:EndCrouch()
     local wallDir = self.WallDirection == "left" and -1 or 1
     self.Velocity.Y = math.min(self.Velocity.Y, 0)
     self.Velocity.X = 5 * -wallDir
@@ -2521,13 +2531,14 @@ end
 
 function Player:Parry()
     
-    self:GrowHitbox()
+    -- self:GrowHitbox()
 
 
     -- play a footstep sound regardless
     
     self:PlayCustomFootstepSound(self:GetWallMaterial(), 1.25, nil, 2)
     
+    local wallDir = (self.WallBumpDirection == "right" and -1 or 1)
 
 
     -- can parry if:
@@ -2535,9 +2546,49 @@ function Player:Parry()
     -- - your parry direction is the opposite wall (ex. "left" to "right") OR
     -- - the current X position of the wall you're parrying off is different from the last X position OR
     -- - the wall is a different Prop
-    local allowedToParry = self.LastParryFace ~= self.WallBumpDirection
-                        or math.abs(self.Position.X - self.LastParryPos.X + (self.LastParryWallPos.X - self.Wall.Position.X)) > 5
-                        or self.Wall ~= self.LastParryWall
+    -- local allowedToParry = self.LastParryFace ~= self.WallBumpDirection
+    --                     or math.abs(self.Position.X - self.LastParryPos.X + (self.LastParryWallPos.X - self.Wall.Position.X)) > 5
+    --                     or self.Wall ~= self.LastParryWall
+
+    local allowedToParry = true
+
+        --[[ {
+            prop = [Prop] / [Tilemap],
+            tileX = tx, tileY = ty, tileLayer = layer,
+            ofsTop = V{topLeftOfTileMinusTX, topLeftOfTileMinusTY},
+            ofsBottom = V{topLeftOfTileMinusBX, topLeftOfTileMinusBY}
+        } --]]
+    local pTop = self.YHitbox:GetPoint(wallDir==1 and 0 or 1, 0)
+    local pBottom = self.YHitbox:GetPoint(wallDir==1 and 0 or 1, 1)
+    for i = #self.ExpiredWalls, 1, -1 do
+        local wall = self.ExpiredWalls[i]
+        if wall.prop ~= self.Wall then goto expWallCont end
+        if wall.prop:IsA("Tilemap") and wall.tileLayer ~= self.WallTileLayer then goto expWallCont end
+
+        local curTileTL = V{
+            wall.prop:GetEdge("left", wall.tileX, wall.tileY, wall.tileLayer),
+            wall.prop:GetEdge("top", wall.tileX, wall.tileY, wall.tileLayer)
+        }
+
+        local topPos = V{
+            curTileTL.X - wall.ofsTop.X,
+            curTileTL.Y - wall.ofsTop.Y
+        }
+        local bottomPos = V{
+            curTileTL.X - wall.ofsBottom.X,
+            curTileTL.Y - wall.ofsBottom.Y
+        }
+        local originPos = V{
+            curTileTL.X - wall.ofsOrigin.X,
+            curTileTL.Y - wall.ofsOrigin.Y
+        }
+        if pBottom.Y >= topPos.Y and pTop.Y <= bottomPos.Y and math.abs(pTop.X - topPos.X) < 4 then
+            allowedToParry = false
+            self:ClearExpiredWalls()
+            break
+        end
+        ::expWallCont::
+    end
 
     if not allowedToParry then
         -- can't parry off the same wall twice!
@@ -2563,7 +2614,6 @@ function Player:Parry()
     --     or self.MoveDir == 0 and 2.5    -- player is neutral
     --     or 3.25     -- player is holding against dive direction
     local parrySpeed = 3.125
-    local wallDir = (self.WallBumpDirection == "right" and -1 or 1)
 
     self.Texture.Clock = 0
     self.Velocity.Y = -self.ParryPower
@@ -2599,7 +2649,12 @@ function Player:Parry()
 
         -- travel upward from the current tile until you find a ledge or ceiling
         local wallTopEdge, wallBottomEdge = 0,0
-        for y_u = y, 1, -1 do
+
+        wallTopEdge = self.Wall:GetEdge("top", x, y, layer)
+        wallBottomEdge = self.Wall:GetEdge("bottom", x, y, layer)
+
+        local topLip, bottomLip = false, false
+        for y_u = y-1, 1, -1 do
             
             local tileEdge = self.Wall:GetEdge(wallFace, x, y_u, layer)
             local tileId = self.Wall:GetTile(layer, x, y_u)
@@ -2613,10 +2668,12 @@ function Player:Parry()
                 break
             elseif math.abs(tileEdge - hitTileEdge) >= 4 then -- fail condition 2: wall inset changed
                 print("FOUND TOP: Edge changed!")
+                topLip = true
                 wallTopEdge = self.Wall:GetEdge("bottom", x, y_u, layer)
                 break
             elseif self.Wall:GetEdge("bottom", x, y_u, layer)~=self.Wall:GetEdge("top", x, y_u+1, layer) and y_u ~= y then --(tileSurfaceInfo.Bottom.CollisionInset or 0) > 0
                 print("FOUND TOP: tile bottom cuts off!")
+                topLip = true
                 wallTopEdge = self.Wall:GetEdge("top", x, y_u+1, layer)
                 break
             -- elseif self.Wall:GetEdge("bottom", x, y_u, layer)~=self.Wall:GetEdge("top", x, y_u+1, layer) then
@@ -2636,6 +2693,7 @@ function Player:Parry()
                     local tile2SurfaceInfo = self.Wall:GetSurfaceInfo(tileId2)
                     if tile2OppositeEdge == hitTileEdge and not tile2SurfaceInfo.Bottom.Passthrough then -- if we parried the right wall, here the tile to the left's right is up against our wall's left edge
                         print("FOUND TOP: adjacent tile ceiling!")
+                        topLip = true
                         wallTopEdge = self.Wall:GetEdge("bottom", t2x, y_u, layer)
                         break
                     end
@@ -2658,10 +2716,12 @@ function Player:Parry()
                 break
             elseif math.abs(tileEdge - hitTileEdge) >= 4 then -- fail condition 2: wall inset changed
                 print("FOUND BOTTOM: Edge changed!")
+                bottomLip = true
                 wallBottomEdge = self.Wall:GetEdge("top", x, y_d, layer)
                 break
             elseif self.Wall:GetEdge("top", x, y_d, layer)~=self.Wall:GetEdge("bottom", x, y_d-1, layer) and y_d ~= y then --(tileSurfaceInfo.Bottom.CollisionInset or 0) > 0
                 print("FOUND BOTTOM: tile top cuts off!")
+                bottomLip = true
                 wallBottomEdge = self.Wall:GetEdge("bottom", x, y_d-1, layer)
                 break
             -- elseif self.Wall:GetEdge("bottom", x, y_u, layer)~=self.Wall:GetEdge("top", x, y_u+1, layer) then
@@ -2681,7 +2741,8 @@ function Player:Parry()
                     local tile2SurfaceInfo = self.Wall:GetSurfaceInfo(tileId2)
                     local tile2TopEdge = self.Wall:GetEdge("top", t2x, y_d, layer)
                     if tile2OppositeEdge == hitTileEdge and not tile2SurfaceInfo.Top.Passthrough and wallTopEdge < tile2TopEdge then -- if we parried the right wall, here the tile to the left's right is up against our wall's left edge
-                        print("FOUND BOTTOM: adjacent tile ceiling!")
+                        bottomLip = true
+                        print("FOUND BOTTOM: adjacent tile floor!")
                         wallBottomEdge = tile2TopEdge
                         break
                     end
@@ -2699,6 +2760,7 @@ function Player:Parry()
             ofsBottom = V{topLeftOfTileMinusBX, topLeftOfTileMinusBY}
         } --]]
 
+        print("top", wallTopEdge, "bottom", wallBottomEdge)
 
         local tileTL = V{self.Wall:GetEdge("left", x, y, layer), self.Wall:GetEdge("top", x, y, layer)} -- used as a reference point for indicator
 
@@ -2716,11 +2778,16 @@ function Player:Parry()
             -- Origin = V{hitTileEdge, self.YHitbox:GetPoint(0.5,0.75).Y},
             Position = V{hitTileEdge, wallTopEdge},
             Size = V{4,wallBottomEdge-wallTopEdge},
+            OrigSize = V{4,wallBottomEdge-wallTopEdge},
+            DeathLifeSpan = 30,
             AnchorPoint = V{0.5,0},
             FramesAlive = 0,
-            Color = V{1,1,1,1},
+            Color = V{1,1,1,0},
             DrawOverShaders = true,
             Update = function(slf, dt)
+                
+
+
                 local wall = slf.wall
                 local curTileTL = V{
                     wall.prop:GetEdge("left", wall.tileX, wall.tileY, wall.tileLayer),
@@ -2741,81 +2808,51 @@ function Player:Parry()
                 }
 
                 
-                
                 slf.Position = topPos
 
                 slf.Shadow.Position = topPos
 
+                local indSizeX = 12
+
+                if slf.DeathTimer then
+                    slf.DeathTimer = slf.DeathTimer + 1
+
+                    slf.Shadow.Position = slf.Shadow.Position + V{0,slf.OrigSize.Y/2}
+                    slf.Shadow.AnchorPoint.Y = 0.5
+                    if slf.DeathTimer > 0 then 
+                        -- slf.Shadow.TopLip = 0
+                        -- slf.Shadow.RealBottomLip = 0
+                        slf.Shadow.Size.Y = tween("inExpo", slf.OrigSize.Y, 0, slf.DeathTimer/slf.DeathLifeSpan)
+                        -- slf.Shadow.Size.X = tween("inExpo", indSizeX, 0, slf.DeathTimer/slf.DeathLifeSpan)
+                        if slf.DeathTimer >= slf.DeathLifeSpan then
+                            -- Timer.ScheduleFrames(1, function()
+                                slf:Disown(slf.Shadow)
+                                slf:GetParent():Disown(slf)
+                            -- end)
+                        end
+                    end
+                    return
+                end
                 
 
-                slf.Shadow.Size.X = tween("outElastic", 0, 9, slf.FramesAlive/60)
+                slf.Shadow.Size.X = tween("outElastic", 0, indSizeX, slf.FramesAlive/60)
 
-                slf.TopEnd.Position = V{
-                    slf.Position.X,
-                    tween("outElastic", originPos.Y, topPos.Y, slf.FramesAlive/80)
-                }
-                slf.BottomEnd.Position = V{
-                    slf.Position.X,
-                    tween("outElastic", originPos.Y, bottomPos.Y, slf.FramesAlive/80)
-                }
 
                 -- slf.BottomEnd.Position = originPos
 
                 slf.FramesAlive = slf.FramesAlive + 1
             end,
             Draw = function(slf, tx, ty)
-                love.graphics.setColor(slf.Color * V{1,1,1,0.5})
-                
-                local dashLength = 3
-                local gapLength = 2
-                local cycleLength = dashLength + gapLength
-                local baseOffset = math.floor(slf.TopEnd.Position[2]) % cycleLength
-                local animationOffset = slf.FramesAlive * 0.1 
-                local offset = (baseOffset + animationOffset) % cycleLength
-                
-                -- cdrawline2(
-                --     slf.TopEnd.Position[1] - tx,
-                --     slf.TopEnd.Position[2] - ty,
-                --     slf.BottomEnd.Position[1] - tx,
-                --     slf.BottomEnd.Position[2] - ty,
-                --     dashLength,
-                --     gapLength,
-                --     offset
-                -- )
-                
-                -- cdrawline2(
-                --     slf.TopEnd.Position[1] - 1 - tx,
-                --     slf.TopEnd.Position[2] - ty,
-                --     slf.BottomEnd.Position[1] - 1 - tx,
-                --     slf.BottomEnd.Position[2] - ty,
-                --     dashLength, gapLength,
-                --     offset  
-                -- )
+
             end
         })
-        indicator.TopEnd = indicator:Adopt(Prop.new{
-            Name = "TopEnd",
-            Texture = Texture.new("game/assets/images/meta/parry/parry-indicator-edge.png"),
-            Size = V{4,4}, Visible = false,
-            AnchorPoint = V{0.5,0.5},
-            DrawOverShaders = true,
-            Position = V{hitTileEdge, wallTopEdge},
-            Color = Constant.COLOR.WHITE,
-        })
-        indicator.BottomEnd = indicator:Adopt(Prop.new{
-            Name = "BottomEnd",
-            Texture = Texture.new("game/assets/images/meta/parry/parry-indicator-edge.png"),
-            Size = V{4,4}, Visible = false,
-            AnchorPoint = V{0.5,0.5},
-            DrawOverShaders = true,
-            Position = V{hitTileEdge, wallBottomEdge},
-            Color = Constant.COLOR.WHITE,
-        })
 
 
+
+        -- ShadowGroup basically just... defines the color of parry kicks
         self:GetLayer().ShadowGroup = self:GetLayer().ShadowGroup or self:GetLayer():Adopt(Prop.new{
             Name = "ShadowGroup",
-            Color = V{0,0,0,.85},
+            Color = HSV{0.5,1,0,1},
             -- DrawOverShaders = true,
             Shader = Shader.new("chexcore/assets/shaders/default-ignorealpha.glsl"),
             Draw = function(slf, tx, ty)
@@ -2837,24 +2874,38 @@ function Player:Parry()
             -- DrawOverShaders = true,
             Size = V{12, indicator.Size.Y},
             Color = V{0,0,0,0.75},
+            TopLip = topLip and 1 or 0,
+            BottomLip = bottomLip and 1 or 0,
+            RealBottomLip = 1,
             AnchorPoint = V{wallDir==-1 and 0 or 1, 0},
+            IndicatorRef = indicator,
             Direction = wallDir,
             Texture = Texture.new(wallDir==1 and "game/assets/images/meta/parry/wall-shadow-right.png" or "game/assets/images/meta/parry/wall-shadow.png"),
             Position = indicator.Position,
             Draw = function(slf,tx,ty)
-                slf:Update()
+                -- slf:Update()
+
+                if slf.IndicatorRef.DeathTimer and slf.IndicatorRef.DeathTimer >= slf.IndicatorRef.DeathLifeSpan - 1 then
+                    slf:GetLayer():SetShaderData("parryShadow", "gradientCount", 0)
+                    return
+                end
+
                 local tl, br = slf:GetPoint(0,0), slf:GetPoint(1,1)
                 local x1, y1 = (((tl) - V{tx,ty}) / self:GetLayer().Canvases[1]:GetSize())()
                 local x2, y2 = (((br) - V{tx,ty}) / self:GetLayer().Canvases[1]:GetSize())()
                                 
                 self:GetLayer():SetShaderData("parryShadow", "gradientCount", (self:GetLayer():GetShaderData("parryShadow", "gradientCount") or 0)+1)
                 self:GetLayer():EnqueueShaderData("parryShadow", "gradientRects", {x1,y1,x2,y2})
+                self:GetLayer():EnqueueShaderData("parryShadow", "gradientLips", {slf.TopLip, slf.BottomLip})
                 self:GetLayer():EnqueueShaderData("parryShadow", "gradientDirections", slf.Direction==1 and 1 or 0)
                 -- self:GetLayer():EnqueueShaderData("parryShadow", "gradientColors", slf.Color)
+            
+                
+
             end
         })
         -- shadowGroup.Shadows[#self:GetLayer().ShadowGroup.Shadows+1]=indicator.Shadow
-        newExpiredWall.visual = indicator
+        newExpiredWall.indicator = indicator
         -- local p = self:GetLayer():Adopt(Prop.new{
         --     Position = V{hitTileEdge, wallTopEdge},
         --     AnchorPoint = V{0.5,0.5},
@@ -2880,9 +2931,20 @@ function Player:Parry()
     self:PlaySFX("Parry2")
 end
 
+function Player:ClearExpiredWalls()
+    local e = self.ExpiredWalls
+    Timer.ScheduleFrames(4, function()
+        for i = 1, #e do
+            e[i].indicator.DeathTimer = -4*(i-1)
+        end
+    end)
+
+    self.ExpiredWalls = {}
+end
+
 function Player:BumpWall()
     
-    self:GrowHitbox()
+    self:EndCrouch()
 
     self.JumpBuffer = 0
     -- local parrySpeed = ((self.WallDirection == "right" and self.MoveDir == 1) or (self.WallDirection == "left" and self.MoveDir == -1)) and 1 -- player is moving towards wall
@@ -3142,7 +3204,8 @@ function Player:StartCrouch()
 end
 
 function Player:EndCrouch() -- returns true if crouch could successfully end; false if there was a boundary in the way
-    local px, py = self.Position()
+
+local px, py = self.Position()
     -- self:GrowHitbox(true)
     -- self.BlockCrouchEnd = false
     -- local solid, surfaceInfo = self:UnclipY(true, true)
@@ -3256,34 +3319,7 @@ function Player:UpdateAnimation()
 
     self._ind = self._ind or {}
 
-    for i, wall in ipairs(self.ExpiredWalls) do
-        local tileTL = V{
-            wall.prop:GetEdge("left", wall.tileX, wall.tileY, wall.tileLayer),
-            wall.prop:GetEdge("top", wall.tileX, wall.tileY, wall.tileLayer)
-        }
 
-        -- self._ind[i*2] = self._ind[i*2] or self:GetLayer():Adopt(Prop.new{
-        --     AnchorPoint = V{0.5,0.5},
-        --     DrawOverShaders = true,
-        --     Size = V{4,4},
-        --     Color =  V{1,0,0}
-        -- })
-        -- self._ind[i*2]:MoveTo(V{
-        --     tileTL.X - wall.ofsTop.X,
-        --     tileTL.Y - wall.ofsTop.Y,
-        -- })
-
-        -- self._ind[i*2-1] = self._ind[i*2-1] or self:GetLayer():Adopt(Prop.new{
-        --     AnchorPoint = V{0.5,0.5},
-        --     DrawOverShaders = true,
-        --     Size = V{4,4},
-        --     Color =  V{0,1,0}
-        -- })
-        -- self._ind[i*2-1]:MoveTo(V{
-        --     tileTL.X - wall.ofsBottom.X,
-        --     tileTL.Y - wall.ofsBottom.Y,
-        -- })
-    end
 
 
     
@@ -3733,6 +3769,7 @@ function Player:UpdateFrameValues()
         self.FramesSinceJump = -1
         self.FramesSinceHoldingJump = -1
         self.DiveExpired = false
+        if #self.ExpiredWalls > 0 then self:ClearExpiredWalls() end
         if self.FramesSinceGrounded > -1 then
             self.FramesSinceGrounded = self.FramesSinceGrounded + 1
         end
@@ -4051,6 +4088,7 @@ function Player:UpdateFrameValues()
         if self.BlockCrouchEnd then
             self.CrouchTime = self.CrouchTime + 1
         end
+        
         self:EndCrouch()
 
     end
@@ -4072,7 +4110,8 @@ function Player:UpdateFrameValues()
 
 
     -- safeguard to make sure hitbox isn't small for no reason
-    if self.Floor and self.FramesSinceRoll == -1 and self.CrouchTime == 0 and self.IsCrouchedHitbox then
+    if (self.Floor and self.FramesSinceRoll == -1 and self.CrouchTime == 0 and self.IsCrouchedHitbox) or
+       (not self.Floor and (self.FramesSinceDive == -1 and self.FramesSincePounce == -1 and (self.FramesSinceParry == -1 or self.FramesSinceParry > 20))) then
         
         self:GrowHitbox()
 
