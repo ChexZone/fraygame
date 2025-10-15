@@ -11,24 +11,168 @@ extern vec4 gradientRects[MAX_GRADIENTS];  // (topleft_x, topleft_y, bottomright
 extern vec4 gradientColor;                 // rgba color for the gradient
 extern float gradientDirections[MAX_GRADIENTS]; // 0.0 = left, 1.0 = right
 extern vec2 gradientLips[MAX_GRADIENTS];   // (top_lip, bottom_lip) - 1.0 = rounded corner, 0.0 = hard corner
+extern float gradientRippleAmplitudes[MAX_GRADIENTS]; // ripple strength per gradient
+extern float gradientRipplePivots[MAX_GRADIENTS]; // normalized 0-1 pivot point for wave origin
+extern float gradientPivotIntensities[MAX_GRADIENTS]; // pivot intensity multiplier per gradient
+extern float gradientTimeOffsets[MAX_GRADIENTS]; // time offset per gradient for wave phase
+extern float gradientPivotPinchStrengths[MAX_GRADIENTS]; // strength of inward pinch at pivot per gradient
 extern int gradientCount;                  // number of active gradients
+extern float time;                         // time for animated ripple effect
+extern vec2 cameraPos;                     // camera position for world-space ripples
 
 // Internal settings
 const float outlineThickness = 1.0;        // thickness of outline in pixels (1.0 = 1 pixel, 2.0 = 2 pixels, etc.)
-const float gradientSteps = 2.0;          // number of discrete gradient steps (e.g., 3.0 = 3 bands, higher = more bands)
+const float gradientSteps = 3.0;          // number of discrete gradient steps (e.g., 3.0 = 3 bands, higher = more bands)
 const float gradientPower = 0.2;           // gradient intensity curve (higher = stronger gradient, sharper falloff at end; 1.0 = linear)
 const float edgeSmoothness = 0.0;          // smoothness of band transitions (0.0 = sharp, 1.0 = very smooth)
 const float edgeRoundingRadius = 0.015;     // radius for rounding top/bottom edges in screen space (0.02 = 2% of screen width)
 const float minimumRoundingHeight = 0.02;  // minimum rect height in screen space to apply edge rounding (0.04 = 4% of screen height)
 
+// Ripple effect settings
+// rippleAmplitude is now per-gradient (see gradientRippleAmplitudes array)
+const float rippleFrequency = 150.0;        // number of ripple waves
+const float rippleSpeed = 5.0;             // speed of ripple animation
+
+// Pivot pinch settings
+const float pivotPinchRange = 0.1;         // how far from pivot the pinch extends (0.0-0.5, normalized to gradient height)
+
 void effect()
 {
     vec2 texture_coords = VaryingTexCoord.xy;
     
-    // Sample the 3 layers from the texture array
-    vec4 layer0 = Texel(MainTex, vec3(texture_coords, 0.0));
-    vec4 layer1 = Texel(MainTex, vec3(texture_coords, 1.0));
-    vec4 layer2 = Texel(MainTex, vec3(texture_coords, 2.0));
+    // Calculate ripple distortion based on gradient presence
+    vec2 distortedCoords = texture_coords;
+    float maxRippleIntensity = 0.0;
+    float rippleDirection = 0.0;  // Track the direction of the strongest ripple
+    float rippleAmplitude = 0.0;  // Track the amplitude of the strongest ripple
+    float ripplePivot = 0.5;      // Track the pivot point of the strongest ripple
+    float pivotIntensityMultiplier = 1.0; // Track the pivot intensity multiplier of the strongest ripple
+    float timeOffset = 0.0;       // Track the time offset of the strongest ripple
+    float pivotPinchStrength = 0.0; // Track the pivot pinch strength of the strongest ripple
+    vec4 activeRect = vec4(0.0);  // Track the active gradient rect
+    
+    // Check all gradients to find the maximum ripple intensity for this pixel
+    for (int i = 0; i < gradientCount; i++) {
+        vec4 rect = gradientRects[i];
+        vec2 topLeft = rect.xy;
+        vec2 bottomRight = rect.zw;
+        
+        // Check if inside the rectangle bounds
+        bool insideRect = (texture_coords.x >= topLeft.x && texture_coords.x <= bottomRight.x &&
+                          texture_coords.y >= topLeft.y && texture_coords.y <= bottomRight.y);
+        
+        if (insideRect) {
+            // Calculate position within rectangle
+            float rectWidth = bottomRight.x - topLeft.x;
+            float normalizedX = clamp((texture_coords.x - topLeft.x) / rectWidth, 0.0, 1.0);
+            
+            // Calculate ripple intensity (strongest where gradient is visible)
+            float rippleIntensity;
+            if (gradientDirections[i] < 0.5) {
+                // Left gradient: ripple on left side
+                rippleIntensity = 1.0 - normalizedX;
+                // Store direction, amplitude, pivot for left gradients
+                if (rippleIntensity > maxRippleIntensity) {
+                    rippleDirection = -1.0;
+                    rippleAmplitude = gradientRippleAmplitudes[i];
+                    ripplePivot = gradientRipplePivots[i];
+                    pivotIntensityMultiplier = gradientPivotIntensities[i];
+                    timeOffset = gradientTimeOffsets[i];
+                    pivotPinchStrength = gradientPivotPinchStrengths[i];
+                    activeRect = rect;
+                }
+            } else {
+                // Right gradient: ripple on right side
+                rippleIntensity = normalizedX;
+                // Store direction, amplitude, pivot for right gradients
+                if (rippleIntensity > maxRippleIntensity) {
+                    rippleDirection = 1.0;
+                    rippleAmplitude = gradientRippleAmplitudes[i];
+                    ripplePivot = gradientRipplePivots[i];
+                    pivotIntensityMultiplier = gradientPivotIntensities[i];
+                    timeOffset = gradientTimeOffsets[i];
+                    pivotPinchStrength = gradientPivotPinchStrengths[i];
+                    activeRect = rect;
+                }
+            }
+            
+            // Apply power curve to concentrate ripple where gradient is strongest
+            rippleIntensity = pow(rippleIntensity, 1.0 / gradientPower);
+            maxRippleIntensity = max(maxRippleIntensity, rippleIntensity);
+        }
+    }
+    
+    // Apply ripple distortion if intensity is sufficient
+    if (maxRippleIntensity > 0.01) {
+        // Calculate normalized Y position within the gradient rect (0 = top, 1 = bottom)
+        vec2 topLeft = activeRect.xy;
+        vec2 bottomRight = activeRect.zw;
+        float rectHeight = bottomRight.y - topLeft.y;
+        float normalizedY = clamp((texture_coords.y - topLeft.y) / rectHeight, 0.0, 1.0);
+        
+        // Calculate pivot position in world space
+        float pivotWorldY = (topLeft.y + ripplePivot * rectHeight) * love_ScreenSize.y + cameraPos.y;
+        
+        // Convert screen space to world space for wave calculation
+        vec2 worldPos = texture_coords * love_ScreenSize.xy + cameraPos;
+        
+        // Calculate SIGNED distance from pivot (negative above, positive below)
+        float distanceFromPivot = worldPos.y - pivotWorldY;
+        
+        // Calculate wave with opposite propagation above/below pivot
+        // Use abs() for spatial component to create the split at pivot
+        // Since abs(distance) increases away from pivot in both directions,
+        // using the same time offset makes waves move toward pivot on both sides
+        // Above pivot: waves move downward (toward pivot)
+        // Below pivot: waves move upward (toward pivot)
+        float wave = sin(abs(distanceFromPivot) * rippleFrequency + (time + timeOffset) * rippleSpeed);
+        
+        // Add tapering at top and bottom edges
+        // Calculate distance from nearest edge (0.0 at edges, 0.5 at center)
+        float distFromEdge = 0.5 - abs(normalizedY - 0.5);
+        // Apply smooth tapering (adjust multiplier to control taper strength)
+        float taper = smoothstep(0.0, 0.15, distFromEdge);
+        
+        // Intensify effect near the pivot
+        // Calculate normalized distance from pivot (0.0 at pivot, 0.5 at edges)
+        float distFromPivotNorm = abs(normalizedY - ripplePivot);
+        // Create intensity that's strongest at pivot and fades toward edges
+        // Use narrower smoothstep range (0.0 to 0.3) for more concentrated effect
+        float pivotIntensity = 1.0 - smoothstep(0.0, 0.3, distFromPivotNorm);
+        // Apply per-gradient intensity multiplier (default would be 1.0 for no extra boost)
+        pivotIntensity = pow(pivotIntensity, 0.3) * pivotIntensityMultiplier + (1.0 - pivotIntensity);
+        
+        // Apply distortion with direction, intensity, taper, and pivot boost
+        // Pull pixels FROM inside to make edges jut OUT (subtract to sample from opposite direction)
+        float distortion = wave * maxRippleIntensity * rippleAmplitude * taper * pivotIntensity;
+        
+        // Apply horizontal distortion in the gradient direction
+        distortedCoords.x -= distortion * rippleDirection;
+        
+        // Apply pivot pinch effect - pulls pixels inward at the pivot
+        if (pivotPinchStrength > 0.0) {
+            // Calculate distance from pivot (0.0 at pivot, increases away from it)
+            float distFromPivotNorm = abs(normalizedY - ripplePivot);
+            
+            // Create pinch intensity that's strongest at pivot and fades away
+            // Use pivotPinchRange to control how far the effect extends
+            float pinchIntensity = 1.0 - smoothstep(0.0, pivotPinchRange, distFromPivotNorm);
+            pinchIntensity = pow(pinchIntensity, 0.4); // Sharpen the falloff
+            
+            // Apply pinch distortion - pull inward (opposite to gradient direction)
+            // Multiply by maxRippleIntensity to respect the gradient's horizontal intensity
+            float pinchDistortion = pinchIntensity * pivotPinchStrength * maxRippleIntensity;
+            distortedCoords.x += pinchDistortion * rippleDirection; // opposite sign from wave distortion
+        }
+    }
+    
+    // Sample the 3 layers from the texture array (using distorted coordinates)
+    vec4 layer0 = Texel(MainTex, vec3(distortedCoords, 0.0));
+    vec4 layer1 = Texel(MainTex, vec3(distortedCoords, 1.0));
+    vec4 layer2 = Texel(MainTex, vec3(distortedCoords, 2.0));
+    
+    // Also sample undistorted for black pixel detection
+    vec4 layer0_undistorted = Texel(MainTex, vec3(texture_coords, 0.0));
     
     // Start with the base texture color
     vec4 finalColor = layer0;
@@ -41,6 +185,7 @@ void effect()
     bool gradientApplied = false;  // Track if any gradient affected this pixel
     
     // Pre-calculate edge detection once (expensive operation, so do it outside the gradient loop)
+    // Check edges in screen space to maintain consistent outline
     if (isOpaque) {
         // Get texture dimensions for pixel offset calculation
         vec2 texelSize = 1.0 / love_ScreenSize.xy;
@@ -62,8 +207,107 @@ void effect()
         int numChecks = outlineThickness > 1.5 ? 8 : 4;
         
         for (int i = 0; i < numChecks; i++) {
-            vec2 neighborCoords = texture_coords + offsets[i] * texelSize;
-            vec4 neighborColor = Texel(MainTex, vec3(neighborCoords, 0.0));
+            // Sample neighbors in screen space to get consistent edge detection
+            vec2 neighborScreenCoords = texture_coords + offsets[i] * texelSize;
+            
+            // Calculate the same ripple distortion for the neighbor
+            float neighborRippleIntensity = 0.0;
+            float neighborRippleDirection = 0.0;
+            float neighborRippleAmplitude = 0.0;
+            float neighborRipplePivot = 0.5;
+            float neighborPivotIntensityMultiplier = 1.0;
+            float neighborTimeOffset = 0.0;
+            float neighborPivotPinchStrength = 0.0;
+            vec4 neighborActiveRect = vec4(0.0);
+            
+            // Check gradients for neighbor position
+            for (int j = 0; j < gradientCount; j++) {
+                vec4 rect = gradientRects[j];
+                vec2 topLeft = rect.xy;
+                vec2 bottomRight = rect.zw;
+                
+                bool insideRect = (neighborScreenCoords.x >= topLeft.x && neighborScreenCoords.x <= bottomRight.x &&
+                                  neighborScreenCoords.y >= topLeft.y && neighborScreenCoords.y <= bottomRight.y);
+                
+                if (insideRect) {
+                    float rectWidth = bottomRight.x - topLeft.x;
+                    float normalizedX = clamp((neighborScreenCoords.x - topLeft.x) / rectWidth, 0.0, 1.0);
+                    
+                    float intensity;
+                    if (gradientDirections[j] < 0.5) {
+                        intensity = 1.0 - normalizedX;
+                        if (intensity > neighborRippleIntensity) {
+                            neighborRippleDirection = -1.0;
+                            neighborRippleAmplitude = gradientRippleAmplitudes[j];
+                            neighborRipplePivot = gradientRipplePivots[j];
+                            neighborPivotIntensityMultiplier = gradientPivotIntensities[j];
+                            neighborTimeOffset = gradientTimeOffsets[j];
+                            neighborPivotPinchStrength = gradientPivotPinchStrengths[j];
+                            neighborActiveRect = rect;
+                        }
+                    } else {
+                        intensity = normalizedX;
+                        if (intensity > neighborRippleIntensity) {
+                            neighborRippleDirection = 1.0;
+                            neighborRippleAmplitude = gradientRippleAmplitudes[j];
+                            neighborRipplePivot = gradientRipplePivots[j];
+                            neighborPivotIntensityMultiplier = gradientPivotIntensities[j];
+                            neighborTimeOffset = gradientTimeOffsets[j];
+                            neighborPivotPinchStrength = gradientPivotPinchStrengths[j];
+                            neighborActiveRect = rect;
+                        }
+                    }
+                    
+                    intensity = pow(intensity, 1.0 / gradientPower);
+                    neighborRippleIntensity = max(neighborRippleIntensity, intensity);
+                }
+            }
+            
+            // Apply neighbor's ripple distortion
+            vec2 neighborDistortedCoords = neighborScreenCoords;
+            if (neighborRippleIntensity > 0.01) {
+                // Calculate normalized Y position within neighbor's gradient rect
+                vec2 neighborTopLeft = neighborActiveRect.xy;
+                vec2 neighborBottomRight = neighborActiveRect.zw;
+                float neighborRectHeight = neighborBottomRight.y - neighborTopLeft.y;
+                float neighborNormalizedY = clamp((neighborScreenCoords.y - neighborTopLeft.y) / neighborRectHeight, 0.0, 1.0);
+                
+                // Calculate pivot position in world space
+                float neighborPivotWorldY = (neighborTopLeft.y + neighborRipplePivot * neighborRectHeight) * love_ScreenSize.y + cameraPos.y;
+                
+                // Convert neighbor screen space to world space
+                vec2 neighborWorldPos = neighborScreenCoords * love_ScreenSize.xy + cameraPos;
+                
+                // Calculate SIGNED distance from pivot
+                float neighborDistanceFromPivot = neighborWorldPos.y - neighborPivotWorldY;
+                
+                // Calculate wave with opposite propagation above/below pivot
+                float wave = sin(abs(neighborDistanceFromPivot) * rippleFrequency + (time + neighborTimeOffset) * rippleSpeed);
+                
+                // Add tapering at top and bottom edges for neighbor
+                float neighborDistFromEdge = 0.5 - abs(neighborNormalizedY - 0.5);
+                float neighborTaper = smoothstep(0.0, 0.15, neighborDistFromEdge);
+                
+                // Intensify effect near the pivot for neighbor
+                float neighborDistFromPivotNorm = abs(neighborNormalizedY - neighborRipplePivot);
+                float neighborPivotIntensity = 1.0 - smoothstep(0.0, 0.3, neighborDistFromPivotNorm);
+                neighborPivotIntensity = pow(neighborPivotIntensity, 0.3) * neighborPivotIntensityMultiplier + (1.0 - neighborPivotIntensity);
+                
+                float distortion = wave * neighborRippleIntensity * neighborRippleAmplitude * neighborTaper * neighborPivotIntensity;
+                neighborDistortedCoords.x -= distortion * neighborRippleDirection;
+                
+                // Apply pivot pinch effect for neighbor
+                if (neighborPivotPinchStrength > 0.0) {
+                    float neighborDistFromPivotNorm = abs(neighborNormalizedY - neighborRipplePivot);
+                    float neighborPinchIntensity = 1.0 - smoothstep(0.0, pivotPinchRange, neighborDistFromPivotNorm);
+                    neighborPinchIntensity = pow(neighborPinchIntensity, 0.4);
+                    float neighborPinchDistortion = neighborPinchIntensity * neighborPivotPinchStrength * neighborRippleIntensity;
+                    neighborDistortedCoords.x += neighborPinchDistortion * neighborRippleDirection;
+                }
+            }
+            
+            // Sample with distorted coordinates
+            vec4 neighborColor = Texel(MainTex, vec3(neighborDistortedCoords, 0.0));
             
             // Check if neighbor is transparent
             if (neighborColor.a < 0.5) {
@@ -92,8 +336,8 @@ void effect()
         // Mark that a gradient is affecting this pixel
         gradientApplied = true;
         
-        // Check if pixel is originally fully black
-        bool isBlackPixel = (baseColor.r < 0.01 && baseColor.g < 0.01 && baseColor.b < 0.01);
+        // Check if pixel is originally fully black (use undistorted sample)
+        bool isBlackPixel = (layer0_undistorted.r < 0.01 && layer0_undistorted.g < 0.01 && layer0_undistorted.b < 0.01);
         
         // Draw solid white outline on edge pixels or originally black pixels
         if (isEdgePixel || isBlackPixel) {

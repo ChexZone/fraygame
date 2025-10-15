@@ -1791,7 +1791,7 @@ function Player:StartRagdoll(surfaceInfo, alreadyInRagdoll)
     end
 
 
-
+    self:ClearExpiredWalls()
 
     -- if type(surfaceInfo.DamageVelocity.X) == "string" then
     --     self.Ragdoll.Velocity.X = self.IsInRagdoll and self.Ragdoll.Velocity.X or self.Velocity.X
@@ -2635,11 +2635,6 @@ function Player:Parry()
 
     -- calculate the bounds of the wall the player hit (since it's probably a tile)
     if self.LastParryWall:IsA("Tilemap") then
-        -- self.WallSurfaceInfo = surfaceInfo[direction=="left" and "Left" or "Right"]
-        -- self.LastWallSurfaceInfo = self.WallSurfaceInfo
-        -- self.WallTileNo = tileNo
-        -- self.WallDirection
-        -- self.WallTileLayer = tileLayer
         wallDir = wallDir -- reminder lol
         local x, y = self.Wall:GetTileCoordinatesFromIndex(self.WallTileNo)
         local layer = self.WallTileLayer
@@ -2676,10 +2671,6 @@ function Player:Parry()
                 topLip = true
                 wallTopEdge = self.Wall:GetEdge("top", x, y_u+1, layer)
                 break
-            -- elseif self.Wall:GetEdge("bottom", x, y_u, layer)~=self.Wall:GetEdge("top", x, y_u+1, layer) then
-            --     print("FOUND TOP: tile top cuts off!")
-            --     wallTopEdge = self.Wall:GetEdge("top", x, y_u, layer)
-            --     break
             else
                 -- fail condition 3: adjacent tile may be a ceiling
                 local t2x = x+(1*wallDir)
@@ -2724,10 +2715,6 @@ function Player:Parry()
                 bottomLip = true
                 wallBottomEdge = self.Wall:GetEdge("bottom", x, y_d-1, layer)
                 break
-            -- elseif self.Wall:GetEdge("bottom", x, y_u, layer)~=self.Wall:GetEdge("top", x, y_u+1, layer) then
-            --     print("FOUND TOP: tile top cuts off!")
-            --     wallTopEdge = self.Wall:GetEdge("top", x, y_u, layer)
-            --     break
             else
                 -- fail condition 3: adjacent tile may be a floor
                 local t2x = x+(1*wallDir)
@@ -2819,11 +2806,12 @@ function Player:Parry()
 
                     slf.Shadow.Position = slf.Shadow.Position + V{0,slf.OrigSize.Y/2}
                     slf.Shadow.AnchorPoint.Y = 0.5
+                    
                     if slf.DeathTimer > 0 then 
-                        -- slf.Shadow.TopLip = 0
-                        -- slf.Shadow.RealBottomLip = 0
+                        slf.Shadow.Amplitude = tween("outCirc", 3, 0, slf.DeathTimer/slf.DeathLifeSpan)
                         slf.Shadow.Size.Y = tween("inExpo", slf.OrigSize.Y, 0, slf.DeathTimer/slf.DeathLifeSpan)
-                        -- slf.Shadow.Size.X = tween("inExpo", indSizeX, 0, slf.DeathTimer/slf.DeathLifeSpan)
+                        slf.Shadow.RipplePivot = 0.5
+                        slf.Shadow.Size.X = tween("inExpo", indSizeX, 0, slf.DeathTimer/slf.DeathLifeSpan)
                         if slf.DeathTimer >= slf.DeathLifeSpan then
                             -- Timer.ScheduleFrames(1, function()
                                 slf:Disown(slf.Shadow)
@@ -2834,10 +2822,11 @@ function Player:Parry()
                     return
                 end
                 
-
+                slf.Shadow.HitPointIntensity = 1-- tween("outElastic", 3, 1, slf.FramesAlive/90)
                 slf.Shadow.Size.X = tween("outElastic", 0, indSizeX, slf.FramesAlive/60)
-
-
+                slf.Shadow.Amplitude = tween("outExpo", 10, 2, slf.FramesAlive/60)
+                slf.Shadow.WaveTimeOffset = tween("outExpo", 0, 1.5, slf.FramesAlive/60)
+                slf.Shadow.PivotPinchStrength = tween("outExpo", 0.075, 0, slf.FramesAlive/60)
                 -- slf.BottomEnd.Position = originPos
 
                 slf.FramesAlive = slf.FramesAlive + 1
@@ -2847,8 +2836,8 @@ function Player:Parry()
             end
         })
 
-
-
+        local distAlongWall = math.clamp((self.YHitbox:GetPoint(0.5,0.75).Y - wallTopEdge) / (wallBottomEdge - wallTopEdge),0,1)
+       
         -- ShadowGroup basically just... defines the color of parry kicks
         self:GetLayer().ShadowGroup = self:GetLayer().ShadowGroup or self:GetLayer():Adopt(Prop.new{
             Name = "ShadowGroup",
@@ -2857,6 +2846,8 @@ function Player:Parry()
             Shader = Shader.new("chexcore/assets/shaders/default-ignorealpha.glsl"),
             Draw = function(slf, tx, ty)
                 self:GetLayer():SetShaderData("parryShadow", "gradientColor", slf.Color)
+                self:GetLayer():SetShaderData("parryShadow", "time", Chexcore._clock)
+                self:GetLayer():SetShaderData("parryShadow", "cameraPos", -self:GetScene().Camera.Position/200)
 
                 -- self.Shader:Activate()
                 -- love.graphics.setBlendMode("multiply","premultiplied")
@@ -2876,9 +2867,15 @@ function Player:Parry()
             Color = V{0,0,0,0.75},
             TopLip = topLip and 1 or 0,
             BottomLip = bottomLip and 1 or 0,
+            PivotPinchStrength = 0.03,
             RealBottomLip = 1,
             AnchorPoint = V{wallDir==-1 and 0 or 1, 0},
             IndicatorRef = indicator,
+            WaveTimeOffset = 0,
+            HitPointIntensity = 1,
+            Amplitude = 3,
+            RipplePivot = distAlongWall,
+            RippleFrequency = 150,
             Direction = wallDir,
             Texture = Texture.new(wallDir==1 and "game/assets/images/meta/parry/wall-shadow-right.png" or "game/assets/images/meta/parry/wall-shadow.png"),
             Position = indicator.Position,
@@ -2896,8 +2893,14 @@ function Player:Parry()
                                 
                 self:GetLayer():SetShaderData("parryShadow", "gradientCount", (self:GetLayer():GetShaderData("parryShadow", "gradientCount") or 0)+1)
                 self:GetLayer():EnqueueShaderData("parryShadow", "gradientRects", {x1,y1,x2,y2})
+                self:GetLayer():EnqueueShaderData("parryShadow", "gradientRippleAmplitudes", slf.Amplitude/1000)
+                self:GetLayer():EnqueueShaderData("parryShadow", "gradientRipplePivots", slf.RipplePivot)
+                self:GetLayer():EnqueueShaderData("parryShadow", "gradientPivotIntensities", slf.HitPointIntensity)
                 self:GetLayer():EnqueueShaderData("parryShadow", "gradientLips", {slf.TopLip, slf.BottomLip})
                 self:GetLayer():EnqueueShaderData("parryShadow", "gradientDirections", slf.Direction==1 and 1 or 0)
+                self:GetLayer():EnqueueShaderData("parryShadow", "gradientTimeOffsets", slf.WaveTimeOffset)
+                self:GetLayer():EnqueueShaderData("parryShadow", "gradientPivotPinchStrengths", slf.PivotPinchStrength)
+                
                 -- self:GetLayer():EnqueueShaderData("parryShadow", "gradientColors", slf.Color)
             
                 
