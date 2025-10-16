@@ -2909,6 +2909,9 @@ function Player:Parry()
             self:GetLayer():SetShaderData("parryShadow", "time", Chexcore._clock)
             self:GetLayer():SetShaderData("parryShadow", "cameraPos", -self:GetScene().Camera.Position/200)
 
+            if #self.ExpiredWalls == 0 then
+                self:GetLayer():SetShaderData("parryShadow", "gradientCount", 0)
+            end
             -- self.Shader:Activate()
             -- love.graphics.setBlendMode("multiply","premultiplied")
 
@@ -2948,10 +2951,9 @@ function Player:Parry()
         Draw = function(slf,tx,ty)
             -- slf:Update()
 
-            if slf.IndicatorRef.DeathTimer and slf.IndicatorRef.DeathTimer >= slf.IndicatorRef.DeathLifeSpan - 1 then
-                slf:GetLayer():SetShaderData("parryShadow", "gradientCount", 0)
-                return
-            end
+            -- if slf.IndicatorRef.DeathTimer and slf.IndicatorRef.DeathTimer >= slf.IndicatorRef.DeathLifeSpan - 1 then
+            --     Timer.ScheduleFrames(1, function() layer:SetShaderData("parryShadow", "gradientCount", layer:GetShaderData("parryShadow", "gradientCount")-1) end)
+            -- end
 
             local tl, br = slf:GetPoint(0,0), slf:GetPoint(1,1)
             local x1, y1 = (((tl) - V{tx,ty}) / self:GetLayer().Canvases[1]:GetSize())()
