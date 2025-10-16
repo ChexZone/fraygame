@@ -244,6 +244,7 @@ end
 
 
     newGameScene.HealthBar = newGameScene.GuiLayer:Adopt(Prop.new{
+
         Name = "HealthBar",
         Health = 3,
 
@@ -256,6 +257,8 @@ end
         GoalOverhangPosition = V{0,0},
 
         Update = function (self, dt)
+            if not newGameScene.Player then return end
+
             local baseZoom =  newGameScene.GameplaySize.X / 640
             if self.Health <= 0 then
                 local focus = (newGameScene.Player.Ragdoll:GetPoint(0.5,0.5) - newGameScene.Camera.Position)*(newGameScene.Camera.Zoom/baseZoom) + V{640, 360} / 2

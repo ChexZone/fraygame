@@ -1,3 +1,11 @@
+local MATERIAL_GOO_TIME = {
+    Grass = 3,
+    Stone = 2,
+    Sand = 10,
+    Ice = 20,
+    None = 1,
+}
+
 local Player = {
     -- inherited properties
     Name = "Player",
@@ -2552,6 +2560,8 @@ function Player:Parry()
 
     local allowedToParry = true
 
+    
+
         --[[ {
             prop = [Prop] / [Tilemap],
             tileX = tx, tileY = ty, tileLayer = layer,
@@ -2560,6 +2570,7 @@ function Player:Parry()
         } --]]
     local pTop = self.YHitbox:GetPoint(wallDir==1 and 0 or 1, 0)
     local pBottom = self.YHitbox:GetPoint(wallDir==1 and 0 or 1, 1)
+    local yHitPoint = self.YHitbox:GetPoint(0,0.75).Y
     for i = #self.ExpiredWalls, 1, -1 do
         local wall = self.ExpiredWalls[i]
         if wall.prop ~= self.Wall then goto expWallCont end
@@ -2582,9 +2593,14 @@ function Player:Parry()
             curTileTL.X - wall.ofsOrigin.X,
             curTileTL.Y - wall.ofsOrigin.Y
         }
+
+
         if pBottom.Y >= topPos.Y and pTop.Y <= bottomPos.Y and math.abs(pTop.X - topPos.X) < 4 then
             allowedToParry = false
-            self:ClearExpiredWalls()
+            local distAlongWall = math.clamp((self.YHitbox:GetPoint(0.5,0.75).Y - topPos.Y) / (bottomPos.Y - topPos.Y),0,1)
+            wall.indicator.FramesAlive = 0
+            wall.indicator.Shadow.RipplePivot = distAlongWall
+            self:ClearExpiredWalls(wall)
             break
         end
         ::expWallCont::
@@ -2632,23 +2648,25 @@ function Player:Parry()
     self.LastParryWallPos = self.Wall.Position:Clone()
     self.LastParryFace = self.WallBumpDirection
     self.FramesSinceParry = 0
+    local wallTopEdge, wallBottomEdge = 0,0
+    local newExpiredWall, hitEdge
+    local topLip, bottomLip = false, false
+    local wallFace = self.WallBumpDirection == "left" and "right" or "left"
 
     -- calculate the bounds of the wall the player hit (since it's probably a tile)
     if self.LastParryWall:IsA("Tilemap") then
         wallDir = wallDir -- reminder lol
         local x, y = self.Wall:GetTileCoordinatesFromIndex(self.WallTileNo)
         local layer = self.WallTileLayer
-        local wallFace = self.WallBumpDirection == "left" and "right" or "left"
-        local hitTileEdge = self.Wall:GetEdge(wallFace, x, y, layer)
-        print("tilemap kick", wallFace, x, y, layer, hitTileEdge)
+        hitEdge = self.Wall:GetEdge(wallFace, x, y, layer)
+        print("tilemap kick", wallFace, x, y, layer, hitEdge)
 
         -- travel upward from the current tile until you find a ledge or ceiling
-        local wallTopEdge, wallBottomEdge = 0,0
+        
 
         wallTopEdge = self.Wall:GetEdge("top", x, y, layer)
         wallBottomEdge = self.Wall:GetEdge("bottom", x, y, layer)
 
-        local topLip, bottomLip = false, false
         for y_u = y-1, 1, -1 do
             
             local tileEdge = self.Wall:GetEdge(wallFace, x, y_u, layer)
@@ -2661,7 +2679,7 @@ function Player:Parry()
                 print("FOUND TOP: No tile!")
                 -- wallTopEdge = self.Wall:GetEdge("bottom", x, y_u, layer)
                 break
-            elseif math.abs(tileEdge - hitTileEdge) >= 4 then -- fail condition 2: wall inset changed
+            elseif math.abs(tileEdge - hitEdge) >= 4 then -- fail condition 2: wall inset changed
                 print("FOUND TOP: Edge changed!")
                 topLip = true
                 wallTopEdge = self.Wall:GetEdge("bottom", x, y_u, layer)
@@ -2682,7 +2700,7 @@ function Player:Parry()
                     -- - its opposite X edge is the same as the current tile's X edge
                     local tile2OppositeEdge = self.Wall:GetEdge(self.WallBumpDirection, t2x, y_u, layer)
                     local tile2SurfaceInfo = self.Wall:GetSurfaceInfo(tileId2)
-                    if tile2OppositeEdge == hitTileEdge and not tile2SurfaceInfo.Bottom.Passthrough then -- if we parried the right wall, here the tile to the left's right is up against our wall's left edge
+                    if tile2OppositeEdge == hitEdge and not tile2SurfaceInfo.Bottom.Passthrough then -- if we parried the right wall, here the tile to the left's right is up against our wall's left edge
                         print("FOUND TOP: adjacent tile ceiling!")
                         topLip = true
                         wallTopEdge = self.Wall:GetEdge("bottom", t2x, y_u, layer)
@@ -2705,7 +2723,7 @@ function Player:Parry()
                 print("FOUND BOTTOM: No tile!")
                 -- wallBottomEdge = self.Wall:GetEdge("top", x, y_u, layer)
                 break
-            elseif math.abs(tileEdge - hitTileEdge) >= 4 then -- fail condition 2: wall inset changed
+            elseif math.abs(tileEdge - hitEdge) >= 4 then -- fail condition 2: wall inset changed
                 print("FOUND BOTTOM: Edge changed!")
                 bottomLip = true
                 wallBottomEdge = self.Wall:GetEdge("top", x, y_d, layer)
@@ -2727,7 +2745,7 @@ function Player:Parry()
                     local tile2OppositeEdge = self.Wall:GetEdge(self.WallBumpDirection, t2x, y_d, layer)
                     local tile2SurfaceInfo = self.Wall:GetSurfaceInfo(tileId2)
                     local tile2TopEdge = self.Wall:GetEdge("top", t2x, y_d, layer)
-                    if tile2OppositeEdge == hitTileEdge and not tile2SurfaceInfo.Top.Passthrough and wallTopEdge < tile2TopEdge then -- if we parried the right wall, here the tile to the left's right is up against our wall's left edge
+                    if tile2OppositeEdge == hitEdge and not tile2SurfaceInfo.Top.Passthrough and wallTopEdge < tile2TopEdge then -- if we parried the right wall, here the tile to the left's right is up against our wall's left edge
                         bottomLip = true
                         print("FOUND BOTTOM: adjacent tile floor!")
                         wallBottomEdge = tile2TopEdge
@@ -2738,192 +2756,241 @@ function Player:Parry()
             wallBottomEdge = self.Wall:GetEdge("bottom", x, y_d, layer)
         end
 
-        -- COME BACK
-
-        --[[ {
-            prop = [Prop] / [Tilemap],
-            tileX = tx, tileY = ty, tileLayer = layer,
-            ofsTop = V{topLeftOfTileMinusTX, topLeftOfTileMinusTY},
-            ofsBottom = V{topLeftOfTileMinusBX, topLeftOfTileMinusBY}
-        } --]]
-
-        print("top", wallTopEdge, "bottom", wallBottomEdge)
-
         local tileTL = V{self.Wall:GetEdge("left", x, y, layer), self.Wall:GetEdge("top", x, y, layer)} -- used as a reference point for indicator
 
-        local newExpiredWall = {
+        newExpiredWall = {
             prop = self.Wall,
             tileX = x, tileY = y, tileLayer = layer,
-            ofsTop = V{tileTL.X - hitTileEdge, tileTL.Y - wallTopEdge},
-            ofsBottom = V{tileTL.X - hitTileEdge, tileTL.Y - wallBottomEdge},
-            ofsOrigin = V{tileTL.X - hitTileEdge, tileTL.Y - self.YHitbox:GetPoint(0.5,0.75).Y}
+            ofsTop = V{tileTL.X - hitEdge, tileTL.Y - wallTopEdge},
+            ofsBottom = V{tileTL.X - hitEdge, tileTL.Y - wallBottomEdge},
+            ofsOrigin = V{tileTL.X - hitEdge, tileTL.Y - yHitPoint},
         }
-        self.ExpiredWalls[#self.ExpiredWalls+1] = newExpiredWall
-        local indicator indicator = self:GetLayer():Adopt(Prop.new{
-            Name = "ExpiredWallIndicator",
-            wall = newExpiredWall,
-            -- Origin = V{hitTileEdge, self.YHitbox:GetPoint(0.5,0.75).Y},
-            Position = V{hitTileEdge, wallTopEdge},
-            Size = V{4,wallBottomEdge-wallTopEdge},
-            OrigSize = V{4,wallBottomEdge-wallTopEdge},
-            DeathLifeSpan = 30,
-            AnchorPoint = V{0.5,0},
-            FramesAlive = 0,
-            Color = V{1,1,1,0},
-            DrawOverShaders = true,
-            Update = function(slf, dt)
+    else
+        -- regular Prop
+        hitEdge = self.Wall:GetEdge(wallFace)
+        wallTopEdge = self.Wall:GetEdge("top")
+        wallBottomEdge = self.Wall:GetEdge("bottom")
+        local wallTL = V{self.Wall:GetEdge("left"), self.Wall:GetEdge("top")}
+
+        newExpiredWall = {
+            prop = self.Wall,
+            tileX = 0, tileY = 0,
+            ofsTop = V{wallTL.X - hitEdge, wallTL.Y - wallTopEdge},
+            ofsBottom = V{wallTL.X - hitEdge, wallTL.Y - wallBottomEdge},
+            ofsOrigin = V{wallTL.X - hitEdge, wallTL.Y - yHitPoint},
+        }
+    end
+    -- COME BACK
+
+    --[[ {
+        prop = [Prop] / [Tilemap],
+        tileX = tx, tileY = ty, tileLayer = layer,
+        ofsTop = V{topLeftOfTileMinusTX, topLeftOfTileMinusTY},
+        ofsBottom = V{topLeftOfTileMinusBX, topLeftOfTileMinusBY}
+    } --]]
+
+    print("top", wallTopEdge, "bottom", wallBottomEdge)
+
+    print("WALLMAT", self:GetWallMaterial())
+    self.ExpiredWalls[#self.ExpiredWalls+1] = newExpiredWall
+    if not self.IndicatorHolder then
+        self.IndicatorHolder = self:GetLayer():Adopt(Group.new{Name="IndicatorHolder"})
+    end
+    local indicator indicator = self.IndicatorHolder:Adopt(Prop.new{
+        Name = "ExpiredWallIndicator",
+        wall = newExpiredWall,
+        -- Origin = V{hitEdge, self.YHitbox:GetPoint(0.5,0.75).Y},
+        Position = V{hitEdge, wallTopEdge},
+        Size = V{4,wallBottomEdge-wallTopEdge},
+        OrigSize = V{4,wallBottomEdge-wallTopEdge},
+        DeathLifeSpan = 30,
+        UltimateDestiny = Chexcore._clock + (MATERIAL_GOO_TIME[self:GetWallMaterial()] or MATERIAL_GOO_TIME["None"]), -- the time at which the indicator dies
+        DestinyDeathTimer = 17/60,
+        AnchorPoint = V{0.5,0},
+        FramesAlive = 0,
+        Color = V{1,1,1,0},
+        DrawOverShaders = true,
+        Update = function(slf, dt)
+            local wall = slf.wall
+            print(slf._propID)
+            if Chexcore._clock > slf.UltimateDestiny then
                 
+            end
 
+            local curTileTL = V{
+                wall.prop:GetEdge("left", wall.tileX, wall.tileY, wall.tileLayer),
+                wall.prop:GetEdge("top", wall.tileX, wall.tileY, wall.tileLayer)
+            }
 
-                local wall = slf.wall
-                local curTileTL = V{
-                    wall.prop:GetEdge("left", wall.tileX, wall.tileY, wall.tileLayer),
-                    wall.prop:GetEdge("top", wall.tileX, wall.tileY, wall.tileLayer)
-                }
+            local topPos = V{
+                curTileTL.X - wall.ofsTop.X,
+                curTileTL.Y - wall.ofsTop.Y
+            }
+            local bottomPos = V{
+                curTileTL.X - wall.ofsBottom.X,
+                curTileTL.Y - wall.ofsBottom.Y
+            }
+            local originPos = V{
+                curTileTL.X - wall.ofsOrigin.X,
+                curTileTL.Y - wall.ofsOrigin.Y
+            }
 
-                local topPos = V{
-                    curTileTL.X - wall.ofsTop.X,
-                    curTileTL.Y - wall.ofsTop.Y
-                }
-                local bottomPos = V{
-                    curTileTL.X - wall.ofsBottom.X,
-                    curTileTL.Y - wall.ofsBottom.Y
-                }
-                local originPos = V{
-                    curTileTL.X - wall.ofsOrigin.X,
-                    curTileTL.Y - wall.ofsOrigin.Y
-                }
+            
+            slf.Position = topPos
 
+            slf.Shadow.Position = topPos
+
+            local indSizeX = 11.5
+
+            if slf.DeathTimer then
+                slf.DeathTimer = slf.DeathTimer + 1
+
+                slf.Shadow.Position = slf.Shadow.Position + V{0,slf.OrigSize.Y/2}
+                slf.Shadow.AnchorPoint.Y = 0.5
                 
-                slf.Position = topPos
+                if slf.DeathTimer > 0 then
+                    slf.Shadow.PivotPinchStrength = 0
+                    slf.Shadow.Amplitude = tween("outElastic", 2, 0, slf.DeathTimer/slf.DeathLifeSpan)
+                    slf.Shadow.Size.Y = tween("inExpo", slf.OrigSize.Y, 0, slf.DeathTimer/slf.DeathLifeSpan)
+                    -- slf.Shadow.RipplePivot = 0.5
 
-                slf.Shadow.Position = topPos
-
-                local indSizeX = 12
-
-                if slf.DeathTimer then
-                    slf.DeathTimer = slf.DeathTimer + 1
-
-                    slf.Shadow.Position = slf.Shadow.Position + V{0,slf.OrigSize.Y/2}
-                    slf.Shadow.AnchorPoint.Y = 0.5
+                    slf.Shadow.Size.X = tween("inExpo", indSizeX, 0, slf.DeathTimer/slf.DeathLifeSpan)
                     
-                    if slf.DeathTimer > 0 then 
-                        slf.Shadow.Amplitude = tween("outCirc", 3, 0, slf.DeathTimer/slf.DeathLifeSpan)
-                        slf.Shadow.Size.Y = tween("inExpo", slf.OrigSize.Y, 0, slf.DeathTimer/slf.DeathLifeSpan)
-                        slf.Shadow.RipplePivot = 0.5
-                        slf.Shadow.Size.X = tween("inExpo", indSizeX, 0, slf.DeathTimer/slf.DeathLifeSpan)
-                        if slf.DeathTimer >= slf.DeathLifeSpan then
-                            -- Timer.ScheduleFrames(1, function()
-                                slf:Disown(slf.Shadow)
-                                slf:GetParent():Disown(slf)
-                            -- end)
-                        end
+                    if slf.DeathTimer >= slf.DeathLifeSpan then
+                        -- Timer.ScheduleFrames(1, function()
+                            slf:Disown(slf.Shadow)
+                            slf:GetParent():Disown(slf)
+                        -- end)
                     end
                     return
                 end
-                
-                slf.Shadow.HitPointIntensity = 1-- tween("outElastic", 3, 1, slf.FramesAlive/90)
-                slf.Shadow.Size.X = tween("outElastic", 0, indSizeX, slf.FramesAlive/60)
-                slf.Shadow.Amplitude = tween("outExpo", 10, 2, slf.FramesAlive/60)
-                slf.Shadow.WaveTimeOffset = tween("outExpo", 0, 1.5, slf.FramesAlive/60)
-                slf.Shadow.PivotPinchStrength = tween("outExpo", 0.075, 0, slf.FramesAlive/60)
-                -- slf.BottomEnd.Position = originPos
-
-                slf.FramesAlive = slf.FramesAlive + 1
-            end,
-            Draw = function(slf, tx, ty)
-
-            end
-        })
-
-        local distAlongWall = math.clamp((self.YHitbox:GetPoint(0.5,0.75).Y - wallTopEdge) / (wallBottomEdge - wallTopEdge),0,1)
-       
-        -- ShadowGroup basically just... defines the color of parry kicks
-        self:GetLayer().ShadowGroup = self:GetLayer().ShadowGroup or self:GetLayer():Adopt(Prop.new{
-            Name = "ShadowGroup",
-            Color = HSV{0.5,1,0,1},
-            -- DrawOverShaders = true,
-            Shader = Shader.new("chexcore/assets/shaders/default-ignorealpha.glsl"),
-            Draw = function(slf, tx, ty)
-                self:GetLayer():SetShaderData("parryShadow", "gradientColor", slf.Color)
-                self:GetLayer():SetShaderData("parryShadow", "time", Chexcore._clock)
-                self:GetLayer():SetShaderData("parryShadow", "cameraPos", -self:GetScene().Camera.Position/200)
-
-                -- self.Shader:Activate()
-                -- love.graphics.setBlendMode("multiply","premultiplied")
-   
-                -- love.graphics.setBlendMode("alpha")
-                -- self.Shader:Deactivate()
-            end
-        })
-        local shadowGroup = self:GetLayer().ShadowGroup
-
-        shadowGroup:MoveTo(self.Position)
-
-        indicator.Shadow = indicator:Adopt(Prop.new{
-            Name = "WallShadow",
-            -- DrawOverShaders = true,
-            Size = V{12, indicator.Size.Y},
-            Color = V{0,0,0,0.75},
-            TopLip = topLip and 1 or 0,
-            BottomLip = bottomLip and 1 or 0,
-            PivotPinchStrength = 0.03,
-            RealBottomLip = 1,
-            AnchorPoint = V{wallDir==-1 and 0 or 1, 0},
-            IndicatorRef = indicator,
-            WaveTimeOffset = 0,
-            HitPointIntensity = 1,
-            Amplitude = 3,
-            RipplePivot = distAlongWall,
-            RippleFrequency = 150,
-            Direction = wallDir,
-            Texture = Texture.new(wallDir==1 and "game/assets/images/meta/parry/wall-shadow-right.png" or "game/assets/images/meta/parry/wall-shadow.png"),
-            Position = indicator.Position,
-            Draw = function(slf,tx,ty)
-                -- slf:Update()
-
-                if slf.IndicatorRef.DeathTimer and slf.IndicatorRef.DeathTimer >= slf.IndicatorRef.DeathLifeSpan - 1 then
-                    slf:GetLayer():SetShaderData("parryShadow", "gradientCount", 0)
-                    return
+            elseif Chexcore._clock > (slf.UltimateDestiny - slf.DestinyDeathTimer) and not slf.DeathTimer then
+                slf.DeathTimer = 0
+                for i = 1, #self.ExpiredWalls do
+                    if self.ExpiredWalls[i] == slf.wall then
+                        table.remove(self.ExpiredWalls, i)
+                    end
                 end
-
-                local tl, br = slf:GetPoint(0,0), slf:GetPoint(1,1)
-                local x1, y1 = (((tl) - V{tx,ty}) / self:GetLayer().Canvases[1]:GetSize())()
-                local x2, y2 = (((br) - V{tx,ty}) / self:GetLayer().Canvases[1]:GetSize())()
-                                
-                self:GetLayer():SetShaderData("parryShadow", "gradientCount", (self:GetLayer():GetShaderData("parryShadow", "gradientCount") or 0)+1)
-                self:GetLayer():EnqueueShaderData("parryShadow", "gradientRects", {x1,y1,x2,y2})
-                self:GetLayer():EnqueueShaderData("parryShadow", "gradientRippleAmplitudes", slf.Amplitude/1000)
-                self:GetLayer():EnqueueShaderData("parryShadow", "gradientRipplePivots", slf.RipplePivot)
-                self:GetLayer():EnqueueShaderData("parryShadow", "gradientPivotIntensities", slf.HitPointIntensity)
-                self:GetLayer():EnqueueShaderData("parryShadow", "gradientLips", {slf.TopLip, slf.BottomLip})
-                self:GetLayer():EnqueueShaderData("parryShadow", "gradientDirections", slf.Direction==1 and 1 or 0)
-                self:GetLayer():EnqueueShaderData("parryShadow", "gradientTimeOffsets", slf.WaveTimeOffset)
-                self:GetLayer():EnqueueShaderData("parryShadow", "gradientPivotPinchStrengths", slf.PivotPinchStrength)
-                
-                -- self:GetLayer():EnqueueShaderData("parryShadow", "gradientColors", slf.Color)
-            
-                
-
             end
-        })
-        -- shadowGroup.Shadows[#self:GetLayer().ShadowGroup.Shadows+1]=indicator.Shadow
-        newExpiredWall.indicator = indicator
-        -- local p = self:GetLayer():Adopt(Prop.new{
-        --     Position = V{hitTileEdge, wallTopEdge},
-        --     AnchorPoint = V{0.5,0.5},
-        --     DrawOverShaders = true,
-        --     Size = V{4,4},
-        --     Color =  V{1,0,0}
-        -- })
-        -- local p = self:GetLayer():Adopt(Prop.new{
-        --     Position = V{hitTileEdge, wallBottomEdge},
-        --     AnchorPoint = V{0.5,0.5},
-        --     DrawOverShaders = true,
-        --     Size = V{4,4},
-        --     Color =  V{0,1,0}
-        -- })
-    end
+            -- print("wheee")
+            slf.Shadow.HitPointIntensity = tween("outElastic", 3, 1, slf.FramesAlive/90)
+            
+            if slf.InDeathSequence then
+                slf.Shadow.Amplitude = tween("outExpo", 10, 2, slf.FramesAlive/60)
+                slf.Shadow.Size.X = tween("outElastic", indSizeX*.75, indSizeX, slf.FramesAlive/60)
+                slf.Shadow.PivotPinchStrength = tween("outExpo", 0.03, 0, slf.FramesAlive/60)
+            else
+                slf.Shadow.Amplitude = tween("outExpo", 6, 2, slf.FramesAlive/60)
+                slf.Shadow.Size.X = tween("outElastic", 0, indSizeX, slf.FramesAlive/60)
+                slf.Shadow.PivotPinchStrength = tween("outExpo", 0.075, 0, slf.FramesAlive/60)
+            end
+            
+            
+            slf.Shadow.WaveTimeOffset = tween("outExpo", 0, 1.5, slf.FramesAlive/60)
+            -- slf.BottomEnd.Position = originPos
+
+            slf.FramesAlive = slf.FramesAlive + 1
+        end,
+        Draw = function(slf, tx, ty)
+
+        end
+    })
+
+    local distAlongWall = math.clamp((yHitPoint - wallTopEdge) / (wallBottomEdge - wallTopEdge),0,1)
+    
+    -- ShadowGroup basically just... defines the color of parry kicks
+    self:GetLayer().ShadowGroup = self:GetLayer().ShadowGroup or self:GetLayer():Adopt(Prop.new{
+        Name = "ShadowGroup",
+        Color = HSV{0.5,1,0,1},
+        -- DrawOverShaders = true,
+        Shader = Shader.new("chexcore/assets/shaders/default-ignorealpha.glsl"),
+        Draw = function(slf, tx, ty)
+            self:GetLayer():SetShaderData("parryShadow", "gradientColor", slf.Color)
+            self:GetLayer():SetShaderData("parryShadow", "time", Chexcore._clock)
+            self:GetLayer():SetShaderData("parryShadow", "cameraPos", -self:GetScene().Camera.Position/200)
+
+            -- self.Shader:Activate()
+            -- love.graphics.setBlendMode("multiply","premultiplied")
+
+            -- love.graphics.setBlendMode("alpha")
+            -- self.Shader:Deactivate()
+        end
+    })
+    local shadowGroup = self:GetLayer().ShadowGroup
+
+    shadowGroup:MoveTo(self.Position)
+
+    -- if math.abs(wallTopEdge - yHitPoint) < 4 then
+    --     topLip = false
+    -- elseif math.abs(wallBottomEdge - yHitPoint) < 4 then
+    --     bottomLip = false
+    -- end
+
+    indicator.Shadow = indicator:Adopt(Prop.new{
+        Name = "WallShadow",
+        -- DrawOverShaders = true,
+        Size = V{12, indicator.Size.Y},
+        Color = V{0,0,0,0.75},
+        TopLip = topLip and 1 or 0,
+        BottomLip = bottomLip and 1 or 0,
+        PivotPinchStrength = 0.03,
+        RealBottomLip = 1,
+        AnchorPoint = V{wallDir==-1 and 0 or 1, 0},
+        IndicatorRef = indicator,
+        WaveTimeOffset = 0,
+        HitPointIntensity = 1,
+        Amplitude = 3,
+        RipplePivot = distAlongWall,
+        RippleFrequency = 150,
+        Direction = wallDir,
+        Texture = Texture.new(wallDir==1 and "game/assets/images/meta/parry/wall-shadow-right.png" or "game/assets/images/meta/parry/wall-shadow.png"),
+        Position = indicator.Position,
+        Draw = function(slf,tx,ty)
+            -- slf:Update()
+
+            if slf.IndicatorRef.DeathTimer and slf.IndicatorRef.DeathTimer >= slf.IndicatorRef.DeathLifeSpan - 1 then
+                slf:GetLayer():SetShaderData("parryShadow", "gradientCount", 0)
+                return
+            end
+
+            local tl, br = slf:GetPoint(0,0), slf:GetPoint(1,1)
+            local x1, y1 = (((tl) - V{tx,ty}) / self:GetLayer().Canvases[1]:GetSize())()
+            local x2, y2 = (((br) - V{tx,ty}) / self:GetLayer().Canvases[1]:GetSize())()
+                            
+            self:GetLayer():SetShaderData("parryShadow", "gradientCount", (self:GetLayer():GetShaderData("parryShadow", "gradientCount") or 0)+1)
+            self:GetLayer():EnqueueShaderData("parryShadow", "gradientRects", {x1,y1,x2,y2})
+            self:GetLayer():EnqueueShaderData("parryShadow", "gradientRippleAmplitudes", slf.Amplitude/1000)
+            self:GetLayer():EnqueueShaderData("parryShadow", "gradientRipplePivots", slf.RipplePivot)
+            self:GetLayer():EnqueueShaderData("parryShadow", "gradientPivotIntensities", slf.HitPointIntensity)
+            self:GetLayer():EnqueueShaderData("parryShadow", "gradientLips", {slf.TopLip, slf.BottomLip})
+            self:GetLayer():EnqueueShaderData("parryShadow", "gradientDirections", slf.Direction==1 and 1 or 0)
+            self:GetLayer():EnqueueShaderData("parryShadow", "gradientTimeOffsets", slf.WaveTimeOffset)
+            self:GetLayer():EnqueueShaderData("parryShadow", "gradientPivotPinchStrengths", slf.PivotPinchStrength)
+            
+            -- print(slf.Amplitude, slf.RipplePivot, slf.HitPointIntensity)
+            -- print('-')
+            -- self:GetLayer():EnqueueShaderData("parryShadow", "gradientColors", slf.Color)
+        
+            
+
+        end
+    })
+    -- shadowGroup.Shadows[#self:GetLayer().ShadowGroup.Shadows+1]=indicator.Shadow
+    newExpiredWall.indicator = indicator
+    -- local p = self:GetLayer():Adopt(Prop.new{
+    --     Position = V{hitEdge, wallTopEdge},
+    --     AnchorPoint = V{0.5,0.5},
+    --     DrawOverShaders = true,
+    --     Size = V{4,4},
+    --     Color =  V{1,0,0}
+    -- })
+    -- local p = self:GetLayer():Adopt(Prop.new{
+    --     Position = V{hitEdge, wallBottomEdge},
+    --     AnchorPoint = V{0.5,0.5},
+    --     DrawOverShaders = true,
+    --     Size = V{4,4},
+    --     Color =  V{0,1,0}
+    -- })
     
     self:GetChild("WallKickDust"):Emit{
         Position = self.Position - V{-wallDir*4,5},
@@ -2934,11 +3001,16 @@ function Player:Parry()
     self:PlaySFX("Parry2")
 end
 
-function Player:ClearExpiredWalls()
+function Player:ClearExpiredWalls(failedWall)
     local e = self.ExpiredWalls
+    if failedWall then failedWall.indicator.InDeathSequence = true end
     Timer.ScheduleFrames(4, function()
         for i = 1, #e do
+            e[i].indicator.InDeathSequence = true
             e[i].indicator.DeathTimer = -4*(i-1)
+        end
+        if failedWall then
+            failedWall.indicator.DeathTimer = -20
         end
     end)
 

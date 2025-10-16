@@ -11,7 +11,7 @@ function love.load()
  
 
     
-
+    print(Prop.new{Size=V{4,0}}:GetPoint(0,0))
     
 
 

@@ -123,30 +123,30 @@ return {
       id = 11,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 12,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 13,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -154,20 +154,20 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Bottom"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 15,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -176,10 +176,10 @@ return {
       properties = {
         ["CollisionInset__Bottom"] = 8,
         ["CollisionInset__Left"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -188,20 +188,20 @@ return {
       properties = {
         ["CollisionInset__Bottom"] = 8,
         ["CollisionInset__Right"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 18,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -209,10 +209,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Right"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -220,10 +220,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Left"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -352,80 +352,80 @@ return {
       id = 139,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 140,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 141,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 142,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 143,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 144,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 145,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 146,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -433,10 +433,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Right"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -444,10 +444,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Left"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -554,80 +554,80 @@ return {
       id = 267,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 268,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 269,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 270,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 271,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 272,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 273,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 274,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -635,10 +635,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Right"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -646,10 +646,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Left"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -772,80 +772,80 @@ return {
       id = 395,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 396,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 397,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 398,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 399,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 400,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 401,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 402,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -853,10 +853,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Right"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -864,10 +864,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Left"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -985,100 +985,100 @@ return {
       id = 523,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 524,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 525,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 526,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 527,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 528,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 529,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 530,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 531,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 532,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -1175,100 +1175,100 @@ return {
       id = 651,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 652,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 653,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 654,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 655,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 656,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 657,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 658,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 659,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 660,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -1365,100 +1365,100 @@ return {
       id = 779,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 780,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 781,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 782,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 783,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 784,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 785,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 786,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 787,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 788,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -1568,10 +1568,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Bottom"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -1579,10 +1579,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Bottom"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -1590,10 +1590,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Bottom"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -1601,30 +1601,30 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Bottom"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 911,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 912,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -1632,10 +1632,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Bottom"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -1643,30 +1643,30 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Bottom"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 915,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 916,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -1805,100 +1805,100 @@ return {
       id = 1035,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1036,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1037,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1038,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1039,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1040,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1041,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1042,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1043,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1044,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -1995,100 +1995,100 @@ return {
       id = 1163,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1164,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1165,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1166,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1167,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1168,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1169,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1170,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1171,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1172,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -2158,70 +2158,70 @@ return {
       id = 1291,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1292,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1293,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1294,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1295,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1296,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1297,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -2229,10 +2229,10 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Bottom"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -2240,20 +2240,20 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Bottom"] = 8,
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
       id = 1300,
       type = "Tile",
       properties = {
-        ["Material__Bottom"] = "Grass",
-        ["Material__Left"] = "Grass",
-        ["Material__Right"] = "Grass",
-        ["Material__Top"] = "Grass"
+        ["Material__Bottom"] = "Sand",
+        ["Material__Left"] = "Sand",
+        ["Material__Right"] = "Sand",
+        ["Material__Top"] = "Sand"
       }
     },
     {
@@ -2721,12 +2721,24 @@ return {
         ["-Top__DamageVelocity__X"] = -3,
         ["-Top__DamageVelocity__Y"] = -3,
         ["CollisionInset__Left"] = 6,
-        ["CollisionInset__Top"] = 6
+        ["CollisionInset__Top"] = 6,
+        ["DamageType__Left"] = "Spike",
+        ["DamageType__Top"] = "Spike"
       }
     },
     {
       id = 2180,
-      type = "Tile"
+      type = "Tile",
+      properties = {
+        ["-Right__DamageVelocity__X"] = 3,
+        ["-Right__DamageVelocity__Y"] = -3,
+        ["-Top__DamageVelocity__X"] = 3,
+        ["-Top__DamageVelocity__Y"] = -3,
+        ["CollisionInset__Right"] = 6,
+        ["CollisionInset__Top"] = 6,
+        ["DamageType__Right"] = "Spike",
+        ["DamageType__Top"] = "Spike"
+      }
     },
     {
       id = 2195,
@@ -2822,7 +2834,17 @@ return {
     },
     {
       id = 2308,
-      type = "Tile"
+      type = "Tile",
+      properties = {
+        ["-Bottom__DamageVelocity__X"] = 3,
+        ["-Bottom__DamageVelocity__Y"] = 3,
+        ["-Right__DamageVelocity__X"] = 3,
+        ["-Right__DamageVelocity__Y"] = 3,
+        ["CollisionInset__Bottom"] = 6,
+        ["CollisionInset__Right"] = 6,
+        ["DamageType__Bottom"] = "Spike",
+        ["DamageType__Right"] = "Spike"
+      }
     },
     {
       id = 2323,

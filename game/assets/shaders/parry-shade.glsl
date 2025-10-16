@@ -26,12 +26,12 @@ const float gradientSteps = 3.0;          // number of discrete gradient steps (
 const float gradientPower = 0.2;           // gradient intensity curve (higher = stronger gradient, sharper falloff at end; 1.0 = linear)
 const float edgeSmoothness = 0.0;          // smoothness of band transitions (0.0 = sharp, 1.0 = very smooth)
 const float edgeRoundingRadius = 0.015;     // radius for rounding top/bottom edges in screen space (0.02 = 2% of screen width)
-const float minimumRoundingHeight = 0.02;  // minimum rect height in screen space to apply edge rounding (0.04 = 4% of screen height)
 
 // Ripple effect settings
 // rippleAmplitude is now per-gradient (see gradientRippleAmplitudes array)
 const float rippleFrequency = 150.0;        // number of ripple waves
 const float rippleSpeed = 5.0;             // speed of ripple animation
+const float rippleFrequencyFalloff = 0.00005; // how much frequency increases with distance (0.0 = constant frequency, higher = tighter waves farther out)
 
 // Pivot pinch settings
 const float pivotPinchRange = 0.1;         // how far from pivot the pinch extends (0.0-0.5, normalized to gradient height)
@@ -125,7 +125,10 @@ void effect()
         // using the same time offset makes waves move toward pivot on both sides
         // Above pivot: waves move downward (toward pivot)
         // Below pivot: waves move upward (toward pivot)
-        float wave = sin(abs(distanceFromPivot) * rippleFrequency + (time + timeOffset) * rippleSpeed);
+        // Apply frequency increase: frequency increases with distance from pivot (tighter waves farther out)
+        float absDistance = abs(distanceFromPivot);
+        float effectiveFrequency = rippleFrequency * (1.0 + absDistance * rippleFrequencyFalloff);
+        float wave = sin(absDistance * effectiveFrequency + (time + timeOffset) * rippleSpeed);
         
         // Add tapering at top and bottom edges
         // Calculate distance from nearest edge (0.0 at edges, 0.5 at center)
@@ -282,7 +285,10 @@ void effect()
                 float neighborDistanceFromPivot = neighborWorldPos.y - neighborPivotWorldY;
                 
                 // Calculate wave with opposite propagation above/below pivot
-                float wave = sin(abs(neighborDistanceFromPivot) * rippleFrequency + (time + neighborTimeOffset) * rippleSpeed);
+                // Apply frequency increase: frequency increases with distance from pivot (tighter waves farther out)
+                float neighborAbsDistance = abs(neighborDistanceFromPivot);
+                float neighborEffectiveFrequency = rippleFrequency * (1.0 + neighborAbsDistance * rippleFrequencyFalloff);
+                float wave = sin(neighborAbsDistance * neighborEffectiveFrequency + (time + neighborTimeOffset) * rippleSpeed);
                 
                 // Add tapering at top and bottom edges for neighbor
                 float neighborDistFromEdge = 0.5 - abs(neighborNormalizedY - 0.5);
@@ -365,7 +371,7 @@ void effect()
         // Apply edge rounding only to the soft side of the gradient (controlled by lips)
         // Calculate corner rounding: reduce gradient intensity at corners on soft side only
         float cornerFactor = 1.0;
-        if (edgeRoundingRadius > 0.0 && rectHeight >= minimumRoundingHeight) {
+        if (edgeRoundingRadius > 0.0) {
             // Get lip flags for this gradient
             vec2 lips = gradientLips[i];
             bool topLipEnabled = lips.x > 0.5;
@@ -462,10 +468,8 @@ void effect()
         vec3 originalColor = finalColor.rgb;
         
         if (isOutlinePixel) {
-            // This is a white outline pixel - blend from white to black
-            // Invert the blend factor so white appears on the gradient color side
-            vec3 blackColor = vec3(0.0, 0.0, 0.0);
-            finalColor.rgb = mix(blackColor, finalColor.rgb, 1.0 - blendFactor);
+            // This is a white outline pixel - keep it pure white across entire gradient (no tapering)
+            finalColor.rgb = vec3(1.0, 1.0, 1.0);
         } else {
             // Normal gradient application for non-outline pixels
             // First blend based on the blendFactor (gradient direction)
@@ -475,17 +479,21 @@ void effect()
         }
         
         // Clamp to not be brighter than original (prevent brightening from falloff)
-        float originalBrightness = dot(originalColor, vec3(0.299, 0.587, 0.114));
-        float resultBrightness = dot(finalColor.rgb, vec3(0.299, 0.587, 0.114));
-        if (resultBrightness > originalBrightness) {
-            finalColor.rgb = originalColor * (resultBrightness / max(originalBrightness, 0.001));
-            finalColor.rgb = min(finalColor.rgb, originalColor);
+        // Skip clamping for outline pixels to keep them pure white
+        if (!isOutlinePixel) {
+            float originalBrightness = dot(originalColor, vec3(0.299, 0.587, 0.114));
+            float resultBrightness = dot(finalColor.rgb, vec3(0.299, 0.587, 0.114));
+            if (resultBrightness > originalBrightness) {
+                finalColor.rgb = originalColor * (resultBrightness / max(originalBrightness, 0.001));
+                finalColor.rgb = min(finalColor.rgb, originalColor);
+            }
         }
     }
     
     // Ensure overlapping gradients don't exceed the darkness specified by gradient alpha
     // Only apply this clamping if a gradient was actually applied to this pixel
-    if (gradientApplied) {
+    // Skip for outline pixels to keep them pure white
+    if (gradientApplied && !isOutlinePixel) {
         // Calculate the darkest allowed color based on gradient alpha
         vec3 maxDarkness = mix(baseColor, gradientColor.rgb, gradientColor.a);
         
