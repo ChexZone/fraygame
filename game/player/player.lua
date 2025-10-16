@@ -3,7 +3,7 @@ local MATERIAL_GOO_TIME = {
     Stone = 2,
     Sand = 10,
     Ice = 20,
-    None = 1,
+    None = 1.7,
 }
 
 local Player = {
@@ -2612,10 +2612,11 @@ function Player:Parry()
         self.FramesSinceDive = -1
         self.Velocity.Y = 0
         self.FramesSinceDoubleJump = math.max(-1, self.FramesSinceDoubleJump)
+        self.Color = self.DiveExpiredColor
         self:PlaySFX("FailParry")
         self:PlaySFX("FailParrySqueak")
         self:PlaySFX("Bonk")
-        self:GetScene().Camera.ShakeIntensity = V{0.5,0}
+        self:GetScene().Camera.ShakeIntensity = V{0.75,0}
         return
     end
 
