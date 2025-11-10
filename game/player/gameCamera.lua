@@ -29,6 +29,11 @@ local GameCamera = {
 
     DampeningDampener = 0,  -- when changing to a new source, we want to slow down the camera first
 
+    -- smooth camera offset properties
+    CurrentCameraOffset = V{0, 0},  -- current smoothed offset
+    TargetCameraOffset = V{0, 0},   -- target offset to lerp toward
+    CameraOffsetSpeed = 10,         -- speed of offset interpolation
+
     -- internal properties
     _super = "Camera",      -- Supertype
     _cache = setmetatable({}, {__mode = "k"}), -- cache has weak keys
@@ -41,11 +46,11 @@ function GameCamera._globalUpdate(dt)
         -- print(camera.DampeningDampener)
         if camera.Focus then
             local focus = camera.Focus
-
+            local player = focus
+            local offsetSpeed = camera.CameraOffsetSpeed
             camera.TrackingPosition = camera.TrackingPosition or camera.Position
             
             local dampening, maxDist, minDist, zoomSpeed
-            local offsetX, offsetY = 0, 0
             if #camera.Overrides > 0 then -- use the latest override camera option
                 local override = camera.Overrides[#camera.Overrides]
                 focus = override.Focus or focus
@@ -62,8 +67,12 @@ function GameCamera._globalUpdate(dt)
                     camera.Reeling.Y and (override.MinDistancePerFrameReelingY or override.MinDistancePerFrameY or camera.MinDistancePerFrameReeling.Y) or (override.MinDistancePerFrameY or camera.MinDistancePerFrame.Y),
                 }*60*dt
                 zoomSpeed = override.ZoomSpeed
-                offsetX = override.CameraOffsetX or offsetX
-                offsetY = override.CameraOffsetY or offsetY
+                -- Update target offset from override
+                camera.TargetCameraOffset = V{
+                    override.CameraOffsetX or 0,
+                    override.CameraOffsetY or 0
+                }
+                offsetSpeed = override.CameraOffsetSpeed or offsetSpeed
             else -- regular dampening
                 dampening = V{
                     camera.Reeling.X and camera.DampeningFactorReeling.X or camera.DampeningFactor.X,
@@ -78,14 +87,22 @@ function GameCamera._globalUpdate(dt)
                     camera.Reeling.Y and camera.MinDistancePerFrameReeling.Y or camera.MinDistancePerFrame.Y
                 }*60*dt
                 zoomSpeed = camera.ZoomSpeed
+                -- Reset target offset when no overrides
+                camera.TargetCameraOffset = V{0, 0}
             end
+            
+            -- Smoothly interpolate current offset toward target offset
+            camera.CurrentCameraOffset = V{
+                math.lerp(camera.CurrentCameraOffset.X, camera.TargetCameraOffset.X, offsetSpeed * dt),
+                math.lerp(camera.CurrentCameraOffset.Y, camera.TargetCameraOffset.Y, offsetSpeed * dt)
+            }
             
 
             local focusPoint
             if focus:IsA("Player") then
-                focusPoint = focus:GetPoint(.5,1) + V{offsetX, offsetY}
+                focusPoint = focus:GetPoint(.5,1) + camera.CurrentCameraOffset
             else
-                focusPoint = focus:GetPoint(.5,.5) + V{offsetX, offsetY}
+                focusPoint = focus.IgnoreFocusX and V{player:GetPoint(.5,1).X, focus:GetPoint(0.5,0.5).Y} or focus.IgnoreFocusY and V{focus:GetPoint(0.5,0.5).X, player:GetPoint(.5,1).Y} or focus:GetPoint(.5,.5) + camera.CurrentCameraOffset
             end
             
             if focus ~= camera.LastFocus then
@@ -103,18 +120,32 @@ function GameCamera._globalUpdate(dt)
             if math.abs(dist.X) > maxDist.X or math.abs(focusDist.X) > camera.MaxDistanceFromFocus.X then
                 newPos.X = camera.TrackingPosition.X - maxDist.X * sign(dist.X)
                 camera.Reeling.X = true
-            elseif math.abs(focusDist.X) < minDist.X then
+            elseif math.abs(focusDist.X) < maxDist.X * 2 then
+                -- Exit reeling when close enough to avoid crawling at the end
                 camera.Reeling.X = false
-                newPos.X = focusPoint.X
+            end
+            
+            -- Apply snap logic based on reeling state
+            if not camera.Reeling.X then
+                if math.abs(focusDist.X) < minDist.X then
+                    newPos.X = focusPoint.X
+                end
             end
 
 
             if math.abs(dist.Y) > maxDist.Y or math.abs(focusDist.Y) > camera.MaxDistanceFromFocus.Y  then
                 newPos.Y = camera.TrackingPosition.Y - maxDist.Y * sign(dist.Y)
                 camera.Reeling.Y = true
-            elseif math.abs(focusDist.Y) < minDist.Y then
+            elseif math.abs(focusDist.Y) < maxDist.Y * 2 then
+                -- Exit reeling when close enough to avoid crawling at the end
                 camera.Reeling.Y = false
-                newPos.Y = focusPoint.Y
+            end
+            
+            -- Apply snap logic based on reeling state
+            if not camera.Reeling.Y then
+                if math.abs(focusDist.Y) < minDist.Y then
+                    newPos.Y = focusPoint.Y
+                end
             end
 
             focusDist = (focusPoint - newPos)
@@ -178,6 +209,8 @@ function GameCamera.new(properties)
 
     newCamera.Overrides = {}
     newCamera.Reeling = V{false, false}
+    newCamera.CurrentCameraOffset = V{0, 0}
+    newCamera.TargetCameraOffset = V{0, 0}
 
     GameCamera._cache[newCamera] = true
     return GameCamera:Connect(newCamera)

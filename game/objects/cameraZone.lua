@@ -1,6 +1,8 @@
 local CameraZone = {
     Name = "CameraZone",
     
+    Focus = nil,
+    
     DampeningFactorX = 10,
     DampeningFactorY = 10,
     
@@ -33,6 +35,9 @@ local CameraZone = {
 
     CameraOffsetX = false, -- can also set custom camera offsets
     CameraOffsetY = false, -- can also set custom camera offsets
+
+    IgnoreFocusX = false,
+    IgnoreFocusY = false,
 
     ZoomSpeed = 5,
     

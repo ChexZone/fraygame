@@ -86,7 +86,8 @@ local Player = {
     RollTimeAfterLunge = 10,            -- how many frames after a lunge (downward dive) to also listen for roll inputs
     LungeBuffer = 0,                    -- measures above variable
     JumpPower = 3.7,                      -- the base initial upward momentum of a jump
-    
+    StickingToWall = false,             -- when you fail parry and smack a wall, you still "stick to" the wall until you DisconnectFromWall
+
     ExpiredWalls = {
         --[[ {
             prop = [Prop] / [Tilemap],
@@ -939,6 +940,8 @@ function Player:DisconnectFromFloor()
 
     -- self:AlignWithFloor()
 
+
+
     self.Floor = nil
     self.FloorPos = nil
     self.FloorTileNo = nil
@@ -953,6 +956,18 @@ function Player:DisconnectFromFloor()
     --     self.LedgeLungeChain = 0
     -- end
 
+    if self.FramesSinceSlide > -1 and self.FramesSinceJump == -1 and not self.InLedgeLunge then
+        local vx = self.Velocity.X
+        local p = self.Position:Clone()
+        -- self:Dive(true, true)
+        self.FramesSincePounce = 1
+        self.Texture.CurrentFrame = 48
+        -- self:Jump()
+        self:ShrinkHitbox()
+        self.Velocity.X = vx
+        self.Position = p + V{0,1}
+    end
+
 
 
     self.OnGroundAfterLedgeLunge = false
@@ -961,6 +976,7 @@ function Player:DisconnectFromFloor()
 end
 
 function Player:DisconnectFromWall()
+    self.StickingToWall = false
     self.Wall = nil
     self.FramesSinceDepartedWall = 0
     self.WallTileNo = nil
@@ -991,7 +1007,7 @@ function Player:ConnectToFloor(floor, surfaceInfo, tileNo, tileLayer)
         self.FloorTileLayer = tileLayer
         
         self:PlayLoudFootstepSound(1)
-        if not self.Wall then
+        if not self.Wall and not self.InputListener:IsDown("crouch") then
             Timer.Schedule(math.random(1,(self.FramesSinceDive > -1 and 2 or 3))/60, function ()
                 (self.PlayLoudFootstepSound)(self, 1)
             end)
@@ -1024,6 +1040,14 @@ function Player:ConnectToWall(wall, direction, surfaceInfo, tileNo, tileLayer)
     self.WallDirection = direction
     self.WallPos = wall.Position:Clone()
     self.LastWallPos = wall.Position:Clone()
+    self.CrashedIntoWall = false
+    
+    if not self._connectingToWall then
+        self._connectingToWall = true
+        self:EndCrouch()
+        self._connectingToWall = false
+    end
+
 
     -- collect wall material info
     self.WallSurfaceInfo = surfaceInfo[direction=="left" and "Left" or "Right"]
@@ -1348,7 +1372,10 @@ function Player:UnclipX(forTesting)
                 if (self.Velocity.X >= 0 and face == "right" and not surfaceInfo.Left.Passthrough) or (self.Velocity.X <= 0 and face == "left" and not surfaceInfo.Right.Passthrough) then
                     pushX = math.abs(pushX) > math.abs(hDist) and pushX or hDist
                     self:AlignHitboxes()
+
                     self:ConnectToWall(solid, face, surfaceInfo, tileNo, tileLayer)
+
+
                 end
             end
             
@@ -2082,7 +2109,7 @@ function Player:ProcessInput(dt)
                     (self.Wall or (self.FramesSinceDepartedWall > -1 and self.FramesSinceDepartedWall < 20)) and 
                     (self.Velocity.Y >= self.WallSlideSpeed or self.FramesSinceDoubleJump > -1 or self.FramesSinceWallKick > -1)
                 ) and
-                    (wallDir==-1 and self.FramesSinceHoldingLeft or self.FramesSinceHoldingRight) < (self.FramesSinceDoubleJump == -1 and 15 or 30)
+                    (self.StickingToWall or (wallDir==-1 and self.FramesSinceHoldingLeft or self.FramesSinceHoldingRight) < (self.FramesSinceDoubleJump == -1 and 15 or 30))
                 and
                     self:GetBodyOrientation() == wallDir 
                 and (
@@ -2352,6 +2379,7 @@ function Player:Jump(noSFX)
         self:GetChild("JumpDust"):Emit{Position = self.Position, }
 
         if self:IsHoldingCrouch() then
+            
             self:GrowHitbox()
         end
     end
@@ -2424,6 +2452,7 @@ function Player:WallKick()
     self.Velocity.Y = math.min(self.Velocity.Y, 0)
     self.Velocity.X = 5 * -wallDir
     self.JumpBuffer = 0
+    self.WallKickWasFromGoo = self.FramesSinceCrashedIntoWall > -1 
     
     self:PlayCustomFootstepSound(self:GetWallMaterial(), 0.8, nil, 1)
     self:SetBodyOrientation(-wallDir)
@@ -2609,13 +2638,16 @@ function Player:Parry()
     if not allowedToParry then
         -- can't parry off the same wall twice!
         self.FramesSinceCrashedIntoWall = 0
+        self.CrashedIntoWall = true
+        self.StickingToWall = true
         self.FramesSinceDive = -1
         self.Velocity.Y = 0
         self.FramesSinceDoubleJump = math.max(-1, self.FramesSinceDoubleJump)
-        self.Color = self.DiveExpiredColor
+        -- self.Color = self.DiveExpiredColor
         self:PlaySFX("FailParry")
         self:PlaySFX("FailParrySqueak")
         self:PlaySFX("Bonk")
+        self:SetBodyOrientation(-wallDir)
         self:GetScene().Camera.ShakeIntensity = V{0.75,0}
         return
     end
@@ -2813,7 +2845,6 @@ function Player:Parry()
         DrawOverShaders = true,
         Update = function(slf, dt)
             local wall = slf.wall
-            print(slf._propID)
             if Chexcore._clock > slf.UltimateDestiny then
                 
             end
@@ -2855,6 +2886,12 @@ function Player:Parry()
                     slf.Shadow.Size.Y = tween("inExpo", slf.OrigSize.Y, 0, slf.DeathTimer/slf.DeathLifeSpan)
                     -- slf.Shadow.RipplePivot = 0.5
 
+                    if slf.DeathTimer >= slf.DeathLifeSpan*0.5 then
+                        slf.Shadow.TopLip = 1
+                        slf.Shadow.BottomLip = 1
+                    end
+                    -- slf.Shadow.TopLip = 1 -- tween("linear",0,1,slf.DeathTimer/(slf.DeathLifeSpan*0.5))
+                    -- slf.Shadow.BottomLip = 1 --tween("linear",0,1,slf.DeathTimer/(slf.DeathLifeSpan*0.5))
                     slf.Shadow.Size.X = tween("inExpo", indSizeX, 0, slf.DeathTimer/slf.DeathLifeSpan)
                     
                     if slf.DeathTimer >= slf.DeathLifeSpan then
@@ -2938,7 +2975,6 @@ function Player:Parry()
         TopLip = topLip and 1 or 0,
         BottomLip = bottomLip and 1 or 0,
         PivotPinchStrength = 0.03,
-        RealBottomLip = 1,
         AnchorPoint = V{wallDir==-1 and 0 or 1, 0},
         IndicatorRef = indicator,
         WaveTimeOffset = 0,
@@ -3022,6 +3058,8 @@ end
 
 function Player:BumpWall()
     
+    
+    
     self:EndCrouch()
 
     self.JumpBuffer = 0
@@ -3054,7 +3092,7 @@ function Player:BumpWall()
 
 end
 
-function Player:Dive()
+function Player:Dive(ignoreCrouch, noSound)
 
     self:ShrinkHitbox()
     local oldX = self.Velocity.X
@@ -3104,7 +3142,7 @@ function Player:Dive()
         self.Position.Y = self.Position.Y - 1 -- a  couple more pixels of height, just in case
     end
 
-    if self.InputListener:IsDown("crouch") then
+    if self.InputListener:IsDown("crouch") and not ignoreCrouch then
         -- lunge
         
 
@@ -3143,7 +3181,7 @@ function Player:Dive()
     -- self.SFX.Dive[no]:SetPitch(1 + math.random(-5,5)/45)
     -- self.SFX.Dive[no]:Play()
 
-    self:PlaySFX("Dive", self.LungePitch)
+    if not noSound then self:PlaySFX("Dive", self.LungePitch) end
     
     
 
@@ -3283,6 +3321,7 @@ end
 
 function Player:EndCrouch() -- returns true if crouch could successfully end; false if there was a boundary in the way
 
+
 local px, py = self.Position()
     -- self:GrowHitbox(true)
     -- self.BlockCrouchEnd = false
@@ -3314,6 +3353,7 @@ local px, py = self.Position()
             self.CrouchTime = 0
             self.TimeSinceCrouching = 0
             self.BlockCrouchEnd = false
+            
             self:GrowHitbox(true)
             self.Position = V{px,py} -- self.Position.Y = self.Position.Y + 3
             self:PlaySFX("DoubleJump", 1.3, 1, 0.125)
@@ -3332,6 +3372,7 @@ function Player:ShrinkHitbox()
 end
 
 function Player:GrowHitbox(noUnclip)
+
     if not self.IsCrouchedHitbox then return end
 
     if not self.Floor then
@@ -3547,7 +3588,11 @@ function Player:UpdateAnimation()
             self.Texture.Clock = 0
             self.Texture.IsPlaying = true
         end
-        self.Texture:AddProperties{LeftBound = 125, RightBound = 127, Duration = 0.15, PlaybackScaling = 1, Loop = false}
+        if self.WallKickWasFromGoo then
+            self.Texture:AddProperties{LeftBound = 151, RightBound = 153, Duration = 0.15, PlaybackScaling = 1, Loop = false}
+        else
+            self.Texture:AddProperties{LeftBound = 125, RightBound = 127, Duration = 0.15, PlaybackScaling = 1, Loop = false}
+        end
     elseif self.FramesSinceThrownItem > -1 and self.FramesSinceThrownItem <= 12 and self.Floor then
         if self.MoveDir == 0 then
             -- just threw item on ground while idle
@@ -3618,7 +3663,13 @@ function Player:UpdateAnimation()
 
         -- end
         
-    elseif self.Wall and self.ParryStatus == 0 and self.CrouchTime == 0 and sign(self.DrawScale.X) == (self.WallDirection == "left" and -1 or 1) and sign(self.DrawScale.X) == self.MoveDir and self.FramesSinceHoldingItem == -1 then
+    elseif self.Wall and
+            -- self.ParryStatus == 0 and
+            -- (self.CrouchTime == 0) and -- might have to put this stupid thing back idk
+            sign(self.DrawScale.X) == (self.WallDirection == "left" and -1 or 1) and
+            (sign(self.DrawScale.X) == self.MoveDir or self.StickingToWall) and
+            self.FramesSinceHoldingItem == -1
+    then
             -- in the air against wall
             if self.FramesSinceCrashedIntoWall > -1 then
                 
@@ -3637,22 +3688,41 @@ function Player:UpdateAnimation()
                 end
             else
                 -- wall sliding normally
-                self.Texture.IsPlaying = false
-                self.Texture.Clock = 0
-                self.Texture.RightBound = 124
-                if self.Velocity.Y < -self.WallSlideSpeed then
-                    -- moving up quickly
-                    self.Texture.LeftBound = 121
-                elseif self.Velocity.Y < 0 then
-                    -- moving up slowly
-                    self.Texture.LeftBound =122
-                elseif self.Velocity.Y < self.WallSlideSpeed then
-                    -- moving down slowly
-                    self.Texture.LeftBound = 123
+               
+                if self.CrouchTime > 0 and self.Floor then
+                    -- crouching into the corner of a wall
+                    if self.Texture.LeftBound ~= 157 then
+                        -- first frame
+                        self.Texture.Clock = 0
+                        self.CrouchTime = 1 -- just to re-bounce the anim
+                        self.Texture.CurrentFrame = 157
+                        self.Texture.IsPlaying = true
+                        self.Texture.Loop = false
+                        self.Texture.Duration = 0.25
+                        self.Texture.PlaybackScaling = 1
+                    end
+                    self.Texture.LeftBound = 157
+                    self.Texture.RightBound = 159
                 else
-                    -- moving down quickly
-                    self.Texture.LeftBound = 123
+                    self.Texture.IsPlaying = false
+                    self.Texture.Clock = 0
+                    self.Texture.RightBound = 124
+                    if self.Velocity.Y < -self.WallSlideSpeed then
+                        -- moving up quickly
+                        self.Texture.LeftBound = 121
+                    elseif self.Velocity.Y < 0 then
+                        -- moving up slowly
+                        self.Texture.LeftBound =122
+                    elseif self.Velocity.Y < self.WallSlideSpeed then
+                        -- moving down slowly
+                        self.Texture.LeftBound = 123
+                    else
+                        -- moving down quickly
+                        self.Texture.LeftBound = 123
+                    end
                 end
+
+
             end
 
     
@@ -3812,7 +3882,13 @@ function Player:UpdateAnimation()
                 -- holding an object (arms up)
                 self.Texture:AddProperties{LeftBound = 79, RightBound = 80, Duration = 0.4, PlaybackScaling = 1, Loop = false}
             else
-                self.Texture:AddProperties{LeftBound = 15, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false}
+                if self.CrashedIntoWall then
+                    self.Texture:AddProperties{LeftBound = 155, RightBound = 156, Duration = 0.4, PlaybackScaling = 1, Loop = false}
+                else
+                    
+                    self.Texture:AddProperties{LeftBound = 15, RightBound = 16, Duration = 0.4, PlaybackScaling = 1, Loop = false}
+                end
+                
             end
         else
             -- middle of jump state
@@ -3833,7 +3909,6 @@ function Player:UpdateAnimation()
 end
 
 function Player:UpdateFrameValues()
-    -- print(self.FramesSinceSlide)
     if self.Floor then
         -- self.ShouldCheckForHeldItemOverhang = false
         self.FramesSinceCrashedIntoWall = -1
@@ -3970,6 +4045,8 @@ function Player:UpdateFrameValues()
         end
     end
 
+    
+
     if self.Floor then
         self.CaughtHeldItemMidairChain = 0
         self.ThrewItemInAir = false
@@ -4044,7 +4121,7 @@ function Player:UpdateFrameValues()
     if self.FramesSinceRoll > -1 then
         self.FramesSinceRoll = self.FramesSinceRoll + 1
         if not self.Floor then
-            
+
             self:GrowHitbox()
         end
         if self.FramesSinceRoll > self.RollLength then
@@ -4161,8 +4238,8 @@ function Player:UpdateFrameValues()
 
     if self.CrouchTime > 0 and self.InputListener:IsDown("crouch") and self.Floor then
         self.CrouchTime = self.CrouchTime + 1
-    elseif self.CrouchTime > 0 and (self.FramesSincePounce == -1 or self.PounceAnimCancelled) then
-
+    elseif self.CrouchTime > 0 and (self.FramesSincePounce == -1 or self.PounceAnimCancelled) and self.Floor then
+        
         if self.BlockCrouchEnd then
             self.CrouchTime = self.CrouchTime + 1
         end
@@ -4188,13 +4265,16 @@ function Player:UpdateFrameValues()
 
 
     -- safeguard to make sure hitbox isn't small for no reason
-    if (self.Floor and self.FramesSinceRoll == -1 and self.CrouchTime == 0 and self.IsCrouchedHitbox) or
-       (not self.Floor and (self.FramesSinceDive == -1 and self.FramesSincePounce == -1 and (self.FramesSinceParry == -1 or self.FramesSinceParry > 20))) then
-        
-        self:GrowHitbox()
+    -- if (self.Floor and self.FramesSinceRoll == -1 and self.CrouchTime == 0 and self.IsCrouchedHitbox) or
+    --    (not self.Floor and (self.FramesSinceDive == -1 and self.FramesSincePounce == -1 and (self.FramesSinceParry == -1 or self.FramesSinceParry > 20))) then
+    --                     print("forn SOME reason")
+    -- if self.InputListener:IsDown("p") then
+    -- error()
+    -- end
+    --     self:GrowHitbox()
 
-        local success
-    end
+    --     local success
+    -- end
     
 
 end
@@ -4216,7 +4296,7 @@ function Player:UpdatePhysics()
 
     self.LastPosition = self.Position:Clone()
     
-
+    
     -- gravity is dependent on the jump state of the character
     if self.IgnoreGravityThisFrame then
         self.IgnoreGravityThisFrame = false
@@ -4537,7 +4617,7 @@ function Player:UpdatePhysics()
 
     
     self:UpdateTouchEvents()
-    
+  
     -- account for sliding against a wall
     local wallDir = self.WallDirection == "left" and -1 or 1
     if self.Wall and self.MoveDir == wallDir and self.FramesSinceParry ~= 0 and not self.HeldItem and (self.FramesSinceAgainstWall >= self.FramesAgainstWallBeforeDirectionChange or sign(self.DrawScale.X) == wallDir) and not self.Floor then
@@ -4556,7 +4636,7 @@ function Player:UpdatePhysics()
             end
         end
     else
-        self.FramesSinceCrashedIntoWall = -1
+        if not self.StickingToWall then self.FramesSinceCrashedIntoWall = -1 end
     end
     
 
@@ -5088,6 +5168,7 @@ function Player:Respawn(pos)
     self.FramesSinceRespawn = 0
     self.Position = pos
     self.Velocity[1] = 0; self.Velocity[2] = 0;
+    self:StartCrouch(); self:EndCrouch()
 end
 
 function Player:UpdateHeldItem()

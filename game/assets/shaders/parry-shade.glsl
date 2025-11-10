@@ -280,19 +280,6 @@ void effect()
         // Skip this gradient if the pixel is already a white outline from a previous gradient
         if (isOutlinePixel) continue;
         
-        // Mark that a gradient is affecting this pixel
-        gradientApplied = true;
-        
-        // Check if pixel is originally fully black (use undistorted sample)
-        bool isBlackPixel = (layer0_undistorted.r < 0.01 && layer0_undistorted.g < 0.01 && layer0_undistorted.b < 0.01);
-        
-        // Draw solid white outline on edge pixels or originally black pixels
-        if (isEdgePixel || isBlackPixel) {
-            finalColor.rgb = vec3(1.0, 1.0, 1.0);
-            isOutlinePixel = true;
-        }
-        
-        // Apply gradient to all pixels (including white outline pixels from this gradient)
         // Calculate horizontal position within rectangle (0.0 = left, 1.0 = right)
         float rectWidth = bottomRight.x - topLeft.x;
         float rectHeight = bottomRight.y - topLeft.y;
@@ -310,6 +297,7 @@ void effect()
         }
         
         // Apply edge rounding only to the soft side of the gradient (controlled by lips)
+        // IMPORTANT: Calculate this BEFORE applying outline, so outline respects rounded corners
         float cornerFactor = 1.0;
         if (edgeRoundingRadius > 0.0) {
             vec2 lips = gradientLips[i];
@@ -337,8 +325,20 @@ void effect()
         
         // Skip this gradient if pixel is outside the rounded corner
         if (cornerFactor < 0.01) {
-            gradientApplied = false;
             continue;
+        }
+        
+        // Mark that a gradient is affecting this pixel (only after corner check)
+        gradientApplied = true;
+        
+        // Check if pixel is originally fully black (use undistorted sample)
+        bool isBlackPixel = (layer0_undistorted.r < 0.01 && layer0_undistorted.g < 0.01 && layer0_undistorted.b < 0.01);
+        
+        // Draw solid white outline on edge pixels or originally black pixels
+        // This now respects the rounded corners since we checked cornerFactor above
+        if (isEdgePixel || isBlackPixel) {
+            finalColor.rgb = vec3(1.0, 1.0, 1.0);
+            isOutlinePixel = true;
         }
         
         // Apply power curve to strengthen gradient (stays strong, drops sharply at end)

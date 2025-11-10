@@ -35,7 +35,7 @@ function Water.new()
         
         
                 
-                self:GetLayer():EnqueueShaderData("water", "waterRects", {x1, y1, x2, y2})
+                self:GetLayer():EnqueueShaderData("water", "waterRects", {x1 - 0.003, y1, x2 + 0.003, y2})
                 self:GetLayer():EnqueueShaderData("water", "waterSides", {self.TopSurface and 1 or 0, self.BottomSurface and 1 or 0, self.LeftSurface and 1 or 0, self.RightSurface and 1 or 0})
                 -- local l = self:GetLayer()
                 -- print("L IS", tostring(l == nil))

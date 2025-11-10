@@ -80,6 +80,7 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Bottom"] = 8,
+        ["CollisionInset__Right"] = 8,
         ["Material__Bottom"] = "Grass",
         ["Material__Left"] = "Grass",
         ["Material__Right"] = "Grass",
@@ -91,6 +92,7 @@ return {
       type = "Tile",
       properties = {
         ["CollisionInset__Bottom"] = 8,
+        ["CollisionInset__Left"] = 8,
         ["Material__Bottom"] = "Grass",
         ["Material__Left"] = "Grass",
         ["Material__Right"] = "Grass",
@@ -1785,7 +1787,10 @@ return {
     },
     {
       id = 1032,
+      type = "Tile",
       properties = {
+        ["CollisionInset__Bottom"] = 8,
+        ["CollisionInset__Right"] = 8,
         ["Material__Bottom"] = "Grass",
         ["Material__Left"] = "Grass",
         ["Material__Right"] = "Grass",
@@ -1794,7 +1799,10 @@ return {
     },
     {
       id = 1033,
+      type = "Tile",
       properties = {
+        ["CollisionInset__Bottom"] = 8,
+        ["CollisionInset__Left"] = 8,
         ["Material__Bottom"] = "Grass",
         ["Material__Left"] = "Grass",
         ["Material__Right"] = "Grass",
@@ -1975,7 +1983,10 @@ return {
     },
     {
       id = 1160,
+      type = "Tile",
       properties = {
+        ["CollisionInset__Right"] = 8,
+        ["CollisionInset__Top"] = 8,
         ["Material__Bottom"] = "Grass",
         ["Material__Left"] = "Grass",
         ["Material__Right"] = "Grass",
@@ -1984,7 +1995,10 @@ return {
     },
     {
       id = 1161,
+      type = "Tile",
       properties = {
+        ["CollisionInset__Left"] = 8,
+        ["CollisionInset__Top"] = 8,
         ["Material__Bottom"] = "Grass",
         ["Material__Left"] = "Grass",
         ["Material__Right"] = "Grass",
@@ -2380,6 +2394,39 @@ return {
       }
     },
     {
+      id = 1690,
+      type = "Tile",
+      properties = {
+        ["CollisionInset__Top"] = 8
+      }
+    },
+    {
+      id = 1691,
+      type = "Tile",
+      properties = {
+        ["CollisionInset__Top"] = 8
+      }
+    },
+    {
+      id = 1692,
+      type = "Tile"
+    },
+    {
+      id = 1693,
+      type = "Tile"
+    },
+    {
+      id = 1694,
+      type = "Tile"
+    },
+    {
+      id = 1695,
+      type = "Tile",
+      properties = {
+        ["CollisionInset__Top"] = 8
+      }
+    },
+    {
       id = 1806,
       type = "Tile",
       properties = {
@@ -2438,6 +2485,30 @@ return {
         ["Material__Right"] = "Grass",
         ["Material__Top"] = "Grass"
       }
+    },
+    {
+      id = 1818,
+      type = "Tile"
+    },
+    {
+      id = 1819,
+      type = "Tile"
+    },
+    {
+      id = 1820,
+      type = "Tile"
+    },
+    {
+      id = 1821,
+      type = "Tile"
+    },
+    {
+      id = 1822,
+      type = "Tile"
+    },
+    {
+      id = 1823,
+      type = "Tile"
     },
     {
       id = 1920,
@@ -2588,6 +2659,30 @@ return {
       }
     },
     {
+      id = 1946,
+      type = "Tile"
+    },
+    {
+      id = 1947,
+      type = "Tile"
+    },
+    {
+      id = 1948,
+      type = "Tile"
+    },
+    {
+      id = 1949,
+      type = "Tile"
+    },
+    {
+      id = 1950,
+      type = "Tile"
+    },
+    {
+      id = 1951,
+      type = "Tile"
+    },
+    {
       id = 2048,
       type = "Tile",
       properties = {
@@ -2687,6 +2782,30 @@ return {
         ["Material__Right"] = "Grass",
         ["Material__Top"] = "Grass"
       }
+    },
+    {
+      id = 2074,
+      type = "Tile"
+    },
+    {
+      id = 2075,
+      type = "Tile"
+    },
+    {
+      id = 2076,
+      type = "Tile"
+    },
+    {
+      id = 2077,
+      type = "Tile"
+    },
+    {
+      id = 2078,
+      type = "Tile"
+    },
+    {
+      id = 2079,
+      type = "Tile"
     },
     {
       id = 2176,

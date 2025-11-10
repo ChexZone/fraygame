@@ -1,13 +1,13 @@
 local scene = GameScene.new{
     FrameLimit = 60,
-    DeathHeight = 10000,
+    DeathHeight = 7000,
     Update = function (self, dt)
         GameScene.Update(self, dt)
         -- self.Player = self:GetDescendant("Player")
         -- self.Camera.Position = self.Camera.Position:Lerp((self.Player:GetPoint(0.5,0.5)), 1000*dt)
         -- self.Camera.Zoom = 1 --+ (math.sin(Chexcore._clock)+1)/2
     end,
-    ShadowColor = HSV{0.5,1,0.5,0.25}
+    ShadowColor = HSV{0.5,1,0.5,0.1}
     -- Brightness = .25
 }
 Chexcore:AddType("game.objects.wheel")
@@ -15,36 +15,160 @@ Chexcore:AddType("game.objects.cameraZone")
 Chexcore:AddType("game.objects.basketball")
 Chexcore:AddType("game.objects.door")
 
-local bgLayer = Prop.new{Size = V{640, 360},
+local bgLayer = scene:AddLayer(Layer.new("BG", 640, 360, true):Properties{TranslationInfluence = 0})
+bgLayer.BackgroundColor = Vector.Hex"ffcf7e"
+local MOUNTAINS_ORIGIN = V{-100, 0}
+local B_MOUNTAINS_ORIGIN = V{-700, 0}
+local STRUCTURES_ORIGIN = V{-100, 20}
+local LAKE_SKY_ORIGIN = V{-100, -10}
+local n = 1
+bgLayer:Adopt(Prop.new{
+    Name = "BehindMountains",
+    IgnoreCulling = true,
+    Size = V{640,360},
+    Color = Vector.Hex"7b2f40"/n,
+    Texture = Texture.new("game/assets/images/area/laketown/behind_mountains_layer.png"),
+    CamRef = nil,
     Update = function (self)
-        self.Color = HSV{(scene.Camera.Position.Y/2000)%1,1,0.2}
-    end
-, Texture = Texture.new("chexcore/assets/images/square.png")}:Into(scene:AddLayer(Layer.new("BG", 640, 360, true):Properties{TranslationInfluence = 0}))
+        self.CamRef = self.CamRef or self:GetScene().Camera
+        self.Position.X = B_MOUNTAINS_ORIGIN.X + self.Size.X + self.CamRef.Position.X / 8
+        self.Position.Y = B_MOUNTAINS_ORIGIN.Y -- - self.CamRef.Position.Y / 20
+    end,
+})
+bgLayer:Adopt(Prop.new{
+    Name = "Mountains1",
+    IgnoreCulling = true,
+    Size = V{640,360},
+    Color = Vector.Hex"f04b60"/n,
+    Texture = Texture.new("game/assets/images/area/laketown/mountains_tiled.png"),
+    CamRef = nil,
+    Update = function (self)
+        self.CamRef = self.CamRef or self:GetScene().Camera
+        self.Position.X = MOUNTAINS_ORIGIN.X + self.CamRef.Position.X / 10
+        self.Position.Y = MOUNTAINS_ORIGIN.Y -- - self.CamRef.Position.Y / 20
+    end,
+})
+bgLayer:Adopt(Prop.new{
+    Name = "Mountains2",
+    IgnoreCulling = true,
+    Size = V{640,360},
+    Color = Vector.Hex"f04b60"/n,
+    Texture = Texture.new("game/assets/images/area/laketown/mountains_tiled.png"),
+    CamRef = nil,
+    Update = function (self)
+        self.CamRef = self.CamRef or self:GetScene().Camera
+        self.Position.X = MOUNTAINS_ORIGIN.X + self.Size.X + self.CamRef.Position.X / 10
+        self.Position.Y = MOUNTAINS_ORIGIN.Y -- - self.CamRef.Position.Y / 20
+    end,
+})
+bgLayer:Adopt(Prop.new{
+    Name = "ParallaxStructures",
+    IgnoreCulling = true,
+    Size = V{1280,360},
+    Color = Vector.Hex"e20a08"/n,
+    Texture = Texture.new("game/assets/images/area/laketown/parallax_otherSide.png"),
+    CamRef = nil,
+    Update = function (self)
+        self.CamRef = self.CamRef or self:GetScene().Camera
+        self.Position.X = STRUCTURES_ORIGIN.X + self.CamRef.Position.X / 15
+        self.Position.Y = STRUCTURES_ORIGIN.Y -- - self.CamRef.Position.Y / 20
+    end,
+})
+
+bgLayer:Adopt(Prop.new{
+    Name = "LakeSkyBack1",
+    IgnoreCulling = true,
+    Size = V{640,64},
+    Color = Vector.Hex"da28a9"/n,
+    Texture = Texture.new("game/assets/images/area/laketown/lake_sky.png"),
+    CamRef = nil,
+    Update = function (self)
+        self.CamRef = self.CamRef or self:GetScene().Camera
+        self.Position.X = (LAKE_SKY_ORIGIN.X - self.CamRef.Position.X / 15 + Chexcore._clock*30 + 300) % 640
+        self.Position.Y = LAKE_SKY_ORIGIN.Y + math.sin(Chexcore._clock)*5
+    end,
+})
+bgLayer:Adopt(Prop.new{
+    Name = "LakeSkyBack2",
+    IgnoreCulling = true,
+    Size = V{640,64},
+    Color = Vector.Hex"da28a9"/n,
+    MainProp = bgLayer:GetChild("LakeSkyBack1"),
+    Texture = Texture.new("game/assets/images/area/laketown/lake_sky.png"),
+    CamRef = nil,
+    Update = function (self)
+        self.CamRef = self.CamRef or self:GetScene().Camera
+        self.Position = self.MainProp.Position - V{self.Size.X, 0}
+    end,
+})
+bgLayer:Adopt(Prop.new{
+    Name = "LakeSkyFront1",
+    IgnoreCulling = true,
+    Size = V{640,64},
+    Color = Vector.Hex"d76cc7"/n,
+    Texture = Texture.new("game/assets/images/area/laketown/lake_sky.png"),
+    CamRef = nil,
+    Update = function (self)
+        self.CamRef = self.CamRef or self:GetScene().Camera
+        self.Position.X = (LAKE_SKY_ORIGIN.X + self.CamRef.Position.X / 15 - Chexcore._clock*40) % 640
+        self.Position.Y = LAKE_SKY_ORIGIN.Y - math.cos(Chexcore._clock)*5
+    end,
+})
+bgLayer:Adopt(Prop.new{
+    Name = "LakeSkyFront2",
+    IgnoreCulling = true,
+    Size = V{640,64},
+    Color = Vector.Hex"d76cc7"/n,
+    MainProp = bgLayer:GetChild("LakeSkyFront1"),
+    Texture = Texture.new("game/assets/images/area/laketown/lake_sky.png"),
+    CamRef = nil,
+    Update = function (self)
+        self.CamRef = self.CamRef or self:GetScene().Camera
+        self.Position = self.MainProp.Position - V{self.Size.X, 0}
+    end,
+})
+
+bgLayer:Adopt(Prop.new{
+    Name = "BottomLake",
+    IgnoreCulling = true,
+    Size = V{640,360},
+    Position = V{0,240},
+    Color = Vector.Hex"d76cc7"/n,
+    MainProp = bgLayer:GetChild("LakeSkyFront1"),
+    Texture = Texture.new("chexcore/assets/images/square.png"),
+    CamRef = nil,
+    -- Update = function (self)
+    --     self.CamRef = self.CamRef or self:GetScene().Camera
+    --     self.Position = self.MainProp.Position - V{self.Size.X, 0}
+    -- end,
+})
+
+
 local mainLayer = scene:GetLayer("Gameplay")
 
-for i = 1, 100 do
-    mainLayer:Adopt(Prop.new{
-        Texture = Texture.new{
-            "chexcore/assets/images/test/star.png"
-            , normalPath = "chexcore/assets/images/test/star_n.png"
-            , specularPath = "chexcore/assets/images/test/star_s.png"
-            -- , emissionPath = "chexcore/assets/images/test/star_light.png"
-            -- , occlusionPath = "chexcore/assets/images/test/star_shadow.png"
+-- for i = 1, 100 do
+--     mainLayer:Adopt(Prop.new{
+--         Texture = Texture.new{
+--             "chexcore/assets/images/test/star.png"
+--             , normalPath = "chexcore/assets/images/test/star_n.png"
+--             , specularPath = "chexcore/assets/images/test/star_s.png"
+--             -- , emissionPath = "chexcore/assets/images/test/star_light.png"
+--             -- , occlusionPath = "chexcore/assets/images/test/star_shadow.png"
 
-        },    
-        RotRate = math.random(-10,10)/100,
-        AnchorPoint = V{0.5,0.5},
-        Color = V{math.random(0,1),math.random(0,1),math.random(0,1),1},
-        -- DrawOverShaders = true,
-        Position = V{math.random(-250,250),math.random(-250,250)},
-        Solid = math.random(2)==1 and true or false,
+--         },    
+--         RotRate = math.random(-10,10)/100,
+--         AnchorPoint = V{0.5,0.5},
+--         Color = V{math.random(0,1),math.random(0,1),math.random(0,1),1},
+--         -- DrawOverShaders = true,
+--         Position = V{math.random(-250,250),math.random(-250,250)},
+--         Solid = math.random(2)==1 and true or false,
 
-        Update = function (self, dt)
-            -- self.Color.A = (math.sin(Chexcore._clock)+1)/2
-            self.Rotation = self.Rotation - self.RotRate
-        end
-    })
-end
+--         Update = function (self, dt)
+--             -- self.Color.A = (math.sin(Chexcore._clock)+1)/2
+--             self.Rotation = self.Rotation - self.RotRate
+--         end
+--     })
+-- end
 
 
 local testOctagon = mainLayer:Adopt(Prop.new{
