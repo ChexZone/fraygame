@@ -1,6 +1,3 @@
-#pragma language glsl3
-
-
 uniform vec2 step;
 uniform vec4 outlineColor;
 uniform sampler2DArray MainTex;

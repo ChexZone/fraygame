@@ -1,4 +1,3 @@
-#pragma language glsl3
 
 
 uniform vec2 step; // 1.0 / texture width, height

@@ -1,4 +1,3 @@
-#pragma language glsl3
 #define MAX_LIGHTS 25
 
 #ifdef GL_ES
